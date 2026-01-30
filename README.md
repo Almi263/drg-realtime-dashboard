@@ -1,8 +1,8 @@
-# Group-F-Capstone
-Group F Capstone Project
+# DRG Real-Time Dashboard System
+CS4273 - Spring 2026
+Group F
 
 ## Description
-## Project Description
 
 This project will address a critical enterprise communication problem: organizational data is spread across departments and tools, forcing teams to rely on emails and manual updates that delay decision-making and prolong real-time status. Our system will:
 
