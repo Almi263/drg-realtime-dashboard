@@ -14,7 +14,11 @@ This project will address a critical enterprise communication problem: organizat
 By unifying live updates and references from all departments into one accessible platform, this system reduces information fragmentation, minimizes reliance on mass email notifications, and improves operational clarity and efficiency across the organization.
 
 ## Identified Technologies and Tools
-Information here
+
+- **Next.js:** Used to build the web-based dashboard interface and handle both client-side and server-side logic.
+- **Microsoft Entra ID:** Provides OAuth-based authentication, allowing users to sign in with their existing Microsoft accounts.
+- **Microsoft Graph API:** Enables communication with Microsoft services such as Teams, files, and user information.
+- **Power BI:** Can be used to create dashboards and visualizations that integrate within the Microsoft ecosystem.
 
 ## Goals and Progress Plan
 
