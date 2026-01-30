@@ -1,13 +1,12 @@
-// test_update_notification.java
-
-import static org.junit.jupiter.api.Assertions.*;
-import static org.mockito.ArgumentMatchers.*;
-import static org.mockito.Mockito.*;
-
 import org.junit.jupiter.api.Test;
+import static org.mockito.ArgumentMatchers.argThat;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoMoreInteractions;
 
-class TeamsNotifierTest{
-
+class TeamsPayloadTest {
   record DocumentUpdatedEvent(
       String documentId,
       String documentName,
@@ -16,12 +15,11 @@ class TeamsNotifierTest{
       String channelId
   ) {}
 
-  interface TeamsClient{
+  interface TeamsClient {
     void postMessage(String channelId, String message);
   }
 
-  // unit being tested
-  static class notifyTeams{
+  static class TeamsNotifier {
     static void notifyTeams(DocumentUpdatedEvent event, TeamsClient teamsClient) {
       String message =
           "Document updated: " + event.documentName() + "\n" +
@@ -33,9 +31,9 @@ class TeamsNotifierTest{
   }
 
   @Test
-  void testNotificationOfUpdate(){
-    var event = DocumentUpdatedEvent(
-        "doc-123", 
+  void testNotificationOfUpdate() {
+    var event = new DocumentUpdatedEvent(
+        "doc-123",
         "Test Document.xlsx",
         "John Smith",
         "2026-01-29T14:56:00Z",
@@ -48,7 +46,7 @@ class TeamsNotifierTest{
 
     verify(teamsClient, times(1)).postMessage(
         eq("channel-abc"),
-        argThat(msg -> msg.contains("Training Schedule.xlsx") && msg.contains("Allison Helling"))
+        argThat(msg -> msg.contains("Test Document.xlsx") && msg.contains("John Smith"))
     );
     verifyNoMoreInteractions(teamsClient);
   }
