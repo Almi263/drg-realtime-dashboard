@@ -15,7 +15,7 @@ By unifying live updates and references from all departments into one accessible
 
 ## Identified Technologies and Tools
 
-- **Next.js (TypeScript):** Used to build the web-based dashboard interface and handle both client-side and server-side logic.
+- **Next.js:** Used to build the web-based dashboard interface and handle both client-side and server-side logic.
 - **Microsoft Entra ID:** Provides OAuth-based authentication, allowing users to sign in with their existing Microsoft accounts.
 - **Microsoft Graph API:** Enables communication with Microsoft services such as Teams, files, and user information.
 - **Power BI:** Can be used to create dashboards and visualizations that integrate within the Microsoft ecosystem.
