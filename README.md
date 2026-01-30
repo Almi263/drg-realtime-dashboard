@@ -17,5 +17,25 @@ By unifying live updates and references from all departments into one accessible
 Information here
 
 ## Goals and Progress Plan
-Info here
 
+The project will be completed into four phases. Each phase represents two 2-week sprints.
+
+### Phase 1 (Sprint 1–2) — Planning & Foundation
+- Define project scope, requirements, and success criteria.
+- Identify system components and integration targets.
+- Set up development environment and documentation.
+
+### Phase 2 (Sprint 3-4) — Core Development
+- Implement foundational system functionality.
+- Begin integrating data sources and enterprise tools.
+- Develop an initial dashboard framework.
+
+### Phase 3 (Sprint 5-6) — Feature Expansion & Refinement
+- Expand dashboard capabilities and data coverage.
+- Improve usability, organization, and performance.
+- Conduct testing and address issues.
+
+### Phase 4 (Sprint 7-8) — Finalization & Delivery
+- Finalize features and integrations.
+- Perform comprehensive testing and cleanup.
+- Complete documentation and prepare final presentation.
