@@ -1,15 +1,15 @@
-# test_update_notification.py
-
 from dataclasses import dataclass
 from unittest.mock import Mock
 
+
 @dataclass(frozen=True)
-class DocumentUpdatedEvent: 
+class DocumentUpdatedEvent:
     document_id: str
     document_name: str
     updated_by: str
     updated_at_iso: str
     channel_id: str
+
 
 def notify_teams(event: DocumentUpdatedEvent, teams_client) -> None:
     message = (
@@ -19,13 +19,14 @@ def notify_teams(event: DocumentUpdatedEvent, teams_client) -> None:
     )
     teams_client.post_message(channel_id=event.channel_id, message=message)
 
+
 def test_notification_of_update():
     event = DocumentUpdatedEvent(
-        document_id = "doc-123", 
-        document_name = "Test Document.xlsx",
-        updated_by = "John Smith",
-        updated_at_iso = "2026-01-29T14:56:00Z",
-        channel_id = "channel-abc",
+        document_id="doc-123",
+        document_name="Test Document.xlsx",
+        updated_by="John Smith",
+        updated_at_iso="2026-01-29T14:56:00Z",
+        channel_id="channel-abc",
     )
     teams_client = Mock()
 
