@@ -1,6 +1,6 @@
 # DRG Real-Time Dashboard System
-CS4273 - Spring 2026<br>
-Group F
+**CS4273 - Spring 2026<br>
+Group F**
 
 ## Description
 
