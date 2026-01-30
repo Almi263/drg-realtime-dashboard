@@ -7,7 +7,8 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "test": "vitest"
+    "test": "vitest",
+    "test:all": "echo '\\n━━━ TypeScript ━━━' && vitest run && echo '\\n━━━ Python ━━━' && python -c 'from tests.python.test_teams_payload import test_notification_of_update; test_notification_of_update(); print(\"✓ test_notification_of_update passed\")' && echo '\\n━━━ Java ━━━' && cd tests/java && mvn test -q && echo '✓ TeamsPayloadTest passed'"
   },
   "dependencies": {
     "next": "16.1.6",
