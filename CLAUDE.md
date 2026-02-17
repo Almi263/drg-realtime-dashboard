@@ -4,11 +4,12 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-DRG Real-Time Dashboard — an internal dashboard hub for Delaware Resource Group that reduces siloed communication by surfacing cross-department updates from their Microsoft ecosystem in one place, without forcing users to abandon existing workflows.
+DRG Real-Time Dashboard — a prototype dashboard/notification layer for Delaware Resource Group, a defense contractor. The client's broader vision (see REQUIREMENTS.md) is an Information Management System (IMS) for managing CDRL/SDRL contract deliverables, built on the Microsoft Power Platform. Our prototype demonstrates the cross-department visibility and Microsoft ecosystem integration piece.
 
-The system must work within a Microsoft-heavy environment: Teams, Power BI, Power Automate, Dynamics 365/Dataverse, and common document formats (Excel, Word, PowerPoint, Access, PDFs via Nitro).
+Current phase: **prototype** — demonstrate the concept and integration direction ahead of the stakeholder meeting on 2026-02-18.
 
-Current phase: **prototype** — demonstrate the concept and integration direction, not a full enterprise implementation.
+See MEMORY.md for persistent context, decisions, and domain vocabulary.
+See REQUIREMENTS.md for the full client SDD breakdown.
 
 ## Commands
 
@@ -26,12 +27,14 @@ Package manager is **pnpm**.
 ## Architecture
 
 - **Next.js App Router** — `src/app/` directory with `layout.tsx` root layout
+- **UI library:** MUI (Material UI) with custom theme (`src/lib/theme.ts`)
 - **Path alias:** `@/*` maps to `./src/*`
 - **Source layout:**
   - `src/lib/models/` — shared types (UpdateEvent, source/department enums)
   - `src/lib/notifications/` — pure functions for building notification payloads (Teams)
   - `src/lib/connectors/` — adapter interfaces + implementations (mock and real) for data sources
-  - `src/components/` — reusable React components (UpdateFeed, UpdateCard, etc.)
+  - `src/lib/theme.ts` — MUI theme configuration (navy primary, brand colors)
+  - `src/components/` — reusable React components (AppHeader, StatsSummary, UpdateFeed, UpdateCard, FeedSkeleton)
 - **Multi-language test suite** in `tests/`:
   - `tests/typescript/` — Vitest
   - `tests/python/` — unittest.mock (no pytest)
@@ -39,23 +42,25 @@ Package manager is **pnpm**.
 
 ## Design Principles
 
-- **Connector/adapter pattern:** all external integrations (Graph API, Power BI, Power Automate, Dynamics) live behind `UpdateConnector` interfaces so mocked data can be swapped for real APIs without rewriting core logic or UI.
+- **Connector/adapter pattern:** all external integrations (Graph API, Power BI, Power Automate, Dataverse) live behind `UpdateConnector` interfaces so mocked data can be swapped for real APIs without rewriting core logic or UI.
 - **Pure logic separation:** notification payload builders and event normalization are pure functions, independent of React or Next.js, for easy testing.
 - **Mock-first development:** no tenant credentials assumed. All connectors have mock implementations that return realistic sample data.
 
 ## Integration Surface
 
-- **Microsoft Graph API** — primary surface for Teams messages, SharePoint/OneDrive files, user info
-- **Power BI** — embedding dashboards + refresh status metadata
-- **Power Automate** — event engine pushing updates via webhooks/flows
-- **Dynamics 365** — keep connector interface ready but don't over-invest until entity scope and access are confirmed
-- **Auth:** Microsoft Entra ID (OAuth/OIDC)
-- "Compatibility" with Office/Nitro means SSO + links/metadata + embedding, not document ingestion/parsing (unless clarified later)
+Per the client SDD, the target Microsoft ecosystem is:
 
-## Open Stakeholder Questions (do not block on these)
+- **PowerApps** — their primary UI platform for the IMS; our web app complements this
+- **Microsoft Dataverse** — primary structured data store for CDRL/SDRL records
+- **SharePoint** — document storage, version control, metadata tagging
+- **Power Automate** — workflow engine for approvals, notifications, task assignments
+- **Azure AD (Entra ID)** — SSO with MFA, RBAC by job function
+- **Microsoft Graph API** — our primary integration surface for reading from the above
 
-- Update cadence expectations (seconds / minutes / hourly / daily)
-- Whether Teams is primary home (tab + notifications) vs standalone web app
-- App registration / permission approval path in the tenant
-- Which systems to integrate first and whether we get a test tenant
-- "Compatible with Office/Nitro/Access" — links/metadata vs ingestion/export
+## Open Questions (for 2026-02-18 meeting)
+
+- How does our Next.js prototype relate to the PowerApps IMS described in the SDD? Companion app, replacement, or pivot?
+- Do we get access to a test tenant / app registration?
+- Which Dataverse entities and SharePoint libraries should we integrate with first?
+- What is the expected update cadence (real-time vs periodic)?
+- What roles/permissions do we need to model in RBAC?
