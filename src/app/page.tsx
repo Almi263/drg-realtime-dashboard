@@ -21,18 +21,16 @@ async function DashboardContent() {
 
 export default function Home() {
   return (
-    <Box sx={{ minHeight: "100vh", bgcolor: "background.default" }}>
-      <Container maxWidth="md" sx={{ py: { xs: 3, sm: 4 } }}>
-        <Box sx={{ mb: 2.5 }}>
-          <Typography variant="h5">Update Feed</Typography>
-          <Typography variant="body2" sx={{ color: "text.secondary", mt: 0.25 }}>
-            Cross-department activity from across the organization
-          </Typography>
-        </Box>
-        <Suspense fallback={<FeedSkeleton />}>
-          <DashboardContent />
-        </Suspense>
-      </Container>
-    </Box>
+    <Container maxWidth="md" sx={{ py: { xs: 3, sm: 4 } }}>
+      <Box sx={{ mb: 2.5 }}>
+        <Typography variant="h5">Dashboard</Typography>
+        <Typography variant="body2" sx={{ color: "text.secondary", mt: 0.25 }}>
+          Recent activity across CDRL/SDRL deliverables
+        </Typography>
+      </Box>
+      <Suspense fallback={<FeedSkeleton />}>
+        <DashboardContent />
+      </Suspense>
+    </Container>
   );
 }
