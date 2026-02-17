@@ -11,6 +11,12 @@
     "test:all": "echo '\\n━━━ TypeScript ━━━' && vitest run && echo '\\n━━━ Python ━━━' && python -c 'from tests.python.test_teams_payload import test_notification_of_update; test_notification_of_update(); print(\"✓ test_notification_of_update passed\")' && echo '\\n━━━ Java ━━━' && cd tests/java && mvn test -q && echo '✓ TeamsPayloadTest passed'"
   },
   "dependencies": {
+    "@emotion/cache": "^11.14.0",
+    "@emotion/react": "^11.14.0",
+    "@emotion/styled": "^11.14.1",
+    "@mui/icons-material": "^7.3.8",
+    "@mui/material": "^7.3.8",
+    "@mui/material-nextjs": "^7.3.8",
     "next": "16.1.6",
     "react": "19.2.3",
     "react-dom": "19.2.3"
