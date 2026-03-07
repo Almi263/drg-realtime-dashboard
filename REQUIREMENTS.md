@@ -1,6 +1,6 @@
 # Requirements — DRG Information Management System (IMS)
 
-Source: *System Design Document for DRG IMS*, v1.0, February 16 2026, PMO Team.
+Source: _System Design Document for DRG IMS_, v1.0, February 16 2026, PMO Team.
 
 ---
 
@@ -16,13 +16,13 @@ The system manages data related to **CDRLs** (Contract Data Requirements Lists) 
 
 The SDD specifies the Microsoft Power Platform as the implementation stack:
 
-| Component | Role |
-|---|---|
-| **PowerApps** | User interface — Canvas and Model-Driven apps |
-| **Power Automate** | Workflows, approvals, notifications, task assignments |
+| Component               | Role                                                          |
+| ----------------------- | ------------------------------------------------------------- |
+| **PowerApps**           | User interface — Canvas and Model-Driven apps                 |
+| **Power Automate**      | Workflows, approvals, notifications, task assignments         |
 | **Microsoft Dataverse** | Primary structured data store (entities, relationships, RBAC) |
-| **SharePoint** | Document storage, version control, metadata tagging |
-| **Azure AD (Entra ID)** | Authentication (SSO), MFA, role-based access control |
+| **SharePoint**          | Document storage, version control, metadata tagging           |
+| **Azure AD (Entra ID)** | Authentication (SSO), MFA, role-based access control          |
 
 > "DRG current IT solution provides access to all applications needed to implement this software solution. No additional software or hardware is required." — SDD Conclusion
 
@@ -36,12 +36,14 @@ The SDD specifies the Microsoft Power Platform as the implementation stack:
 ## 5. Functional Requirements
 
 ### 5.1 Information Management
+
 - Store, process, and retrieve CDRL/SDRL data
 - All contractual-obligation data resides in the IMS
 - Documents can be downloaded by all users with access
 - Documents uploaded once complete (finalization workflow)
 
 ### 5.2 User Interface (from SDD wireframes)
+
 - Login screen: username/password, DRG logo, security disclaimer, "Request Access" flow
 - Main interface with sidebar navigation:
   - **SOA LMR** (Statement of Work / Labor Mix Report)
@@ -54,6 +56,7 @@ The SDD specifies the Microsoft Power Platform as the implementation stack:
 - Corporate branding consistency
 
 ### 5.3 Workflow Automation
+
 - Approval processes via Power Automate
 - Email notifications on key events
 - Data validation on submission
@@ -62,12 +65,14 @@ The SDD specifies the Microsoft Power Platform as the implementation stack:
 - Error handling: retry logic, logging for failures
 
 ### 5.4 Document Management
+
 - SharePoint-backed document libraries
 - Version control and metadata tagging
 - Upload/download with access control
 - Collaboration via Teams/Office 365 integration
 
 ### 5.5 Integration
+
 - **Internal**: SharePoint (document management), Microsoft 365 (calendar, email, collaboration)
 - **External**: Custom APIs / custom connectors for third-party systems
 - **Data migration**: Dataflows or built-in connectors for import/export
@@ -76,6 +81,7 @@ The SDD specifies the Microsoft Power Platform as the implementation stack:
 ## 6. Data Model (High-Level)
 
 Entities called out in the SDD:
+
 - `User`
 - `Document`
 - `Record`
