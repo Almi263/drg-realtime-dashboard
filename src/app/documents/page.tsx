@@ -5,17 +5,17 @@ import Typography from "@mui/material/Typography";
 import CircularProgress from "@mui/material/CircularProgress";
 import { MockDocumentConnector } from "@/lib/connectors/mock-documents";
 import { MockDeliverableConnector } from "@/lib/connectors/mock-deliverables";
+import { MockProgramConnector } from "@/lib/connectors/mock-programs";
 import DocumentsTable from "@/components/DocumentsTable";
 
 async function DocumentsContent() {
-  const [documents, deliverables] = await Promise.all([
+  const [documents, deliverables, programs] = await Promise.all([
     new MockDocumentConnector().getDocuments(),
     new MockDeliverableConnector().getDeliverables(),
+    new MockProgramConnector().getPrograms(),
   ]);
-  const deliverableMap = Object.fromEntries(
-    deliverables.map((d) => [d.id, d.title])
-  );
-  return <DocumentsTable documents={documents} deliverableMap={deliverableMap} />;
+  const deliverableMap = Object.fromEntries(deliverables.map((d) => [d.id, d.title]));
+  return <DocumentsTable documents={documents} deliverableMap={deliverableMap} programs={programs} />;
 }
 
 export default function DocumentsPage() {
@@ -24,10 +24,16 @@ export default function DocumentsPage() {
       <Box sx={{ mb: 2.5 }}>
         <Typography variant="h5">Documents</Typography>
         <Typography variant="body2" sx={{ color: "text.secondary", mt: 0.25 }}>
-          Deliverable documents and attachments
+          Deliverable submissions and attachments — immutable repository
         </Typography>
       </Box>
-      <Suspense fallback={<Box sx={{ display: "flex", justifyContent: "center", py: 8 }}><CircularProgress /></Box>}>
+      <Suspense
+        fallback={
+          <Box sx={{ display: "flex", justifyContent: "center", py: 8 }}>
+            <CircularProgress />
+          </Box>
+        }
+      >
         <DocumentsContent />
       </Suspense>
     </Container>

@@ -17,6 +17,7 @@ export interface Deliverable {
   status: DeliverableStatus;
   dueDate: string; // ISO 8601
   assignedTo: string;
+  programId: string;
   contractRef: string;
   description: string;
   lastUpdated: string; // ISO 8601

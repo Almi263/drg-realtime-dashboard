@@ -9,13 +9,25 @@ export const DOCUMENT_STATUSES = [
 ] as const;
 export type DocumentStatus = (typeof DOCUMENT_STATUSES)[number];
 
+export const ACCESS_ACTIONS = ["viewed", "downloaded"] as const;
+export type AccessAction = (typeof ACCESS_ACTIONS)[number];
+
+export interface AccessEvent {
+  userId: string;
+  userName: string;
+  action: AccessAction;
+  timestamp: string; // ISO 8601
+}
+
 export interface DeliverableDocument {
   id: string;
   fileName: string;
   fileType: FileType;
   deliverableId: string;
+  programId: string;
   uploadedBy: string;
   uploadedAt: string; // ISO 8601
   status: DocumentStatus;
   sizeKb: number;
+  accessLog: AccessEvent[];
 }

@@ -15,15 +15,13 @@ import FormControl from "@mui/material/FormControl";
 import InputLabel from "@mui/material/InputLabel";
 import Select from "@mui/material/Select";
 import MenuItem from "@mui/material/MenuItem";
+import Typography from "@mui/material/Typography";
+import MuiLink from "@mui/material/Link";
+import NextLink from "next/link";
 import type { SelectChangeEvent } from "@mui/material/Select";
-import type {
-  Deliverable,
-  DeliverableStatus,
-} from "@/lib/models/deliverable";
-import {
-  DELIVERABLE_STATUSES,
-  DELIVERABLE_TYPES,
-} from "@/lib/models/deliverable";
+import type { Deliverable, DeliverableStatus } from "@/lib/models/deliverable";
+import { DELIVERABLE_STATUSES, DELIVERABLE_TYPES } from "@/lib/models/deliverable";
+import type { Program } from "@/lib/models/program";
 
 /* ------------------------------------------------------------------ */
 /*  Helpers                                                           */
@@ -41,9 +39,7 @@ const STATUS_CHIP_STYLE: Record<DeliverableStatus, object> = {
 };
 
 function getStatusChipProps(status: DeliverableStatus) {
-  if (status === "Draft") {
-    return { color: "default" as const };
-  }
+  if (status === "Draft") return { color: "default" as const };
   return { sx: STATUS_CHIP_STYLE[status] };
 }
 
@@ -66,59 +62,30 @@ function formatDate(iso: string): string {
 }
 
 /* ------------------------------------------------------------------ */
-/*  Column definitions                                                */
-/* ------------------------------------------------------------------ */
-
-interface ColumnDef {
-  key: SortableKey;
-  label: string;
-}
-
-const COLUMNS: ColumnDef[] = [
-  { key: "id", label: "ID" },
-  { key: "title", label: "Title" },
-  { key: "type", label: "Type" },
-  { key: "status", label: "Status" },
-  { key: "dueDate", label: "Due Date" },
-  { key: "assignedTo", label: "Assigned To" },
-];
-
-/* ------------------------------------------------------------------ */
 /*  Component                                                         */
 /* ------------------------------------------------------------------ */
 
 interface RecordsTableProps {
   deliverables: Deliverable[];
+  programs: Program[];
 }
 
-export default function RecordsTable({ deliverables }: RecordsTableProps) {
+export default function RecordsTable({ deliverables, programs }: RecordsTableProps) {
   const [statusFilter, setStatusFilter] = useState<string>("All");
   const [typeFilter, setTypeFilter] = useState<string>("All");
+  const [programFilter, setProgramFilter] = useState<string>("All");
   const [orderBy, setOrderBy] = useState<SortableKey>("dueDate");
   const [order, setOrder] = useState<Order>("asc");
 
-  /* ---------- filter + sort ---------- */
+  const programMap = Object.fromEntries(programs.map((p) => [p.id, p.name]));
 
   const filtered = useMemo(() => {
     let rows = deliverables;
-    if (statusFilter !== "All") {
-      rows = rows.filter((d) => d.status === statusFilter);
-    }
-    if (typeFilter !== "All") {
-      rows = rows.filter((d) => d.type === typeFilter);
-    }
+    if (statusFilter !== "All") rows = rows.filter((d) => d.status === statusFilter);
+    if (typeFilter !== "All") rows = rows.filter((d) => d.type === typeFilter);
+    if (programFilter !== "All") rows = rows.filter((d) => d.programId === programFilter);
     return rows.slice().sort(getComparator(order, orderBy));
-  }, [deliverables, statusFilter, typeFilter, order, orderBy]);
-
-  /* ---------- handlers ---------- */
-
-  const handleStatusChange = (e: SelectChangeEvent) => {
-    setStatusFilter(e.target.value);
-  };
-
-  const handleTypeChange = (e: SelectChangeEvent) => {
-    setTypeFilter(e.target.value);
-  };
+  }, [deliverables, statusFilter, typeFilter, programFilter, order, orderBy]);
 
   const handleSort = (column: SortableKey) => {
     const isAsc = orderBy === column && order === "asc";
@@ -126,42 +93,58 @@ export default function RecordsTable({ deliverables }: RecordsTableProps) {
     setOrderBy(column);
   };
 
-  /* ---------- render ---------- */
+  // Only show program filter if multiple programs present
+  const showProgramFilter = programs.length > 1;
 
   return (
     <Box>
       {/* Filter controls */}
       <Box sx={{ display: "flex", gap: 2, mb: 2, flexWrap: "wrap" }}>
+        {showProgramFilter && (
+          <FormControl size="small" sx={{ minWidth: 180 }}>
+            <InputLabel id="program-filter-label">Program</InputLabel>
+            <Select
+              labelId="program-filter-label"
+              value={programFilter}
+              label="Program"
+              onChange={(e: SelectChangeEvent) => setProgramFilter(e.target.value)}
+            >
+              <MenuItem value="All">All Programs</MenuItem>
+              {programs.map((p) => (
+                <MenuItem key={p.id} value={p.id}>
+                  {p.name}
+                </MenuItem>
+              ))}
+            </Select>
+          </FormControl>
+        )}
+
         <FormControl size="small" sx={{ minWidth: 160 }}>
-          <InputLabel id="status-filter-label">Filter by Status</InputLabel>
+          <InputLabel id="status-filter-label">Status</InputLabel>
           <Select
             labelId="status-filter-label"
             value={statusFilter}
-            label="Filter by Status"
-            onChange={handleStatusChange}
+            label="Status"
+            onChange={(e: SelectChangeEvent) => setStatusFilter(e.target.value)}
           >
-            <MenuItem value="All">All</MenuItem>
+            <MenuItem value="All">All Statuses</MenuItem>
             {DELIVERABLE_STATUSES.map((s) => (
-              <MenuItem key={s} value={s}>
-                {s}
-              </MenuItem>
+              <MenuItem key={s} value={s}>{s}</MenuItem>
             ))}
           </Select>
         </FormControl>
 
-        <FormControl size="small" sx={{ minWidth: 160 }}>
-          <InputLabel id="type-filter-label">Filter by Type</InputLabel>
+        <FormControl size="small" sx={{ minWidth: 130 }}>
+          <InputLabel id="type-filter-label">Type</InputLabel>
           <Select
             labelId="type-filter-label"
             value={typeFilter}
-            label="Filter by Type"
-            onChange={handleTypeChange}
+            label="Type"
+            onChange={(e: SelectChangeEvent) => setTypeFilter(e.target.value)}
           >
-            <MenuItem value="All">All</MenuItem>
+            <MenuItem value="All">All Types</MenuItem>
             {DELIVERABLE_TYPES.map((t) => (
-              <MenuItem key={t} value={t}>
-                {t}
-              </MenuItem>
+              <MenuItem key={t} value={t}>{t}</MenuItem>
             ))}
           </Select>
         </FormControl>
@@ -172,7 +155,14 @@ export default function RecordsTable({ deliverables }: RecordsTableProps) {
         <Table size="small">
           <TableHead>
             <TableRow>
-              {COLUMNS.map((col) => (
+              {[
+                { key: "id" as SortableKey, label: "ID" },
+                { key: "title" as SortableKey, label: "Title" },
+                { key: "type" as SortableKey, label: "Type" },
+                { key: "status" as SortableKey, label: "Status" },
+                { key: "dueDate" as SortableKey, label: "Due Date" },
+                { key: "assignedTo" as SortableKey, label: "Assigned To" },
+              ].map((col) => (
                 <TableCell key={col.key} sortDirection={orderBy === col.key ? order : false}>
                   <TableSortLabel
                     active={orderBy === col.key}
@@ -184,13 +174,23 @@ export default function RecordsTable({ deliverables }: RecordsTableProps) {
                   </TableSortLabel>
                 </TableCell>
               ))}
+              {showProgramFilter && <TableCell sx={{ fontWeight: 700 }}>Program</TableCell>}
             </TableRow>
           </TableHead>
 
           <TableBody>
             {filtered.map((d) => (
               <TableRow key={d.id} hover>
-                <TableCell>{d.id}</TableCell>
+                <TableCell sx={{ fontFamily: "monospace", fontSize: "0.8rem" }}>
+                  <MuiLink
+                    component={NextLink}
+                    href={`/records/${d.id}`}
+                    underline="hover"
+                    sx={{ fontWeight: 600 }}
+                  >
+                    {d.id}
+                  </MuiLink>
+                </TableCell>
                 <TableCell>{d.title}</TableCell>
                 <TableCell>
                   <Chip
@@ -201,24 +201,25 @@ export default function RecordsTable({ deliverables }: RecordsTableProps) {
                   />
                 </TableCell>
                 <TableCell>
-                  <Chip
-                    label={d.status}
-                    size="small"
-                    {...getStatusChipProps(d.status)}
-                  />
+                  <Chip label={d.status} size="small" {...getStatusChipProps(d.status)} />
                 </TableCell>
-                <TableCell
-                  sx={d.status === "Overdue" ? { color: "error.main" } : undefined}
-                >
+                <TableCell sx={d.status === "Overdue" ? { color: "error.main" } : undefined}>
                   {formatDate(d.dueDate)}
                 </TableCell>
                 <TableCell>{d.assignedTo}</TableCell>
+                {showProgramFilter && (
+                  <TableCell>
+                    <Typography variant="caption" sx={{ color: "text.secondary" }}>
+                      {programMap[d.programId] ?? d.programId}
+                    </Typography>
+                  </TableCell>
+                )}
               </TableRow>
             ))}
 
             {filtered.length === 0 && (
               <TableRow>
-                <TableCell colSpan={6} align="center" sx={{ py: 4, color: "text.secondary" }}>
+                <TableCell colSpan={showProgramFilter ? 7 : 6} align="center" sx={{ py: 4, color: "text.secondary" }}>
                   No records match the current filters.
                 </TableCell>
               </TableRow>

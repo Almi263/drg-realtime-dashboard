@@ -5,6 +5,7 @@ import { ThemeProvider } from "@mui/material/styles";
 import CssBaseline from "@mui/material/CssBaseline";
 import Box from "@mui/material/Box";
 import theme from "@/lib/theme";
+import { RoleProvider } from "@/lib/context/role-context";
 import AppHeader from "@/components/AppHeader";
 import SidebarNav from "@/components/SidebarNav";
 import "./globals.css";
@@ -38,24 +39,26 @@ export default function RootLayout({
         <AppRouterCacheProvider>
           <ThemeProvider theme={theme}>
             <CssBaseline />
-            <AppHeader />
-            <Box sx={{ display: "flex", flex: 1, minHeight: 0 }}>
-              <Box
-                component="nav"
-                sx={{
-                  width: 240,
-                  flexShrink: 0,
-                  bgcolor: "background.paper",
-                  borderRight: "1px solid",
-                  borderColor: "divider",
-                }}
-              >
-                <SidebarNav />
+            <RoleProvider>
+              <AppHeader />
+              <Box sx={{ display: "flex", flex: 1, minHeight: 0 }}>
+                <Box
+                  component="nav"
+                  sx={{
+                    width: 240,
+                    flexShrink: 0,
+                    bgcolor: "background.paper",
+                    borderRight: "1px solid",
+                    borderColor: "divider",
+                  }}
+                >
+                  <SidebarNav />
+                </Box>
+                <Box component="main" sx={{ flex: 1, bgcolor: "background.default", overflow: "auto" }}>
+                  {children}
+                </Box>
               </Box>
-              <Box component="main" sx={{ flex: 1, bgcolor: "background.default", overflow: "auto" }}>
-                {children}
-              </Box>
-            </Box>
+            </RoleProvider>
           </ThemeProvider>
         </AppRouterCacheProvider>
       </body>
