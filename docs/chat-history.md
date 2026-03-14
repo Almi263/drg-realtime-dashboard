@@ -91,6 +91,52 @@ This file is a running log of development sessions. Each entry summarizes what w
 
 ---
 
+## Session 4 — 2026-03-13
+
+**Goal:** Progress Report 2 context transfer, Azure deployment setup, first product council run with QA agent, agentic system expansion, bug fixes from live QA sweep, RTK install.
+
+**Progress Report 2:**
+- Generated a full context transfer doc for ChatGPT covering: prototype state since PR1, stakeholder meeting outcomes, everything built after Feb 18, and suggested Kanban tickets with team assignees (Franco/Joshua/Allison split).
+
+**Azure deployment:**
+- Created resource group `drg-ims-rg` and App Service `drg-ims` (B1 Basic, Canada Central, Node 22 LTS) on Franco's student Azure account.
+- GitHub connection blocked: repo is owned by teammate's personal account (Almi263), Azure OAuth only sees repos you own. Workaround: Franco added teammate as Contributor on the resource group via IAM. She can go to Deployment Center and connect her GitHub from there when she gets a chance.
+- Decision: App Service over Static Web Apps because the app has SSR routes (`ƒ /records/[id]`, etc.) that Static Web Apps free tier handles poorly.
+
+**Agentic system — major expansion:**
+- Installed `agent-browser` (Vercel Labs Rust CLI, v0.20.0) — gives QA agent real Chrome access via CDP.
+- Created `.claude/personas/` with 4 persistent character files: `scott-operator.md`, `ux-critic.md`, `pragmatic-pm.md`, `qa-agent.md`. Each accumulates history across council sessions via "Last council session" log appended after each run.
+- Upgraded `/product-council` to 4 agents — each reads persona file first for continuity; QA agent uses agent-browser on the live prototype; main agent updates persona files post-synthesis.
+- New slash commands: `/qa-sweep` (standalone behavioral test pass with agent-browser), `/demo-prep` (rehearsal script generator for client meetings), `/sprint-kickoff` (prioritized sprint plan with acceptance criteria and team assignees).
+- Installed RTK (v0.29.0 via brew) — Rust proxy that compresses bash output 60–90% before it lands in context. Hook wired into `~/.claude/settings.json` PreToolUse → Bash. Active after Claude Code restart.
+
+**First product council run (4 agents):**
+- Question: "What should go in first, and what does the prototype still need before showing DRG again?"
+- Consensus: role switcher misleads clients, submit confirmation is hollow, no search, calendar page is a dead end.
+- Productive tension: PM wants real Blob upload first (backend depth); UX Critic wants nav restructuring first (structural clarity). Both right at different timescales.
+- What to build next: (1) real Blob upload + confirmation → `/documents/[id]`, (2) text search on tables, (3) demo banner replacing role switcher.
+- Cut: calendar nav link before next DRG demo.
+
+**First QA sweep with agent-browser (51 tool calls, live browser):**
+- All 6 top-level routes passed. RBAC gating mostly correct. Gov-reviewer experience notably strong.
+- 4 bugs found and fixed immediately:
+  - RecordsTable rows didn't navigate on click → switched from MuiLink to `useRouter.push` on the whole row
+  - Calendar "Overdue" section showed Submitted/Approved items → filter to actionable only before grouping
+  - Wizard Step 1 "pending" count mismatched Step 2 list → aligned both to `status !== Submitted && !== Approved`
+  - Download/Upload tooltips looked broken → updated to "available once Azure Storage is connected"
+- Remaining known gaps: Download/Upload buttons genuinely disabled (need Blob Storage), `/programs/[id]` 404 on direct URL (IDs aren't URL slugs).
+
+**Build:** 9 routes clean. All 7 TypeScript tests passing.
+
+**Next session priorities:**
+1. Real Azure Blob Storage upload (Storage Account created, connection string needed in `.env.local`)
+2. Text search on Documents + Records tables
+3. Replace role switcher with demo banner in AppHeader
+4. Gov-reviewer: show their own access event on DocumentDetail
+5. Teammate links GitHub repo in Deployment Center when available
+
+---
+
 ## Session 3 — 2026-03-11 (continued — finishing the ambitious pass)
 
 **Goal:** Complete the items deferred from the previous pass: deliverable detail page, clickable records table rows, `/product-council` slash command, `RoleGuard`, and URL-based submit wizard pre-fill.

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useMemo } from "react";
+import { useRouter } from "next/navigation";
 import Table from "@mui/material/Table";
 import TableBody from "@mui/material/TableBody";
 import TableCell from "@mui/material/TableCell";
@@ -16,8 +17,6 @@ import InputLabel from "@mui/material/InputLabel";
 import Select from "@mui/material/Select";
 import MenuItem from "@mui/material/MenuItem";
 import Typography from "@mui/material/Typography";
-import MuiLink from "@mui/material/Link";
-import NextLink from "next/link";
 import type { SelectChangeEvent } from "@mui/material/Select";
 import type { Deliverable, DeliverableStatus } from "@/lib/models/deliverable";
 import { DELIVERABLE_STATUSES, DELIVERABLE_TYPES } from "@/lib/models/deliverable";
@@ -71,6 +70,7 @@ interface RecordsTableProps {
 }
 
 export default function RecordsTable({ deliverables, programs }: RecordsTableProps) {
+  const router = useRouter();
   const [statusFilter, setStatusFilter] = useState<string>("All");
   const [typeFilter, setTypeFilter] = useState<string>("All");
   const [programFilter, setProgramFilter] = useState<string>("All");
@@ -180,16 +180,14 @@ export default function RecordsTable({ deliverables, programs }: RecordsTablePro
 
           <TableBody>
             {filtered.map((d) => (
-              <TableRow key={d.id} hover>
-                <TableCell sx={{ fontFamily: "monospace", fontSize: "0.8rem" }}>
-                  <MuiLink
-                    component={NextLink}
-                    href={`/records/${d.id}`}
-                    underline="hover"
-                    sx={{ fontWeight: 600 }}
-                  >
-                    {d.id}
-                  </MuiLink>
+              <TableRow
+                key={d.id}
+                hover
+                onClick={() => router.push(`/records/${d.id}`)}
+                sx={{ cursor: "pointer" }}
+              >
+                <TableCell sx={{ fontFamily: "monospace", fontSize: "0.8rem", color: "primary.main", fontWeight: 600 }}>
+                  {d.id}
                 </TableCell>
                 <TableCell>{d.title}</TableCell>
                 <TableCell>

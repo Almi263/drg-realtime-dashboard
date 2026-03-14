@@ -200,7 +200,11 @@ interface DeadlinesListProps {
 }
 
 export default function DeadlinesList({ deliverables }: DeadlinesListProps) {
-  const groups = useMemo(() => groupDeliverables(deliverables), [deliverables]);
+  // Exclude completed items — the calendar is an action surface, not a history view
+  const actionable = deliverables.filter(
+    (d) => d.status !== "Submitted" && d.status !== "Approved"
+  );
+  const groups = useMemo(() => groupDeliverables(actionable), [actionable]);
 
   if (groups.length === 0) {
     return (

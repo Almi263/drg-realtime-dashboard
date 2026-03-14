@@ -119,7 +119,7 @@ function ProgramStep({
         {programs.map((p) => {
           const progDeliverables = deliverables.filter((d) => d.programId === p.id);
           const pending = progDeliverables.filter(
-            (d) => d.status === "Draft" || d.status === "In Review"
+            (d) => d.status !== "Submitted" && d.status !== "Approved"
           ).length;
           return (
             <Card key={p.id} variant="outlined" sx={{ "&:hover": { boxShadow: 3 } }}>
@@ -164,7 +164,7 @@ function DeliverableStep({
   onBack: () => void;
 }) {
   const submittable = deliverables.filter(
-    (d) => d.status !== "Approved"
+    (d) => d.status !== "Submitted" && d.status !== "Approved"
   );
 
   return (

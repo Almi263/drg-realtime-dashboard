@@ -146,9 +146,13 @@ export default function DocumentsTable({ documents, deliverableMap, programs }: 
       {/* Action buttons */}
       <Box sx={{ display: "flex", gap: 2, mb: 2, flexWrap: "wrap", alignItems: "center" }}>
         {canUpload && (
-          <Button variant="contained" size="small" disabled>
-            Upload Document
-          </Button>
+          <Tooltip title="Upload — available once Azure Storage is connected">
+            <span>
+              <Button variant="contained" size="small" disabled>
+                Upload Document
+              </Button>
+            </span>
+          </Tooltip>
         )}
         {showProgramFilter && (
           <FormControl size="small" sx={{ minWidth: 180 }}>
@@ -256,10 +260,12 @@ export default function DocumentsTable({ documents, deliverableMap, programs }: 
 
                     <TableCell>
                       <Box sx={{ display: "flex", gap: 0.5 }}>
-                        <Tooltip title="Download">
-                          <IconButton size="small" disabled>
-                            <DownloadIcon fontSize="small" />
-                          </IconButton>
+                        <Tooltip title="Download — available once Azure Storage is connected">
+                          <span>
+                            <IconButton size="small" disabled>
+                              <DownloadIcon fontSize="small" />
+                            </IconButton>
+                          </span>
                         </Tooltip>
                         <Typography variant="caption" sx={{ color: "text.secondary", alignSelf: "center" }}>
                           {formatFileSize(doc.sizeKb)}
