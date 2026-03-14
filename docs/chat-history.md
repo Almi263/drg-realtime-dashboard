@@ -91,49 +91,36 @@ This file is a running log of development sessions. Each entry summarizes what w
 
 ---
 
-## Session 4 — 2026-03-13
+## Session 4 — 2026-03-13 (agentic infrastructure + live QA sweep)
 
-**Goal:** Progress Report 2 context transfer, Azure deployment setup, first product council run with QA agent, agentic system expansion, bug fixes from live QA sweep, RTK install.
+**Goal:** Expand the agentic workflow, install browser automation, run first live QA sweep, fix real bugs found.
 
-**Progress Report 2:**
-- Generated a full context transfer doc for ChatGPT covering: prototype state since PR1, stakeholder meeting outcomes, everything built after Feb 18, and suggested Kanban tickets with team assignees (Franco/Joshua/Allison split).
+**Agentic infrastructure built:**
+- 4 persona files at `.claude/personas/`: `scott-operator.md`, `ux-critic.md`, `pragmatic-pm.md`, `qa-agent.md`. Each has character, project history, accumulated opinions, and a rolling session log — they get sharper over time.
+- `/product-council` upgraded: 4 agents (added QA Agent with agent-browser), each reads persona file first for continuity, post-run updates persona files.
+- New slash commands: `/qa-sweep` (standalone browser test pass), `/demo-prep` (client meeting rehearsal script), `/sprint-kickoff` (prioritized sprint plan with acceptance criteria).
+- `agent-browser` 0.20.0 (Vercel Labs Rust binary) installed — drives Chrome via CDP, compact accessibility tree output. QA agent can now navigate the live prototype at localhost:3000.
+- RTK 0.29.0 installed via `brew install rtk` + `rtk init -g` — 60–90% token savings on bash output. Configured as `PreToolUse` Bash hook in `~/.claude/settings.json`.
+- `session-init.sh` hook → `UserPromptSubmit` — auto-injects last dev session from `docs/chat-history.md` at session start. Claude knows what's up without being asked.
 
-**Azure deployment:**
-- Created resource group `drg-ims-rg` and App Service `drg-ims` (B1 Basic, Canada Central, Node 22 LTS) on Franco's student Azure account.
-- GitHub connection blocked: repo is owned by teammate's personal account (Almi263), Azure OAuth only sees repos you own. Workaround: Franco added teammate as Contributor on the resource group via IAM. She can go to Deployment Center and connect her GitHub from there when she gets a chance.
-- Decision: App Service over Static Web Apps because the app has SSR routes (`ƒ /records/[id]`, etc.) that Static Web Apps free tier handles poorly.
+**First live QA sweep results:**
+- All 9 routes load cleanly; RBAC gating confirmed working end-to-end
+- Gov Reviewer experience called out as demo highlight ("Your access has been recorded" message)
+- Found 4 real bugs via actual browser interaction, not code reading
 
-**Agentic system — major expansion:**
-- Installed `agent-browser` (Vercel Labs Rust CLI, v0.20.0) — gives QA agent real Chrome access via CDP.
-- Created `.claude/personas/` with 4 persistent character files: `scott-operator.md`, `ux-critic.md`, `pragmatic-pm.md`, `qa-agent.md`. Each accumulates history across council sessions via "Last council session" log appended after each run.
-- Upgraded `/product-council` to 4 agents — each reads persona file first for continuity; QA agent uses agent-browser on the live prototype; main agent updates persona files post-synthesis.
-- New slash commands: `/qa-sweep` (standalone behavioral test pass with agent-browser), `/demo-prep` (rehearsal script generator for client meetings), `/sprint-kickoff` (prioritized sprint plan with acceptance criteria and team assignees).
-- Installed RTK (v0.29.0 via brew) — Rust proxy that compresses bash output 60–90% before it lands in context. Hook wired into `~/.claude/settings.json` PreToolUse → Bash. Active after Claude Code restart.
-
-**First product council run (4 agents):**
-- Question: "What should go in first, and what does the prototype still need before showing DRG again?"
-- Consensus: role switcher misleads clients, submit confirmation is hollow, no search, calendar page is a dead end.
-- Productive tension: PM wants real Blob upload first (backend depth); UX Critic wants nav restructuring first (structural clarity). Both right at different timescales.
-- What to build next: (1) real Blob upload + confirmation → `/documents/[id]`, (2) text search on tables, (3) demo banner replacing role switcher.
-- Cut: calendar nav link before next DRG demo.
-
-**First QA sweep with agent-browser (51 tool calls, live browser):**
-- All 6 top-level routes passed. RBAC gating mostly correct. Gov-reviewer experience notably strong.
-- 4 bugs found and fixed immediately:
-  - RecordsTable rows didn't navigate on click → switched from MuiLink to `useRouter.push` on the whole row
-  - Calendar "Overdue" section showed Submitted/Approved items → filter to actionable only before grouping
-  - Wizard Step 1 "pending" count mismatched Step 2 list → aligned both to `status !== Submitted && !== Approved`
-  - Download/Upload tooltips looked broken → updated to "available once Azure Storage is connected"
-- Remaining known gaps: Download/Upload buttons genuinely disabled (need Blob Storage), `/programs/[id]` 404 on direct URL (IDs aren't URL slugs).
+**Bugs fixed:**
+- `DeadlinesList`: calendar now filters out Submitted/Approved — only shows actionable items
+- `SubmitReportWizard`: Step 1 pending count and Step 2 submittable list now consistent (`!== Submitted && !== Approved`)
+- `RecordsTable`: full row clickable via `useRouter().push` (removed broken MuiLink, ID cell styled primary)
+- `DocumentsTable`: disabled Upload/Download buttons now show Tooltips explaining Azure Storage integration
 
 **Build:** 9 routes clean. All 7 TypeScript tests passing.
 
 **Next session priorities:**
-1. Real Azure Blob Storage upload (Storage Account created, connection string needed in `.env.local`)
-2. Text search on Documents + Records tables
-3. Replace role switcher with demo banner in AppHeader
-4. Gov-reviewer: show their own access event on DocumentDetail
-5. Teammate links GitHub repo in Deployment Center when available
+1. Real Blob Storage upload — makes the submit workflow actually persist, highest demo leverage
+2. Text search on Documents + Records tables — Jason asked explicitly, ~1 hour build
+3. Demo banner replacing role switcher — council consensus, needed before next DRG meeting
+4. Teammate to link GitHub → Azure App Service Deployment Center (waiting on her)
 
 ---
 

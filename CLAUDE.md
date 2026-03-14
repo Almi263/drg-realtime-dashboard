@@ -11,6 +11,10 @@ Current phase: **prototype** — demonstrate the concept and integration directi
 See MEMORY.md for persistent context, decisions, and domain vocabulary.
 See REQUIREMENTS.md for the full client SDD breakdown.
 
+## Session Behavior
+
+At the start of every session, the last dev session entry from `docs/chat-history.md` is auto-injected into context via a `UserPromptSubmit` hook. Treat it as working memory — know the current state cold and be ready to continue without asking the user to re-explain anything. When the user says "let's get back to it" or similar, immediately orient around what was last worked on and what's next per the council findings in memory.
+
 ## Commands
 
 - **Dev server:** `pnpm dev`
