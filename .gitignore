@@ -42,5 +42,6 @@ next-env.d.ts
 
 # java/maven
 **/target/
+**/bin/
 *.class
 .claude/
