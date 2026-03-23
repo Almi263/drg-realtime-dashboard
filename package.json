@@ -11,6 +11,12 @@
     "test:all": "echo '\\n━━━ TypeScript ━━━' && vitest run && echo '\\n━━━ Python ━━━' && python -c 'from tests.python.test_teams_payload import test_notification_of_update; test_notification_of_update(); print(\"✓ test_notification_of_update passed\")' && echo '\\n━━━ Java ━━━' && cd tests/java && mvn test -q && echo '✓ TeamsPayloadTest passed'"
   },
   "dependencies": {
+    "@emotion/cache": "^11.14.0",
+    "@emotion/react": "^11.14.0",
+    "@emotion/styled": "^11.14.1",
+    "@mui/icons-material": "^7.3.8",
+    "@mui/material": "^7.3.8",
+    "@mui/material-nextjs": "^7.3.8",
     "next": "16.1.6",
     "react": "19.2.3",
     "react-dom": "19.2.3"
@@ -23,5 +29,6 @@
     "eslint-config-next": "16.1.6",
     "typescript": "^5",
     "vitest": "^4.0.18"
-  }
+  },
+  "packageManager": "pnpm@10.29.3+sha512.498e1fb4cca5aa06c1dcf2611e6fafc50972ffe7189998c409e90de74566444298ffe43e6cd2acdc775ba1aa7cc5e092a8b7054c811ba8c5770f84693d33d2dc"
 }
