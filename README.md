@@ -1,45 +1,87 @@
-# DRG Real-Time Dashboard System
-**CS4273 - Spring 2026<br>
-Group F**
+# DRG IMS
+CS4273 Capstone, Spring 2026 | Group F
+Franco Barbaro, Allison Helling, Charlie Street, Joshua Kam, Ruby Morales
 
-## Description
+drg-ims.azurewebsites.net
 
-This project will address a critical enterprise communication problem: organizational data is spread across departments and tools, forcing teams to rely on emails and manual updates that delay decision-making and prolong real-time status. Our system will:
+## About
 
-- Combine real-time data, reports, and documents from multiple departmental platforms into a single centralized dashboard.
-- Integrate seamlessly with Microsoft tools including Teams, Power BI, Power Automate, and Dynamics.
-- Maintain compatibility with common business applications and file formats such as Excel, Word, PowerPoint, Access, and Nitro.
-- Provide shared visibility across departments, eliminating isolation of information and redundant communication.
+Our client is DRG, a defense contractor. They handle monthly deliverable submissions across 26 sites and all of it runs through email right now, 40+ people CC'd every time a document goes out. When the government says they never got something, there's no proof. We built a document portal where submissions are permanent, every access is logged, and each role only sees what they're supposed to.
 
-By unifying live updates and references from all departments into one accessible platform, this system reduces information fragmentation, minimizes reliance on mass email notifications, and improves operational clarity and efficiency across the organization.
+## Who did what
 
-## Identified Technologies and Tools
+Franco developed the application. Allison handled deployment and the cross-language test files. Joshua put together the project documentation. Charlie and Ruby contributed to the notification module and domain model documentation.
 
-- **Next.js:** Used to build the web-based dashboard interface and handle both client-side and server-side logic.
-- **Microsoft Entra ID:** Provides OAuth-based authentication, allowing users to sign in with their existing Microsoft accounts.
-- **Microsoft Graph API:** Enables communication with Microsoft services such as Teams, files, and user information.
-- **Power BI:** Can be used to create dashboards and visualizations that integrate within the Microsoft ecosystem.
+## Setup
 
-## Goals and Progress Plan
+Requires Node.js 22 and pnpm 10. Python 3.8+ and Java 17+/Maven are only needed for those test suites.
 
-The project will be completed into four phases. Each phase represents two 2-week sprints.
+```bash
+git clone https://github.com/Almi263/drg-realtime-dashboard.git
+cd drg-realtime-dashboard
+pnpm install
+pnpm dev
+# http://localhost:3000
+```
 
-### Phase 1 (Sprint 1–2) — Planning & Foundation
-- Define project scope, requirements, and success criteria.
-- Identify system components and integration targets.
-- Set up development environment and documentation.
+No credentials needed, it runs on mock data by default. To connect real Azure services copy `.env.example` to `.env.local` and fill in:
 
-### Phase 2 (Sprint 3-4) — Core Development
-- Implement foundational system functionality.
-- Begin integrating data sources and enterprise tools.
-- Develop an initial dashboard framework.
+- `AZURE_AD_TENANT_ID`, `AZURE_AD_CLIENT_ID`, `AZURE_AD_CLIENT_SECRET` for auth
+- `DATABASE_URL` for the database
+- `AZURE_STORAGE_CONNECTION_STRING` and `AZURE_STORAGE_CONTAINER_NAME` for document uploads
+- `NEXT_PUBLIC_APP_URL` for the public base URL
 
-### Phase 3 (Sprint 5-6) — Feature Expansion & Refinement
-- Expand dashboard capabilities and data coverage.
-- Improve usability, organization, and performance.
-- Conduct testing and address issues.
+Only the connector implementations in `src/lib/connectors/` change when switching from mock to real, the pages and components stay the same.
 
-### Phase 4 (Sprint 7-8) — Finalization & Delivery
-- Finalize features and integrations.
-- Perform comprehensive testing and cleanup.
-- Complete documentation and prepare final presentation.
+## Source layout
+
+```
+src/
+  app/              Next.js App Router pages
+    programs/       program list and detail
+    records/        deliverable list and detail
+    documents/      document repository and detail
+    submit/         4-step submission wizard (role-gated)
+    calendar/       deadline tracker
+  components/       shared UI (tables, cards, wizard, role guard)
+  lib/
+    models/         TypeScript types (Program, Deliverable, Document, UpdateEvent)
+    connectors/     mock data adapters
+    notifications/  Teams notification payload builder
+    context/        role context provider
+    theme.ts        MUI theme
+```
+
+## Routes
+
+- `/` is the dashboard with program status cards and stats
+- `/programs` and `/programs/[id]` for program-level views
+- `/records` and `/records/[id]` for deliverables
+- `/documents` and `/documents/[id]` for the document repository, each document has an expandable access log
+- `/submit` is the submission wizard, only accessible to drg-staff and drg-admin roles
+- `/calendar` groups upcoming deadlines by urgency
+
+## How it's built
+
+All external integrations are behind connector interfaces in `src/lib/connectors/` with mock implementations that return hardcoded data. Swapping in real Azure APIs later means replacing those files, nothing else changes.
+
+The role switcher in the header lets you toggle between three access levels during the demo: `gov-reviewer` (read and download only), `drg-staff` (can submit), and `drg-admin` (full access including delete). In production this would come from Azure AD group membership via MSAL.
+
+## Tests
+
+```bash
+pnpm test:all    # TypeScript + Python + Java
+pnpm test        # TypeScript only (Vitest)
+```
+
+We implemented the Teams notification payload builder in TypeScript, Python, and Java to satisfy the multi-language testing requirement. `pnpm test` runs just the TypeScript suite if you don't have Java set up.
+
+## Deployment
+
+Pushes to `franco/teams-update-feed-prototype` build and deploy automatically via GitHub Actions. Workflow is in `.github/workflows/`.
+
+## Linting
+
+```bash
+pnpm lint
+```

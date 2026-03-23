@@ -30,6 +30,7 @@ const STATUS_CHIP_STYLE: Partial<Record<DeliverableStatus, object>> = {
   Overdue: { bgcolor: "#d32f2f", color: "#fff" },
 };
 
+// Fake ref, server would return a real one after persisting
 function genSubmissionRef() {
   return `SUB-${new Date().getFullYear()}-${Math.floor(Math.random() * 900000 + 100000)}`;
 }
@@ -417,6 +418,7 @@ export default function SubmitReportWizard({
   initialProgramId,
   initialDeliverableId,
 }: SubmitReportWizardProps) {
+  // If we got here from a deliverable page (?programId=&deliverableId=), skip to upload
   const prefilled = !!(initialProgramId && initialDeliverableId);
   const [step, setStep] = useState(prefilled ? 2 : 0);
   const [programId, setProgramId] = useState<string | null>(initialProgramId ?? null);

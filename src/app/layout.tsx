@@ -25,6 +25,8 @@ export const metadata: Metadata = {
   description: "CDRL/SDRL deliverable tracking and cross-department visibility",
 };
 
+// Provider stack: MUI cache, theme, CSS reset, then role context.
+// RoleProvider wraps everything so any component can read/switch the active role.
 export default function RootLayout({
   children,
 }: Readonly<{

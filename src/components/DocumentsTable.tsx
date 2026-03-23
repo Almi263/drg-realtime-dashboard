@@ -129,12 +129,14 @@ export default function DocumentsTable({ documents, deliverableMap, programs }: 
   const showProgramFilter = programs.length > 1;
   const canUpload = role === "drg-admin" || role === "drg-staff";
   const canDelete = role === "drg-admin";
+  // Access log only visible to internal roles
   const canSeeAccessLog = role === "drg-admin" || role === "drg-staff";
 
   const filtered = programFilter === "All"
     ? documents
     : documents.filter((d) => d.programId === programFilter);
 
+  // Has to match real column count or the access log row breaks
   const colSpan = 6 + (canSeeAccessLog ? 1 : 0) + (canDelete ? 1 : 0);
 
   const toggleExpand = (id: string) => {

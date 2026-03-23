@@ -1,5 +1,6 @@
 "use client";
 
+// Demo RBAC, swappable for MSAL when we get a real tenant
 import { createContext, useContext, useState } from "react";
 
 export const ROLES = ["drg-admin", "drg-staff", "gov-reviewer"] as const;

@@ -1,3 +1,5 @@
+// Mock connector. Access logs on each document show who viewed/downloaded
+// and when, which is the data behind the audit trail feature.
 import type { DeliverableDocument } from "@/lib/models/document";
 
 const MOCK_DOCUMENTS: DeliverableDocument[] = [

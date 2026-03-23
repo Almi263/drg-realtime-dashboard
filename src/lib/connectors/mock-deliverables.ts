@@ -1,3 +1,5 @@
+// Mock connector. Statuses and due dates are set to produce a realistic
+// dashboard with some items overdue and others in review.
 import type { Deliverable } from "@/lib/models/deliverable";
 
 const MOCK_DELIVERABLES: Deliverable[] = [

@@ -1,3 +1,5 @@
+// Mock connector. Swap for a real one (Dataverse, Azure SQL, etc.) by
+// implementing the same getPrograms/getProgramById interface.
 import type { Program } from "@/lib/models/program";
 
 const MOCK_PROGRAMS: Program[] = [
