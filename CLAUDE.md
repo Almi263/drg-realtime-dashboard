@@ -23,7 +23,7 @@ At the start of every session, the last dev session entry from `docs/chat-histor
 - **Run all tests (TS + Python + Java):** `pnpm test:all`
 - **TypeScript tests only:** `pnpm test` (Vitest) or `vitest run` for a single run
 - **Run a single TS test file:** `vitest run tests/typescript/teamsPayload.test.ts`
-- **Python tests:** `python -c 'from tests.python.test_teams_payload import test_notification_of_update; test_notification_of_update()'`
+- **Python tests:** `(cd tests/python && python3 -c 'from test_teams_payload import test_notification_of_update; test_notification_of_update()')`
 - **Java tests:** `cd tests/java && mvn test -q`
 
 Package manager is **pnpm**.

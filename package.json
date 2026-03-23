@@ -8,7 +8,7 @@
     "start": "node server.js",
     "lint": "eslint",
     "test": "vitest",
-    "test:all": "echo '\\n━━━ TypeScript ━━━' && vitest run && echo '\\n━━━ Python ━━━' && python -c 'from tests.python.test_teams_payload import test_notification_of_update; test_notification_of_update(); print(\"✓ test_notification_of_update passed\")' && echo '\\n━━━ Java ━━━' && cd tests/java && mvn test -q && echo '✓ TeamsPayloadTest passed'"
+    "test:all": "echo '\\n━━━ TypeScript ━━━' && vitest run && echo '\\n━━━ Python ━━━' && (cd tests/python && python3 -c 'from test_teams_payload import test_notification_of_update; test_notification_of_update(); print(\"✓ test_notification_of_update passed\")') && echo '\\n━━━ Java ━━━' && cd tests/java && mvn test -q 2>/dev/null && echo '✓ TeamsPayloadTest passed'"
   },
   "dependencies": {
     "@emotion/cache": "^11.14.0",
