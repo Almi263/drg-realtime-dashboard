@@ -33,6 +33,15 @@ jobs:
         run: |
           cp -r .next/static .next/standalone/.next/static
           cp -r public .next/standalone/public
+          # Force the start script so Azure's npm start runs the standalone server
+          node -e "
+            const fs = require('fs');
+            const pkg = JSON.parse(fs.readFileSync('.next/standalone/package.json','utf8'));
+            pkg.scripts = { start: 'node server.js' };
+            fs.writeFileSync('.next/standalone/package.json', JSON.stringify(pkg, null, 2));
+          "
+          # Remove Oryx manifest so it doesn't override startup
+          rm -f .next/standalone/oryx-manifest.toml
 
       - name: Upload artifact for deployment job
         uses: actions/upload-artifact@v4
