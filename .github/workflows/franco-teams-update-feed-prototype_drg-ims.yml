@@ -60,11 +60,11 @@ jobs:
           cd .next/standalone
           zip -r /tmp/deploy.zip .
           echo "Zip size: $(du -sh /tmp/deploy.zip)"
-          curl -s -u "$USERNAME:$PASSWORD" -X POST \
-            "https://drg-ims.scm.azurewebsites.net/api/zipdeploy?isAsync=false" \
+          HTTP=$(curl -s -w "%{http_code}" -u "$USERNAME:$PASSWORD" -X POST \
+            "https://drg-ims.scm.azurewebsites.net/api/zipdeploy?clean=true&isAsync=false" \
             -H "Content-Type: application/zip" \
-            --data-binary @/tmp/deploy.zip
-          echo "Deploy done"
+            --data-binary @/tmp/deploy.zip)
+          echo "Deploy HTTP status: $HTTP"
 
       - name: Run node server.js via Kudu and show output
         if: always()
