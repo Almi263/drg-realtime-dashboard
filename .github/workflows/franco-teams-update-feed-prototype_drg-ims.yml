@@ -18,7 +18,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Set up Node.js version
+      - name: Set up Node.js
         uses: actions/setup-node@v3
         with:
           node-version: '22.x'
@@ -38,51 +38,11 @@ jobs:
           cp -r public .next/standalone/public
           echo '{"name":"drg-ims","version":"0.1.0","scripts":{"start":"node server.js"}}' \
             > .next/standalone/package.json
-          ls .next/standalone/node_modules/next/dist/server/lib/start-server.js
 
-      - name: Smoke-test standalone server
-        run: |
-          cd .next/standalone
-          node server.js &
-          SERVER_PID=$!
-          sleep 5
-          HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:3000)
-          kill $SERVER_PID
-          echo "HTTP response: $HTTP_CODE"
-          [ "$HTTP_CODE" = "200" ] || (echo "Server did not return 200" && exit 1)
-
-      - name: Deploy via Kudu zip API directly
-        env:
-          PROFILE: ${{ secrets.AZUREAPPSERVICE_PUBLISHPROFILE_E7798D31F8A243C1BD2B6CC666D74586 }}
-        run: |
-          USERNAME=$(echo "$PROFILE" | grep -oP 'userName="\K[^"]+' | head -1)
-          PASSWORD=$(echo "$PROFILE" | grep -oP 'userPWD="\K[^"]+' | head -1)
-          cd .next/standalone
-          zip -r /tmp/deploy.zip .
-          echo "Zip size: $(du -sh /tmp/deploy.zip)"
-          HTTP=$(curl -s -w "%{http_code}" -u "$USERNAME:$PASSWORD" -X POST \
-            "https://drg-ims.scm.azurewebsites.net/api/zipdeploy?clean=true&isAsync=false" \
-            -H "Content-Type: application/zip" \
-            --data-binary @/tmp/deploy.zip)
-          echo "Deploy HTTP status: $HTTP"
-
-      - name: Run node server.js via Kudu and show output
-        if: always()
-        env:
-          PROFILE: ${{ secrets.AZUREAPPSERVICE_PUBLISHPROFILE_E7798D31F8A243C1BD2B6CC666D74586 }}
-        run: |
-          USERNAME=$(echo "$PROFILE" | grep -oP 'userName="\K[^"]+' | head -1)
-          PASSWORD=$(echo "$PROFILE" | grep -oP 'userPWD="\K[^"]+' | head -1)
-          echo "--- wwwroot after deploy ---"
-          curl -s -u "$USERNAME:$PASSWORD" \
-            "https://drg-ims.scm.azurewebsites.net/api/vfs/site/wwwroot/" \
-            | python3 -c "import sys,json; [print(f['name']) for f in json.load(sys.stdin)]"
-          echo "--- node_modules/next version ---"
-          curl -s -u "$USERNAME:$PASSWORD" \
-            "https://drg-ims.scm.azurewebsites.net/api/vfs/site/wwwroot/node_modules/next/package.json" \
-            | python3 -c "import sys,json; d=json.load(sys.stdin); print('next version:', d['version'])" 2>&1
-          echo "--- Running node server.js for 12s ---"
-          curl -s -u "$USERNAME:$PASSWORD" -X POST \
-            "https://drg-ims.scm.azurewebsites.net/api/command" \
-            -H "Content-Type: application/json" \
-            -d '{"command":"timeout 12 node server.js > /tmp/srv.txt 2>&1; cat /tmp/srv.txt","dir":"/home/site/wwwroot"}'
+      - name: Deploy to Azure Web App
+        uses: azure/webapps-deploy@v3
+        with:
+          app-name: 'drg-ims'
+          slot-name: 'Production'
+          package: .next/standalone
+          publish-profile: ${{ secrets.AZUREAPPSERVICE_PUBLISHPROFILE_E7798D31F8A243C1BD2B6CC666D74586 }}
