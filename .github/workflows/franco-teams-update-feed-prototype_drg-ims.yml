@@ -59,21 +59,14 @@ jobs:
           package: .next/standalone
           publish-profile: ${{ secrets.AZUREAPPSERVICE_PUBLISHPROFILE_E7798D31F8A243C1BD2B6CC666D74586 }}
 
-      - name: Inspect deployed files and run server via Kudu
-        if: always()
+      - name: Clean wwwroot before deploy
         env:
           PROFILE: ${{ secrets.AZUREAPPSERVICE_PUBLISHPROFILE_E7798D31F8A243C1BD2B6CC666D74586 }}
         run: |
           USERNAME=$(echo "$PROFILE" | grep -oP 'userName="\K[^"]+' | head -1)
           PASSWORD=$(echo "$PROFILE" | grep -oP 'userPWD="\K[^"]+' | head -1)
-          KUDU="https://drg-ims.scm.azurewebsites.net"
-          # List wwwroot
-          echo "--- wwwroot contents ---"
-          curl -s -u "$USERNAME:$PASSWORD" "$KUDU/api/vfs/site/wwwroot/" | python3 -m json.tool | grep '"name"'
-          echo "--- node_modules/next exists? ---"
-          curl -s -u "$USERNAME:$PASSWORD" "$KUDU/api/vfs/site/wwwroot/node_modules/next/package.json" | python3 -m json.tool | grep '"version"'
-          # Run server.js and capture output
-          echo "--- Running node server.js (10s) ---"
-          curl -s -u "$USERNAME:$PASSWORD" -X POST "$KUDU/api/command" \
+          curl -s -u "$USERNAME:$PASSWORD" -X POST \
+            "https://drg-ims.scm.azurewebsites.net/api/command" \
             -H "Content-Type: application/json" \
-            -d '{"command":"node server.js > /tmp/out.txt 2>&1 & sleep 10 && kill $! 2>/dev/null; cat /tmp/out.txt","dir":"/home/site/wwwroot"}'
+            -d '{"command":"rm -rf /home/site/wwwroot && mkdir -p /home/site/wwwroot","dir":"/"}'
+          echo "wwwroot wiped"
