@@ -48,7 +48,7 @@ jobs:
           curl -s -u "$USERNAME:$PASSWORD" -X POST \
             "https://drg-ims.scm.azurewebsites.net/api/command" \
             -H "Content-Type: application/json" \
-            -d '{"command":"rm -rf /home/site/wwwroot && mkdir -p /home/site/wwwroot","dir":"/"}'
+            -d '{"command":"find /home/site/wwwroot -mindepth 1 -delete","dir":"/"}'
 
       - name: Deploy to Azure Web App
         uses: azure/webapps-deploy@v3
