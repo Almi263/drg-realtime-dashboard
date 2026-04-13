@@ -57,3 +57,21 @@ jobs:
           slot-name: 'Production'
           package: .next/standalone
           publish-profile: ${{ secrets.AZUREAPPSERVICE_PUBLISHPROFILE_E7798D31F8A243C1BD2B6CC666D74586 }}
+
+      - name: Get actual Node.js error from Azure
+        if: always()
+        env:
+          PROFILE: ${{ secrets.AZUREAPPSERVICE_PUBLISHPROFILE_E7798D31F8A243C1BD2B6CC666D74586 }}
+        run: |
+          USERNAME=$(echo "$PROFILE" | grep -oP 'userName="\K[^"]+' | head -1)
+          PASSWORD=$(echo "$PROFILE" | grep -oP 'userPWD="\K[^"]+' | head -1)
+          echo "=== wwwroot ==="
+          curl -s -u "$USERNAME:$PASSWORD" -X POST \
+            "https://drg-ims.scm.azurewebsites.net/api/command" \
+            -H "Content-Type: application/json" \
+            -d '{"command":"ls /home/site/wwwroot && echo --- && ls /home/site/wwwroot/node_modules/next 2>&1 | head -3","dir":"/"}' || true
+          echo "=== node server.js output ==="
+          curl -s -u "$USERNAME:$PASSWORD" -X POST \
+            "https://drg-ims.scm.azurewebsites.net/api/command" \
+            -H "Content-Type: application/json" \
+            -d '{"command":"cd /home/site/wwwroot && timeout 8 node server.js 2>&1 || true","dir":"/home/site/wwwroot"}' || true
