@@ -54,6 +54,12 @@ jobs:
             -H "Content-Type: application/zip" \
             --data-binary @/tmp/deploy.zip)
           echo "Deploy response: $HTTP"
+          # Delete Oryx artifacts that override our node_modules on startup
+          curl -s -u "$USERNAME:$PASSWORD" -X POST \
+            "https://drg-ims.scm.azurewebsites.net/api/command" \
+            -H "Content-Type: application/json" \
+            -d '{"command":"bash -c \"rm -f /home/site/wwwroot/node_modules.tar.gz /home/site/wwwroot/oryx-manifest.toml\"","dir":"/"}' || true
+          echo "Oryx artifacts removed"
 
       - name: Get actual Node.js error from Azure
         if: always()
