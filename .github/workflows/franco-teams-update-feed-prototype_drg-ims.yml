@@ -10,10 +10,10 @@ on:
   workflow_dispatch:
 
 jobs:
-  build:
+  build-and-deploy:
     runs-on: ubuntu-latest
     permissions:
-      contents: read #This is required for actions/checkout
+      contents: read
 
     steps:
       - uses: actions/checkout@v4
@@ -36,11 +36,8 @@ jobs:
         run: |
           cp -r .next/static .next/standalone/.next/static
           cp -r public .next/standalone/public
-          # Minimal package.json — no dependencies or packageManager field,
-          # so Oryx won't try to run npm install over the pre-built bundle
           echo '{"name":"drg-ims","version":"0.1.0","scripts":{"start":"node server.js"}}' \
             > .next/standalone/package.json
-          # Sanity-check: fail the build if next wasn't traced into the bundle
           ls .next/standalone/node_modules/next/dist/server/lib/start-server.js
 
       - name: Smoke-test standalone server
@@ -54,27 +51,10 @@ jobs:
           echo "HTTP response: $HTTP_CODE"
           [ "$HTTP_CODE" = "200" ] || (echo "Server did not return 200" && exit 1)
 
-      - name: Upload artifact for deployment job
-        uses: actions/upload-artifact@v4
-        with:
-          name: node-app
-          path: .next/standalone
-
-  deploy:
-    runs-on: ubuntu-latest
-    needs: build
-
-    steps:
-      - name: Download artifact from build job
-        uses: actions/download-artifact@v4
-        with:
-          name: node-app
-
-      - name: 'Deploy to Azure Web App'
-        id: deploy-to-webapp
+      - name: Deploy to Azure Web App
         uses: azure/webapps-deploy@v3
         with:
           app-name: 'drg-ims'
           slot-name: 'Production'
-          package: .
+          package: .next/standalone
           publish-profile: ${{ secrets.AZUREAPPSERVICE_PUBLISHPROFILE_E7798D31F8A243C1BD2B6CC666D74586 }}
