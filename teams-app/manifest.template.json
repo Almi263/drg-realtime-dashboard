@@ -1,0 +1,59 @@
+{
+  "$schema": "https://developer.microsoft.com/en-us/json-schemas/teams/v1.16/MicrosoftTeams.schema.json",
+  "manifestVersion": "1.16",
+  "version": "0.1.0",
+  "id": "__APP_ID__",
+  "packageName": "com.delawareresourcegroup.ims",
+  "developer": {
+    "name": "Delaware Resource Group",
+    "websiteUrl": "https://__APP_HOST__",
+    "privacyUrl": "https://__APP_HOST__/privacy",
+    "termsOfUseUrl": "https://__APP_HOST__/terms"
+  },
+  "icons": {
+    "color": "color.png",
+    "outline": "outline.png"
+  },
+  "name": {
+    "short": "DRG IMS",
+    "full": "Delaware Resource Group — Information Management System"
+  },
+  "description": {
+    "short": "CDRL/SDRL deliverable tracking and cross-department visibility.",
+    "full": "Information Management System for Delaware Resource Group. Tracks CDRL and SDRL contract deliverables across programs, surfaces real-time updates, and integrates with the existing Microsoft 365 stack (Graph, SharePoint, Power Platform). This Teams app embeds the dashboard directly into team channels and the personal app surface for one-click access."
+  },
+  "accentColor": "#002050",
+  "staticTabs": [
+    {
+      "entityId": "drgims-dashboard",
+      "name": "Dashboard",
+      "contentUrl": "https://__APP_HOST__/",
+      "websiteUrl": "https://__APP_HOST__/",
+      "scopes": ["personal"]
+    },
+    {
+      "entityId": "drgims-records",
+      "name": "Records",
+      "contentUrl": "https://__APP_HOST__/records",
+      "websiteUrl": "https://__APP_HOST__/records",
+      "scopes": ["personal"]
+    },
+    {
+      "entityId": "drgims-calendar",
+      "name": "Calendar",
+      "contentUrl": "https://__APP_HOST__/calendar",
+      "websiteUrl": "https://__APP_HOST__/calendar",
+      "scopes": ["personal"]
+    }
+  ],
+  "configurableTabs": [
+    {
+      "configurationUrl": "https://__APP_HOST__/teams/configure",
+      "canUpdateConfiguration": true,
+      "scopes": ["team", "groupChat"],
+      "context": ["channelTab", "privateChatTab", "meetingChatTab", "meetingDetailsTab"]
+    }
+  ],
+  "permissions": ["identity", "messageTeamMembers"],
+  "validDomains": ["__APP_HOST__"]
+}
