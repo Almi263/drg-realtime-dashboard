@@ -39,24 +39,21 @@ jobs:
           echo '{"name":"drg-ims","version":"0.1.0","scripts":{"start":"node server.js"}}' \
             > .next/standalone/package.json
 
-      - name: Wipe stale wwwroot
+      - name: Zip and deploy via Kudu (includes node_modules)
         env:
           PROFILE: ${{ secrets.AZUREAPPSERVICE_PUBLISHPROFILE_E7798D31F8A243C1BD2B6CC666D74586 }}
         run: |
           USERNAME=$(echo "$PROFILE" | grep -oP 'userName="\K[^"]+' | head -1)
           PASSWORD=$(echo "$PROFILE" | grep -oP 'userPWD="\K[^"]+' | head -1)
-          curl -s -u "$USERNAME:$PASSWORD" -X POST \
-            "https://drg-ims.scm.azurewebsites.net/api/command" \
-            -H "Content-Type: application/json" \
-            -d '{"command":"find /home/site/wwwroot -mindepth 1 -delete","dir":"/"}'
-
-      - name: Deploy to Azure Web App
-        uses: azure/webapps-deploy@v3
-        with:
-          app-name: 'drg-ims'
-          slot-name: 'Production'
-          package: .next/standalone
-          publish-profile: ${{ secrets.AZUREAPPSERVICE_PUBLISHPROFILE_E7798D31F8A243C1BD2B6CC666D74586 }}
+          cd .next/standalone
+          zip -r /tmp/deploy.zip . -x "*.DS_Store"
+          echo "Zip size: $(du -sh /tmp/deploy.zip)"
+          echo "node_modules/next in zip: $(unzip -l /tmp/deploy.zip | grep -c 'node_modules/next')"
+          HTTP=$(curl -s -w "\n%{http_code}" -u "$USERNAME:$PASSWORD" -X POST \
+            "https://drg-ims.scm.azurewebsites.net/api/zipdeploy?clean=true" \
+            -H "Content-Type: application/zip" \
+            --data-binary @/tmp/deploy.zip)
+          echo "Deploy response: $HTTP"
 
       - name: Get actual Node.js error from Azure
         if: always()
