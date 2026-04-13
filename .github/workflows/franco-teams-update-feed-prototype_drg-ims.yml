@@ -43,6 +43,17 @@ jobs:
           # Sanity-check: fail the build if next wasn't traced into the bundle
           ls .next/standalone/node_modules/next/dist/server/lib/start-server.js
 
+      - name: Smoke-test standalone server
+        run: |
+          cd .next/standalone
+          node server.js &
+          SERVER_PID=$!
+          sleep 5
+          HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:3000)
+          kill $SERVER_PID
+          echo "HTTP response: $HTTP_CODE"
+          [ "$HTTP_CODE" = "200" ] || (echo "Server did not return 200" && exit 1)
+
       - name: Upload artifact for deployment job
         uses: actions/upload-artifact@v4
         with:
@@ -66,4 +77,5 @@ jobs:
           app-name: 'drg-ims'
           slot-name: 'Production'
           package: .
+          startup-command: 'node server.js'
           publish-profile: ${{ secrets.AZUREAPPSERVICE_PUBLISHPROFILE_E7798D31F8A243C1BD2B6CC666D74586 }}
