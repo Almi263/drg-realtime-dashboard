@@ -70,5 +70,8 @@ jobs:
           LOG_URL=$(curl -s -u "$USERNAME:$PASSWORD" \
             "https://drg-ims.scm.azurewebsites.net/api/logs/docker" \
             | python3 -c "import sys,json; logs=json.load(sys.stdin); print(logs[0]['href'])")
-          echo "--- Full app stdout/stderr (last 150 lines) ---"
-          curl -s -u "$USERNAME:$PASSWORD" "$LOG_URL" | grep -v "^2026.*State:\|MountingVolumes\|Establishing\|Mounting\|Nested\|named pipe\|metrics\|watchers\|Starting watchers" | tail -150
+          echo "--- Searching full log for Node.js output ---"
+          curl -s -u "$USERNAME:$PASSWORD" "$LOG_URL" > /tmp/azure.log
+          echo "Total lines: $(wc -l < /tmp/azure.log)"
+          echo "--- Lines with error/Error/warn/Next.js/node ---"
+          grep -i "error\|warn\|next\.js\|▲\|Cannot find\|module\|ENOENT\|exit\|crash\|fatal\|unhandled\|exception\|throw\|at /" /tmp/azure.log | tail -80
