@@ -58,3 +58,19 @@ jobs:
           slot-name: 'Production'
           package: .next/standalone
           publish-profile: ${{ secrets.AZUREAPPSERVICE_PUBLISHPROFILE_E7798D31F8A243C1BD2B6CC666D74586 }}
+
+      - name: Read Azure container logs
+        if: always()
+        env:
+          PROFILE: ${{ secrets.AZUREAPPSERVICE_PUBLISHPROFILE_E7798D31F8A243C1BD2B6CC666D74586 }}
+        run: |
+          sleep 20
+          USERNAME=$(echo "$PROFILE" | grep -oP 'userName="\K[^"]+' | head -1)
+          PASSWORD=$(echo "$PROFILE" | grep -oP 'userPWD="\K[^"]+' | head -1)
+          echo "--- Docker/container logs ---"
+          curl -s -u "$USERNAME:$PASSWORD" \
+            "https://drg-ims.scm.azurewebsites.net/api/logs/docker" | python3 -m json.tool || true
+          echo "--- Recent log file ---"
+          curl -s -u "$USERNAME:$PASSWORD" \
+            "https://drg-ims.scm.azurewebsites.net/api/logs/docker/zip" -o /tmp/logs.zip && \
+            unzip -p /tmp/logs.zip '*.log' 2>/dev/null | tail -50 || true
