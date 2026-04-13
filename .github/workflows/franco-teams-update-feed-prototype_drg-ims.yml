@@ -59,19 +59,21 @@ jobs:
           package: .next/standalone
           publish-profile: ${{ secrets.AZUREAPPSERVICE_PUBLISHPROFILE_E7798D31F8A243C1BD2B6CC666D74586 }}
 
-      - name: Read Azure container logs
+      - name: Inspect deployed files and run server via Kudu
         if: always()
         env:
           PROFILE: ${{ secrets.AZUREAPPSERVICE_PUBLISHPROFILE_E7798D31F8A243C1BD2B6CC666D74586 }}
         run: |
-          sleep 25
           USERNAME=$(echo "$PROFILE" | grep -oP 'userName="\K[^"]+' | head -1)
           PASSWORD=$(echo "$PROFILE" | grep -oP 'userPWD="\K[^"]+' | head -1)
-          LOG_URL=$(curl -s -u "$USERNAME:$PASSWORD" \
-            "https://drg-ims.scm.azurewebsites.net/api/logs/docker" \
-            | python3 -c "import sys,json; logs=json.load(sys.stdin); print(logs[0]['href'])")
-          echo "--- Searching full log for Node.js output ---"
-          curl -s -u "$USERNAME:$PASSWORD" "$LOG_URL" > /tmp/azure.log
-          echo "Total lines: $(wc -l < /tmp/azure.log)"
-          echo "--- Lines with error/Error/warn/Next.js/node ---"
-          grep -i "error\|warn\|next\.js\|▲\|Cannot find\|module\|ENOENT\|exit\|crash\|fatal\|unhandled\|exception\|throw\|at /" /tmp/azure.log | tail -80
+          KUDU="https://drg-ims.scm.azurewebsites.net"
+          # List wwwroot
+          echo "--- wwwroot contents ---"
+          curl -s -u "$USERNAME:$PASSWORD" "$KUDU/api/vfs/site/wwwroot/" | python3 -m json.tool | grep '"name"'
+          echo "--- node_modules/next exists? ---"
+          curl -s -u "$USERNAME:$PASSWORD" "$KUDU/api/vfs/site/wwwroot/node_modules/next/package.json" | python3 -m json.tool | grep '"version"'
+          # Run server.js and capture output
+          echo "--- Running node server.js (10s) ---"
+          curl -s -u "$USERNAME:$PASSWORD" -X POST "$KUDU/api/command" \
+            -H "Content-Type: application/json" \
+            -d '{"command":"node server.js > /tmp/out.txt 2>&1 & sleep 10 && kill $! 2>/dev/null; cat /tmp/out.txt","dir":"/home/site/wwwroot"}'
