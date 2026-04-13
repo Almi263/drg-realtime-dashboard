@@ -69,9 +69,14 @@ jobs:
           curl -s -u "$USERNAME:$PASSWORD" -X POST \
             "https://drg-ims.scm.azurewebsites.net/api/command" \
             -H "Content-Type: application/json" \
-            -d '{"command":"ls /home/site/wwwroot && echo --- && ls /home/site/wwwroot/node_modules/next 2>&1 | head -3","dir":"/"}' || true
+            -d '{"command":"ls","dir":"/home/site/wwwroot"}' || true
+          echo "=== node_modules/next ==="
+          curl -s -u "$USERNAME:$PASSWORD" -X POST \
+            "https://drg-ims.scm.azurewebsites.net/api/command" \
+            -H "Content-Type: application/json" \
+            -d '{"command":"ls","dir":"/home/site/wwwroot/node_modules/next"}' || true
           echo "=== node server.js output ==="
           curl -s -u "$USERNAME:$PASSWORD" -X POST \
             "https://drg-ims.scm.azurewebsites.net/api/command" \
             -H "Content-Type: application/json" \
-            -d '{"command":"cd /home/site/wwwroot && timeout 8 node server.js 2>&1 || true","dir":"/home/site/wwwroot"}' || true
+            -d '{"command":"bash -c \"timeout 8 node server.js 2>&1; true\"","dir":"/home/site/wwwroot"}' || true
