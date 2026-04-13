@@ -51,25 +51,20 @@ jobs:
           echo "HTTP response: $HTTP_CODE"
           [ "$HTTP_CODE" = "200" ] || (echo "Server did not return 200" && exit 1)
 
-      - name: Wipe wwwroot before deploy
+      - name: Deploy via Kudu zip API directly
         env:
           PROFILE: ${{ secrets.AZUREAPPSERVICE_PUBLISHPROFILE_E7798D31F8A243C1BD2B6CC666D74586 }}
         run: |
           USERNAME=$(echo "$PROFILE" | grep -oP 'userName="\K[^"]+' | head -1)
           PASSWORD=$(echo "$PROFILE" | grep -oP 'userPWD="\K[^"]+' | head -1)
+          cd .next/standalone
+          zip -r /tmp/deploy.zip .
+          echo "Zip size: $(du -sh /tmp/deploy.zip)"
           curl -s -u "$USERNAME:$PASSWORD" -X POST \
-            "https://drg-ims.scm.azurewebsites.net/api/command" \
-            -H "Content-Type: application/json" \
-            -d '{"command":"rm -rf /home/site/wwwroot && mkdir -p /home/site/wwwroot","dir":"/"}'
-          echo "wwwroot wiped"
-
-      - name: Deploy to Azure Web App
-        uses: azure/webapps-deploy@v3
-        with:
-          app-name: 'drg-ims'
-          slot-name: 'Production'
-          package: .next/standalone
-          publish-profile: ${{ secrets.AZUREAPPSERVICE_PUBLISHPROFILE_E7798D31F8A243C1BD2B6CC666D74586 }}
+            "https://drg-ims.scm.azurewebsites.net/api/zipdeploy?isAsync=false" \
+            -H "Content-Type: application/zip" \
+            --data-binary @/tmp/deploy.zip
+          echo "Deploy done"
 
       - name: Run node server.js via Kudu and show output
         if: always()
