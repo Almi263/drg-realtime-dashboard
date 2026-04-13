@@ -77,5 +77,4 @@ jobs:
           app-name: 'drg-ims'
           slot-name: 'Production'
           package: .
-          startup-command: 'node server.js'
           publish-profile: ${{ secrets.AZUREAPPSERVICE_PUBLISHPROFILE_E7798D31F8A243C1BD2B6CC666D74586 }}
