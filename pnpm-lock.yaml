@@ -17,6 +17,9 @@ importers:
       '@emotion/styled':
         specifier: ^11.14.1
         version: 11.14.1(@emotion/react@11.14.0(@types/react@19.2.10)(react@19.2.3))(@types/react@19.2.10)(react@19.2.3)
+      '@microsoft/teams-js':
+        specifier: ^2.52.0
+        version: 2.52.0
       '@mui/icons-material':
         specifier: ^7.3.8
         version: 7.3.8(@mui/material@7.3.8(@emotion/react@11.14.0(@types/react@19.2.10)(react@19.2.3))(@emotion/styled@11.14.1(@emotion/react@11.14.0(@types/react@19.2.10)(react@19.2.3))(@types/react@19.2.10)(react@19.2.3))(@types/react@19.2.10)(react-dom@19.2.3(react@19.2.3))(react@19.2.3))(@types/react@19.2.10)(react@19.2.3)
@@ -572,6 +575,9 @@ packages:
 
   '@jridgewell/trace-mapping@0.3.31':
     resolution: {integrity: sha512-zzNR+SdQSDJzc8joaeP8QQoCQr8NuYx2dIIytl1QeBEZHJ9uW6hebsrYgbz8hJwUQao3TWCMtmfV8Nu1twOLAw==}
+
+  '@microsoft/teams-js@2.52.0':
+    resolution: {integrity: sha512-DFAcqhpW+hEjKeCLR3km134n3CzH50qqKWJfFrk6hZcMIr8GXzxRpSETlLMQ/o5J1U3Hpii6NsjN6CduwVIzJw==}
 
   '@mui/core-downloads-tracker@7.3.8':
     resolution: {integrity: sha512-s9UHZo7QJVly7gNArEZkbbsimHqJZhElgBpXIJdehZ4OWXt+CCr0SBDgUCDJnQrqpd1dWK2dLq5rmO4mCBmI3w==}
@@ -1225,6 +1231,9 @@ packages:
 
   balanced-match@1.0.2:
     resolution: {integrity: sha512-3oSeUO0TMV67hN1AmbXsK4yaqU7tjiHlbxRDZOpH0KW9+CeX4bRAaX0Anxt0tx2MrpRpWwQaPwIlISEJhYU5Pw==}
+
+  base64-js@1.5.1:
+    resolution: {integrity: sha512-AKpaYlHn8t4SVbOHCy+b5+KKgvR4vrsD8vbvrbiQJps7fKDTkjkDry6ji0rUJjC0kzbNePLwzxq8iypo41qeWA==}
 
   baseline-browser-mapping@2.9.19:
     resolution: {integrity: sha512-ipDqC8FrAl/76p2SSWKSI+H9tFwm7vYqXQrItCuiVPt26Km0jS+NzSsBWAaBusvSbQcfJG+JitdMm+wZAgTYqg==}
@@ -2936,6 +2945,13 @@ snapshots:
       '@jridgewell/resolve-uri': 3.1.2
       '@jridgewell/sourcemap-codec': 1.5.5
 
+  '@microsoft/teams-js@2.52.0':
+    dependencies:
+      base64-js: 1.5.1
+      debug: 4.4.3
+    transitivePeerDependencies:
+      - supports-color
+
   '@mui/core-downloads-tracker@7.3.8': {}
 
   '@mui/icons-material@7.3.8(@mui/material@7.3.8(@emotion/react@11.14.0(@types/react@19.2.10)(react@19.2.3))(@emotion/styled@11.14.1(@emotion/react@11.14.0(@types/react@19.2.10)(react@19.2.3))(@types/react@19.2.10)(react@19.2.3))(@types/react@19.2.10)(react-dom@19.2.3(react@19.2.3))(react@19.2.3))(@types/react@19.2.10)(react@19.2.3)':
@@ -3505,6 +3521,8 @@ snapshots:
       resolve: 1.22.11
 
   balanced-match@1.0.2: {}
+
+  base64-js@1.5.1: {}
 
   baseline-browser-mapping@2.9.19: {}
 

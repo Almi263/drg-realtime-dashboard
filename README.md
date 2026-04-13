@@ -2,7 +2,7 @@
 CS4273 Capstone, Spring 2026 | Group F
 Franco Barbaro, Allison Helling, Charlie Street, Joshua Kam, Ruby Morales
 
-drg-ims.azurewebsites.net
+https://drg-ims.vercel.app
 
 ## About
 
@@ -78,7 +78,24 @@ We implemented the Teams notification payload builder in TypeScript, Python, and
 
 ## Deployment
 
-Pushes to `franco/teams-update-feed-prototype` build and deploy automatically via GitHub Actions. Workflow is in `.github/workflows/`.
+Live at https://drg-ims.vercel.app, hosted on Vercel for prototype iteration speed. Production target is Azure App Service alongside the rest of the client's Microsoft stack; the Vercel host is reachable from Teams and Office iframes via the CSP `frame-ancestors` headers configured in `next.config.ts`.
+
+```bash
+vercel --prod    # from the project root, after `vercel link`
+```
+
+The legacy Azure GitHub Actions workflow in `.github/workflows/franco-teams-update-feed-prototype_drg-ims.yml` is retained for reference but is not the deploy path of record.
+
+## Microsoft Teams app
+
+A sideloadable Teams app package lives in `teams-app/`. It registers the dashboard as both a personal app and a configurable channel tab so users can drop "DRG IMS" directly into a team's channel and pick which view (Dashboard, Records, Calendar, Documents, Submit) the tab opens to.
+
+```bash
+cd teams-app
+./build.sh drg-ims.vercel.app    # rebuild whenever the host changes
+```
+
+That produces `teams-app/drg-ims-teams.zip`, ready to upload via Teams admin center or sideload. See `teams-app/README.md` for install steps.
 
 ## Linting
 
