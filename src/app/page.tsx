@@ -4,42 +4,12 @@ import Container from "@mui/material/Container";
 import Typography from "@mui/material/Typography";
 import CircularProgress from "@mui/material/CircularProgress";
 import { MockDeliverableConnector } from "@/lib/connectors/mock-deliverables";
-import { MockProgramConnector } from "@/lib/connectors/mock-programs";
-import StatsSummary from "@/components/StatsSummary";
-import ProgramStatusCard from "@/components/ProgramStatusCard";
+import DashboardProgramsView from "@/components/DashboardProgramsView";
 
 async function DashboardContent() {
-  const [deliverables, programs] = await Promise.all([
-    new MockDeliverableConnector().getDeliverables(),
-    new MockProgramConnector().getPrograms(),
-  ]);
+  const deliverables = await new MockDeliverableConnector().getDeliverables();
 
-  return (
-    <Box sx={{ display: "flex", flexDirection: "column", gap: 3 }}>
-      <StatsSummary deliverables={deliverables} programs={programs} />
-
-      <Box>
-        <Typography variant="subtitle2" sx={{ fontWeight: 700, mb: 1.5, color: "text.secondary", textTransform: "uppercase", letterSpacing: 0.8, fontSize: "0.7rem" }}>
-          Active Programs
-        </Typography>
-        <Box
-          sx={{
-            display: "grid",
-            gridTemplateColumns: { xs: "1fr", md: "repeat(2, 1fr)", lg: "repeat(3, 1fr)" },
-            gap: 2,
-          }}
-        >
-          {programs.map((program) => (
-            <ProgramStatusCard
-              key={program.id}
-              program={program}
-              deliverables={deliverables.filter((d) => d.programId === program.id)}
-            />
-          ))}
-        </Box>
-      </Box>
-    </Box>
-  );
+  return <DashboardProgramsView deliverables={deliverables} />;
 }
 
 export default function Home() {

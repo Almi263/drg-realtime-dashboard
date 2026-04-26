@@ -14,6 +14,8 @@ import CheckCircleIcon from "@mui/icons-material/CheckCircle";
 import UploadFileIcon from "@mui/icons-material/UploadFile";
 import ArrowBackIcon from "@mui/icons-material/ArrowBack";
 import Link from "next/link";
+import AccessRestrictedNotice from "@/components/AccessRestrictedNotice";
+import { useRole } from "@/lib/context/role-context";
 import type { Program } from "@/lib/models/program";
 import type { Deliverable, DeliverableStatus } from "@/lib/models/deliverable";
 
@@ -406,18 +408,23 @@ function ConfirmationStep({
 /* ------------------------------------------------------------------ */
 
 interface SubmitReportWizardProps {
-  programs: Program[];
   deliverables: Deliverable[];
   initialProgramId?: string;
   initialDeliverableId?: string;
 }
 
 export default function SubmitReportWizard({
-  programs,
   deliverables,
   initialProgramId,
   initialDeliverableId,
 }: SubmitReportWizardProps) {
+  const { programs: allPrograms, canViewProgram } = useRole();
+  const visiblePrograms = allPrograms.filter((program) => canViewProgram(program.id));
+  const visibleProgramIds = new Set(visiblePrograms.map((program) => program.id));
+  const visibleDeliverables = deliverables.filter((deliverable) =>
+    visibleProgramIds.has(deliverable.programId)
+  );
+
   // If we got here from a deliverable page (?programId=&deliverableId=), skip to upload
   const prefilled = !!(initialProgramId && initialDeliverableId);
   const [step, setStep] = useState(prefilled ? 2 : 0);
@@ -427,9 +434,21 @@ export default function SubmitReportWizard({
   const [submissionRef, setSubmissionRef] = useState("");
   const [submissionTime, setSubmissionTime] = useState("");
 
-  const program = programs.find((p) => p.id === programId) ?? null;
-  const deliverable = deliverables.find((d) => d.id === deliverableId) ?? null;
-  const programDeliverables = deliverables.filter((d) => d.programId === programId);
+  const program = visiblePrograms.find((p) => p.id === programId) ?? null;
+  const deliverable = visibleDeliverables.find((d) => d.id === deliverableId) ?? null;
+  const programDeliverables = visibleDeliverables.filter((d) => d.programId === programId);
+
+  if (visiblePrograms.length === 0) {
+    return (
+      <AccessRestrictedNotice message="This account cannot submit documents because it is not assigned to any programs." />
+    );
+  }
+
+  if ((programId && !program) || (deliverableId && !deliverable)) {
+    return (
+      <AccessRestrictedNotice message="This submission link points to a program or deliverable the current account cannot access." />
+    );
+  }
 
   const handleProgramSelect = (id: string) => {
     setProgramId(id);
@@ -461,7 +480,7 @@ export default function SubmitReportWizard({
       <StepIndicator current={step} />
 
       {step === 0 && (
-        <ProgramStep programs={programs} deliverables={deliverables} onSelect={handleProgramSelect} />
+        <ProgramStep programs={visiblePrograms} deliverables={visibleDeliverables} onSelect={handleProgramSelect} />
       )}
       {step === 1 && program && (
         <DeliverableStep

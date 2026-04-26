@@ -119,9 +119,10 @@ interface DocumentsTableProps {
   documents: DeliverableDocument[];
   deliverableMap: Record<string, string>;
   programs: Program[];
+  detailSource?: "documents";
 }
 
-export default function DocumentsTable({ documents, deliverableMap, programs }: DocumentsTableProps) {
+export default function DocumentsTable({ documents, deliverableMap, programs, detailSource }: DocumentsTableProps) {
   const { role } = useRole();
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [programFilter, setProgramFilter] = useState<string>("All");
@@ -219,7 +220,7 @@ export default function DocumentsTable({ documents, deliverableMap, programs }: 
                       <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
                         <MuiLink
                           component={NextLink}
-                          href={`/documents/${doc.id}`}
+                          href={detailSource ? `/documents/${doc.id}?from=${detailSource}` : `/documents/${doc.id}`}
                           underline="hover"
                           sx={{ color: "text.primary", fontWeight: 500 }}
                         >

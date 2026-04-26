@@ -8,7 +8,7 @@ import Select from "@mui/material/Select";
 import MenuItem from "@mui/material/MenuItem";
 import Chip from "@mui/material/Chip";
 import PersonIcon from "@mui/icons-material/Person";
-import { useRole, ROLES, ROLE_LABELS, type Role } from "@/lib/context/role-context";
+import { useRole, ROLE_LABELS, type Role } from "@/lib/context/role-context";
 
 const ROLE_CHIP_COLORS: Record<Role, string> = {
   "drg-admin": "rgba(255,255,255,0.18)",
@@ -17,7 +17,7 @@ const ROLE_CHIP_COLORS: Record<Role, string> = {
 };
 
 export default function AppHeader() {
-  const { role, setRole } = useRole();
+  const { role, accounts, currentUser, setCurrentUserEmail } = useRole();
 
   return (
     <AppBar position="sticky" elevation={0} sx={{ bgcolor: "primary.main" }}>
@@ -70,16 +70,16 @@ export default function AppHeader() {
             Viewing as
           </Typography>
           <Select
-            value={role}
-            onChange={(e) => setRole(e.target.value as Role)}
+            value={currentUser.email}
+            onChange={(e) => setCurrentUserEmail(e.target.value)}
             size="small"
             variant="outlined"
             renderValue={(v) => (
               <Chip
-                label={ROLE_LABELS[v as Role]}
+                label={String(v)}
                 size="small"
                 sx={{
-                  bgcolor: ROLE_CHIP_COLORS[v as Role],
+                  bgcolor: ROLE_CHIP_COLORS[role],
                   color: "#fff",
                   fontWeight: 600,
                   fontSize: "0.72rem",
@@ -96,9 +96,16 @@ export default function AppHeader() {
               minWidth: 130,
             }}
           >
-            {ROLES.map((r) => (
-              <MenuItem key={r} value={r}>
-                {ROLE_LABELS[r]}
+            {accounts.map((account) => (
+              <MenuItem key={account.email} value={account.email}>
+                <Box sx={{ display: "flex", flexDirection: "column", minWidth: 280 }}>
+                  <Typography variant="body2" sx={{ fontWeight: 600 }}>
+                    {account.name}
+                  </Typography>
+                  <Typography variant="caption" sx={{ color: "text.secondary" }}>
+                    {account.email} · {ROLE_LABELS[account.role]}
+                  </Typography>
+                </Box>
               </MenuItem>
             ))}
           </Select>

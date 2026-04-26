@@ -67,9 +67,10 @@ function formatDate(iso: string): string {
 interface RecordsTableProps {
   deliverables: Deliverable[];
   programs: Program[];
+  detailSource?: "records";
 }
 
-export default function RecordsTable({ deliverables, programs }: RecordsTableProps) {
+export default function RecordsTable({ deliverables, programs, detailSource }: RecordsTableProps) {
   const router = useRouter();
   const [statusFilter, setStatusFilter] = useState<string>("All");
   const [typeFilter, setTypeFilter] = useState<string>("All");
@@ -183,7 +184,7 @@ export default function RecordsTable({ deliverables, programs }: RecordsTablePro
               <TableRow
                 key={d.id}
                 hover
-                onClick={() => router.push(`/records/${d.id}`)}
+                onClick={() => router.push(detailSource ? `/records/${d.id}?from=${detailSource}` : `/records/${d.id}`)}
                 sx={{ cursor: "pointer" }}
               >
                 <TableCell sx={{ fontFamily: "monospace", fontSize: "0.8rem", color: "primary.main", fontWeight: 600 }}>

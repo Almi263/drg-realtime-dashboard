@@ -29,7 +29,7 @@ function AccessDenied({ role }: { role: Role }) {
       </Typography>
       <Typography variant="body2" sx={{ textAlign: "center", maxWidth: 360 }}>
         This page is not available for the <strong>{ROLE_LABELS[role]}</strong> role.
-        Switch your role in the header to access this section.
+        Switch accounts in the header to access this section.
       </Typography>
     </Box>
   );

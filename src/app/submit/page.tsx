@@ -3,7 +3,6 @@ import Box from "@mui/material/Box";
 import Container from "@mui/material/Container";
 import Typography from "@mui/material/Typography";
 import CircularProgress from "@mui/material/CircularProgress";
-import { MockProgramConnector } from "@/lib/connectors/mock-programs";
 import { MockDeliverableConnector } from "@/lib/connectors/mock-deliverables";
 import SubmitReportWizard from "@/components/SubmitReportWizard";
 import BackButton from "@/components/BackButton";
@@ -16,14 +15,10 @@ async function SubmitContent({
   initialProgramId?: string;
   initialDeliverableId?: string;
 }) {
-  const [programs, deliverables] = await Promise.all([
-    new MockProgramConnector().getPrograms(),
-    new MockDeliverableConnector().getDeliverables(),
-  ]);
+  const deliverables = await new MockDeliverableConnector().getDeliverables();
 
   return (
     <SubmitReportWizard
-      programs={programs}
       deliverables={deliverables}
       initialProgramId={initialProgramId}
       initialDeliverableId={initialDeliverableId}

@@ -21,7 +21,7 @@ const NAV_ITEMS = [
   { label: "Dashboard", href: "/", icon: DashboardIcon },
   { label: "Programs", href: "/programs", icon: BusinessCenterIcon },
   null,
-  { label: "Records", href: "/records", icon: DescriptionIcon },
+  { label: "Deliverables", href: "/records", icon: DescriptionIcon },
   { label: "Documents", href: "/documents", icon: FolderOpenIcon },
   { label: "Calendar", href: "/calendar", icon: CalendarMonthIcon },
 ];

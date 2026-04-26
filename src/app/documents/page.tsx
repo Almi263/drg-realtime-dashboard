@@ -6,7 +6,7 @@ import CircularProgress from "@mui/material/CircularProgress";
 import { MockDocumentConnector } from "@/lib/connectors/mock-documents";
 import { MockDeliverableConnector } from "@/lib/connectors/mock-deliverables";
 import { MockProgramConnector } from "@/lib/connectors/mock-programs";
-import DocumentsTable from "@/components/DocumentsTable";
+import FilteredDocumentsView from "@/components/FilteredDocumentsView";
 
 async function DocumentsContent() {
   const [documents, deliverables, programs] = await Promise.all([
@@ -14,8 +14,7 @@ async function DocumentsContent() {
     new MockDeliverableConnector().getDeliverables(),
     new MockProgramConnector().getPrograms(),
   ]);
-  const deliverableMap = Object.fromEntries(deliverables.map((d) => [d.id, d.title]));
-  return <DocumentsTable documents={documents} deliverableMap={deliverableMap} programs={programs} />;
+  return <FilteredDocumentsView documents={documents} deliverables={deliverables} programs={programs} />;
 }
 
 export default function DocumentsPage() {

@@ -23,6 +23,25 @@ const MOCK_PROGRAMS: Program[] = [
     ],
     startDate: "2024-10-01T00:00:00Z",
     endDate: "2027-09-30T23:59:59Z",
+    creatorEmail: "samantha.reed@drgok.com",
+    createdAt: "2024-09-15T14:00:00Z",
+    accessList: [
+      {
+        email: "samantha.reed@drgok.com",
+        grantedAt: "2024-09-15T14:00:00Z",
+        grantedByEmail: "samantha.reed@drgok.com",
+      },
+      {
+        email: "javier.morales@drgok.com",
+        grantedAt: "2024-09-17T16:30:00Z",
+        grantedByEmail: "samantha.reed@drgok.com",
+      },
+      {
+        email: "kelly.madison@navy.mil",
+        grantedAt: "2024-10-02T09:15:00Z",
+        grantedByEmail: "javier.morales@drgok.com",
+      },
+    ],
   },
   {
     id: "PROG-002",
@@ -33,6 +52,25 @@ const MOCK_PROGRAMS: Program[] = [
     sites: ["Tinker AFB, OK", "Wright-Patterson AFB, OH"],
     startDate: "2024-01-15T00:00:00Z",
     endDate: "2026-12-31T23:59:59Z",
+    creatorEmail: "erin.choi@drgok.com",
+    createdAt: "2024-01-05T13:00:00Z",
+    accessList: [
+      {
+        email: "samantha.reed@drgok.com",
+        grantedAt: "2024-01-05T13:00:00Z",
+        grantedByEmail: "samantha.reed@drgok.com",
+      },
+      {
+        email: "erin.choi@drgok.com",
+        grantedAt: "2024-01-10T18:45:00Z",
+        grantedByEmail: "samantha.reed@drgok.com",
+      },
+      {
+        email: "marcus.hill@us.af.mil",
+        grantedAt: "2024-02-01T11:20:00Z",
+        grantedByEmail: "erin.choi@drgok.com",
+      },
+    ],
   },
   {
     id: "PROG-003",
@@ -43,6 +81,25 @@ const MOCK_PROGRAMS: Program[] = [
     sites: ["Oklahoma City, OK", "Washington, D.C."],
     startDate: "2025-03-01T00:00:00Z",
     endDate: "2026-02-28T23:59:59Z",
+    creatorEmail: "javier.morales@drgok.com",
+    createdAt: "2025-02-20T15:10:00Z",
+    accessList: [
+      {
+        email: "samantha.reed@drgok.com",
+        grantedAt: "2025-02-20T15:10:00Z",
+        grantedByEmail: "samantha.reed@drgok.com",
+      },
+      {
+        email: "javier.morales@drgok.com",
+        grantedAt: "2025-02-22T10:05:00Z",
+        grantedByEmail: "samantha.reed@drgok.com",
+      },
+      {
+        email: "erin.choi@drgok.com",
+        grantedAt: "2025-02-25T08:25:00Z",
+        grantedByEmail: "samantha.reed@drgok.com",
+      },
+    ],
   },
 ];
 

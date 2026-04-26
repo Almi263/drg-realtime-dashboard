@@ -3,33 +3,13 @@ import Box from "@mui/material/Box";
 import Container from "@mui/material/Container";
 import Typography from "@mui/material/Typography";
 import CircularProgress from "@mui/material/CircularProgress";
-import { MockProgramConnector } from "@/lib/connectors/mock-programs";
 import { MockDeliverableConnector } from "@/lib/connectors/mock-deliverables";
-import ProgramStatusCard from "@/components/ProgramStatusCard";
+import ProgramsOverview from "@/components/ProgramsOverview";
 
 async function ProgramsContent() {
-  const [programs, deliverables] = await Promise.all([
-    new MockProgramConnector().getPrograms(),
-    new MockDeliverableConnector().getDeliverables(),
-  ]);
+  const deliverables = await new MockDeliverableConnector().getDeliverables();
 
-  return (
-    <Box
-      sx={{
-        display: "grid",
-        gridTemplateColumns: { xs: "1fr", md: "repeat(2, 1fr)" },
-        gap: 2,
-      }}
-    >
-      {programs.map((program) => (
-        <ProgramStatusCard
-          key={program.id}
-          program={program}
-          deliverables={deliverables.filter((d) => d.programId === program.id)}
-        />
-      ))}
-    </Box>
-  );
+  return <ProgramsOverview deliverables={deliverables} />;
 }
 
 export default function ProgramsPage() {
