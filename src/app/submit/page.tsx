@@ -8,7 +8,7 @@ import { MockDeliverableConnector } from "@/lib/connectors/mock-deliverables";
 import SubmitReportWizard from "@/components/SubmitReportWizard";
 import BackButton from "@/components/BackButton";
 import RoleGuard from "@/components/RoleGuard";
-import { ROUTE_ALLOWED_ROLES } from "@/lib/auth/route-access";
+import { ROUTE_ALLOWED_ROLES } from "@/lib/context/role-access";
 
 async function SubmitContent({
   initialProgramId,
@@ -49,13 +49,8 @@ export default async function SubmitPage({
         </Typography>
       </Box>
       <RoleGuard allowedRoles={[...ROUTE_ALLOWED_ROLES["/submit"]]}> 
-      
-      //currently role guard is only blocked for the submit page, so it will not be blocked for other pages
-      //this is because the submit page is the only page that is role-gated
-      //if we want to block other pages, we need to add the role guard to the other pages
-
-      //ultimately this stuff should be handled server side... 
-
+      {/* currently on submit page,  so we can use the ROUTE_ALLOWED_ROLES 
+      to get the allowed roles for the submit page */}
         <Suspense
           fallback={
             <Box sx={{ display: "flex", justifyContent: "center", py: 8 }}>

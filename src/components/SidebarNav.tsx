@@ -16,6 +16,7 @@ import FolderOpenIcon from "@mui/icons-material/FolderOpen";
 import BusinessCenterIcon from "@mui/icons-material/BusinessCenter";
 import UploadFileIcon from "@mui/icons-material/UploadFile";
 import { useRole } from "@/lib/context/role-context";
+import { canRoleSubmit } from "@/lib/context/role-access";
 
 const NAV_ITEMS = [
   { label: "Dashboard", href: "/", icon: DashboardIcon },
@@ -29,7 +30,7 @@ const NAV_ITEMS = [
 export default function SidebarNav() {
   const pathname = usePathname();
   const { role } = useRole();
-  const canSubmit = role === "drg-admin" || role === "drg-staff";
+  const canSubmit = canRoleSubmit(role);
 
   return (
     <Box sx={{ display: "flex", flexDirection: "column", height: "100%" }}>

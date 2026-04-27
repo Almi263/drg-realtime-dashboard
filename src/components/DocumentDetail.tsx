@@ -16,6 +16,7 @@ import FileDownloadIcon from "@mui/icons-material/FileDownload";
 import type { DeliverableDocument, FileType, AccessAction } from "@/lib/models/document";
 import type { Program } from "@/lib/models/program";
 import { useRole } from "@/lib/context/role-context";
+import { canRoleViewDocumentAccessLog, shouldRoleSeeDocumentAccessNotice } from "@/lib/context/role-access";
 
 /* ------------------------------------------------------------------ */
 /*  Helpers                                                           */
@@ -162,8 +163,9 @@ interface DocumentDetailProps {
 
 export default function DocumentDetail({ doc, deliverableTitle, program }: DocumentDetailProps) {
   const { role } = useRole();
-  const canSeeAccessLog = role === "drg-admin" || role === "drg-staff";
-
+  const canSeeAccessLog = canRoleViewDocumentAccessLog(role);
+  const showDocumentAccessNotice = shouldRoleSeeDocumentAccessNotice(role);
+  
   return (
     <Box sx={{ display: "flex", flexDirection: "column", gap: 3 }}>
       {/* Document header */}
@@ -228,7 +230,7 @@ export default function DocumentDetail({ doc, deliverableTitle, program }: Docum
       >
         <strong>Permanent record.</strong> This document was submitted on {formatDateTime(doc.uploadedAt)} and cannot be
         modified or deleted by external users. The access log below provides a full audit trail.
-        {role === "gov-reviewer" && " Your access to this document has been recorded."}
+        {showDocumentAccessNotice && " Your access to this document has been recorded."}
       </Alert>
 
       <Divider />

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { APP_ROUTES, canRoleAccessRoute, ROUTE_ALLOWED_ROLES } from "@/lib/auth/route-access";
+import { APP_ROUTES, canRoleAccessRoute, ROUTE_ALLOWED_ROLES } from "@/lib/context/role-access";
 import { ROLES, type Role } from "@/lib/context/role-context";
 
 describe("route access policy", () => {

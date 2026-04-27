@@ -1,5 +1,9 @@
 "use client";
 
+//This file is used to store the current role selected by the user, 
+//later on when this is implemented server side, this file will most
+//likley grab a user's assigned role from a database
+
 // Demo RBAC, swappable for MSAL when we get a real tenant
 import { createContext, useContext, useState } from "react";
 

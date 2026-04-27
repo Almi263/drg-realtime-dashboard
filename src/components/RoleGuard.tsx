@@ -1,4 +1,4 @@
-"use client";
+"use client"; //Roles currently only implemented in client side
 
 import Box from "@mui/material/Box";
 import Typography from "@mui/material/Typography";

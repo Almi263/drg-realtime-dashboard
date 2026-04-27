@@ -418,7 +418,7 @@ export default function SubmitReportWizard({
   initialProgramId,
   initialDeliverableId,
 }: SubmitReportWizardProps) {
-  // If we got here from a deliverable page (?programId=&deliverableId=), skip to upload
+  // If launched from a deliverable deep-link, jump straight to upload to reduce click-through.
   const prefilled = !!(initialProgramId && initialDeliverableId);
   const [step, setStep] = useState(prefilled ? 2 : 0);
   const [programId, setProgramId] = useState<string | null>(initialProgramId ?? null);
@@ -432,6 +432,7 @@ export default function SubmitReportWizard({
   const programDeliverables = deliverables.filter((d) => d.programId === programId);
 
   const handleProgramSelect = (id: string) => {
+    // Program changes invalidate prior deliverable selection.
     setProgramId(id);
     setDeliverableId(null);
     setStep(1);

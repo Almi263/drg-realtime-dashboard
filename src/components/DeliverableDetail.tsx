@@ -18,7 +18,7 @@ import type { Deliverable, DeliverableStatus } from "@/lib/models/deliverable";
 import type { DeliverableDocument, FileType } from "@/lib/models/document";
 import type { Program } from "@/lib/models/program";
 import { useRole } from "@/lib/context/role-context";
-
+import { canRoleViewDeliverableAccessLog, canRoleSubmit } from "@/lib/context/role-access";
 /* ------------------------------------------------------------------ */
 /*  Helpers                                                           */
 /* ------------------------------------------------------------------ */
@@ -70,8 +70,8 @@ export default function DeliverableDetail({
   program,
 }: DeliverableDetailProps) {
   const { role } = useRole();
-  const canSubmit = role === "drg-admin" || role === "drg-staff";
-  const canSeeAccessLog = role === "drg-admin" || role === "drg-staff";
+  const canSubmit = canRoleSubmit(role);
+  const canViewAccessLog = canRoleViewDeliverableAccessLog(role);
 
   const statusColors = STATUS_COLORS[d.status];
 
@@ -230,7 +230,7 @@ export default function DeliverableDetail({
                       {doc.uploadedBy} · {formatDateTime(doc.uploadedAt)}
                     </Typography>
                     <Chip label={doc.status} size="small" variant="outlined" sx={{ fontSize: "0.7rem" }} />
-                    {canSeeAccessLog && doc.accessLog.length > 0 && (
+                    {canViewAccessLog && doc.accessLog.length > 0 && (
                       <Tooltip title={`${doc.accessLog.length} access event${doc.accessLog.length !== 1 ? "s" : ""}`}>
                         <Chip
                           icon={<VisibilityIcon sx={{ fontSize: "0.75rem !important" }} />}

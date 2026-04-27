@@ -30,6 +30,12 @@ import type { SelectChangeEvent } from "@mui/material/Select";
 import type { DeliverableDocument, FileType, AccessAction } from "@/lib/models/document";
 import type { Program } from "@/lib/models/program";
 import { useRole } from "@/lib/context/role-context";
+import {
+  canRoleDeleteDocuments,
+  canRoleUploadDocuments,
+  canRoleViewDocumentAccessLog,
+  shouldRoleSeeDocumentAccessNotice,
+} from "@/lib/context/role-access";
 
 /* ------------------------------------------------------------------ */
 /*  Helpers                                                           */
@@ -127,10 +133,10 @@ export default function DocumentsTable({ documents, deliverableMap, programs }: 
   const [programFilter, setProgramFilter] = useState<string>("All");
 
   const showProgramFilter = programs.length > 1;
-  const canUpload = role === "drg-admin" || role === "drg-staff";
-  const canDelete = role === "drg-admin";
-  // Access log only visible to internal roles
-  const canSeeAccessLog = role === "drg-admin" || role === "drg-staff";
+  const canUpload = canRoleUploadDocuments(role);
+  const canDelete = canRoleDeleteDocuments(role);
+  // Access log is intentionally internal-facing: reviewers see immutable records, not audit internals.
+  const canSeeAccessLog = canRoleViewDocumentAccessLog(role);
 
   const filtered = programFilter === "All"
     ? documents
@@ -172,7 +178,7 @@ export default function DocumentsTable({ documents, deliverableMap, programs }: 
             </Select>
           </FormControl>
         )}
-        {role === "gov-reviewer" && (
+        {shouldRoleSeeDocumentAccessNotice(role) && (
           <Typography variant="caption" sx={{ color: "text.secondary", ml: "auto" }}>
             Read-only access — download only
           </Typography>

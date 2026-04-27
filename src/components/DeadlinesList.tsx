@@ -87,6 +87,7 @@ function groupDeliverables(deliverables: Deliverable[]): DeliverableGroup[] {
   const thisMonth: Deliverable[] = [];
   const later: Deliverable[] = [];
 
+  // Bucket each item into a single urgency window so the UI can prioritize work queues.
   for (const d of deliverables) {
     const due = toDateOnly(d.dueDate);
 
@@ -200,7 +201,7 @@ interface DeadlinesListProps {
 }
 
 export default function DeadlinesList({ deliverables }: DeadlinesListProps) {
-  // Exclude completed items — the calendar is an action surface, not a history view
+  // Exclude completed items; this view is for scheduling next actions, not archival reporting.
   const actionable = deliverables.filter(
     (d) => d.status !== "Submitted" && d.status !== "Approved"
   );
