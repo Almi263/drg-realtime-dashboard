@@ -8,6 +8,7 @@ import { MockDeliverableConnector } from "@/lib/connectors/mock-deliverables";
 import SubmitReportWizard from "@/components/SubmitReportWizard";
 import BackButton from "@/components/BackButton";
 import RoleGuard from "@/components/RoleGuard";
+import { ROUTE_ALLOWED_ROLES } from "@/lib/auth/route-access";
 
 async function SubmitContent({
   initialProgramId,
@@ -47,7 +48,14 @@ export default async function SubmitPage({
           Upload a deliverable document to the permanent record
         </Typography>
       </Box>
-      <RoleGuard allowedRoles={["drg-admin", "drg-staff"]}>
+      <RoleGuard allowedRoles={[...ROUTE_ALLOWED_ROLES["/submit"]]}> 
+      
+      //currently role guard is only blocked for the submit page, so it will not be blocked for other pages
+      //this is because the submit page is the only page that is role-gated
+      //if we want to block other pages, we need to add the role guard to the other pages
+
+      //ultimately this stuff should be handled server side... 
+
         <Suspense
           fallback={
             <Box sx={{ display: "flex", justifyContent: "center", py: 8 }}>
