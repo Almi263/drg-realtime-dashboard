@@ -2,6 +2,8 @@
 //eventually this functionality will be checked serverside, since right now it's all handled 
 //within local react files 
 
+//Importing and App Route Setup
+
 import type { Role } from "@/lib/context/role-context";
 
 export const APP_ROUTES = [
@@ -14,6 +16,8 @@ export const APP_ROUTES = [
 ] as const;
 
 export type AppRoute = (typeof APP_ROUTES)[number];
+
+//Role permissions
 
 export const ROUTE_ALLOWED_ROLES: Record<AppRoute, readonly Role[]> = {
   "/": ["drg-admin", "drg-staff", "gov-reviewer"],
@@ -30,6 +34,8 @@ export const DOCUMENTS_DELETE_ALLOWED_ROLES: readonly Role[] = ["drg-admin"];
 export const DOCUMENTS_ACCESS_LOG_ALLOWED_ROLES: readonly Role[] = ["drg-admin", "drg-staff"];
 export const DELIVERABLE_ACCESS_LOG_ALLOWED_ROLES: readonly Role[] = ["drg-admin", "drg-staff"];
 export const DOCUMENT_ACCESS_NOTICE_ALLOWED_ROLES: readonly Role[] = ["gov-reviewer"];
+
+//Access functions
 
 export function canRoleAccessRoute(role: Role, route: AppRoute): boolean {
   return ROUTE_ALLOWED_ROLES[route].includes(role);
