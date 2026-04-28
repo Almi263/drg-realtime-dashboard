@@ -24,12 +24,12 @@ pnpm dev
 # http://localhost:3000
 ```
 
-No credentials needed, it runs on mock data by default. To connect real Azure services copy `.env.example` to `.env.local` and fill in:
+To connect Microsoft Entra ID and reviewer invitations, copy `.env.example` to `.env.local` and fill in:
 
-- `AZURE_AD_TENANT_ID`, `AZURE_AD_CLIENT_ID`, `AZURE_AD_CLIENT_SECRET` for auth
-- `DATABASE_URL` for the database
-- `AZURE_STORAGE_CONNECTION_STRING` and `AZURE_STORAGE_CONTAINER_NAME` for document uploads
-- `NEXT_PUBLIC_APP_URL` for the public base URL
+- `AUTH_SECRET` and `AUTH_URL`
+- `AUTH_MICROSOFT_ENTRA_ID_ID`, `AUTH_MICROSOFT_ENTRA_ID_SECRET`, and `AUTH_MICROSOFT_ENTRA_ID_ISSUER`
+- `ENTRA_DRG_ADMIN_GROUP_ID` and `ENTRA_DRG_STAFF_GROUP_ID`
+- `AZURE_TENANT_ID`, `AZURE_GRAPH_CLIENT_ID`, `AZURE_GRAPH_CLIENT_SECRET`, and `APP_URL`
 
 Only the connector implementations in `src/lib/connectors/` change when switching from mock to real, the pages and components stay the same.
 
@@ -65,7 +65,7 @@ src/
 
 All external integrations are behind connector interfaces in `src/lib/connectors/` with mock implementations that return hardcoded data. Swapping in real Azure APIs later means replacing those files, nothing else changes.
 
-The role switcher in the header lets you toggle between three access levels during the demo: `gov-reviewer` (read and download only), `drg-staff` (can submit), and `drg-admin` (full access including delete). In production this would come from Azure AD group membership via MSAL.
+Authentication now uses Auth.js with the Microsoft Entra ID provider. Internal roles come from Entra app roles or group claims, while `gov-reviewer` is derived from a matching email in a program's access list.
 
 ## Tests
 

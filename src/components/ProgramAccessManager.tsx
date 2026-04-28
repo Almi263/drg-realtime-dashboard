@@ -1,8 +1,7 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import Alert from "@mui/material/Alert";
-import Autocomplete from "@mui/material/Autocomplete";
 import Box from "@mui/material/Box";
 import Button from "@mui/material/Button";
 import Card from "@mui/material/Card";
@@ -22,8 +21,13 @@ import TableHead from "@mui/material/TableHead";
 import TableRow from "@mui/material/TableRow";
 import TextField from "@mui/material/TextField";
 import Typography from "@mui/material/Typography";
+import { normalizeEmail } from "@/lib/auth/roles";
 import type { Program } from "@/lib/models/program";
-import { ROLE_LABELS, useRole } from "@/lib/context/role-context";
+import { useRole } from "@/lib/context/role-context";
+
+function getAccessBadgeLabel(email: string) {
+  return email.endsWith("@drgok.com") ? "Internal" : "External";
+}
 
 function formatDateTime(iso: string) {
   return new Date(iso).toLocaleString("en-US", {
@@ -37,8 +41,6 @@ function formatDateTime(iso: string) {
 
 export default function ProgramAccessManager({ program }: { program: Program }) {
   const {
-    accounts,
-    role,
     currentUser,
     getProgramAccessList,
     canManageProgramAccess,
@@ -47,22 +49,43 @@ export default function ProgramAccessManager({ program }: { program: Program }) 
     grantProgramAccess,
     revokeProgramAccess,
   } = useRole();
-  const [selectedEmail, setSelectedEmail] = useState<string | null>(null);
+  const [selectedEmail, setSelectedEmail] = useState("");
+  const [isSavingAccess, setIsSavingAccess] = useState(false);
+  const [accessError, setAccessError] = useState<string | null>(null);
   const [pendingRevokeEmail, setPendingRevokeEmail] = useState<string | null>(null);
 
   const accessList = getProgramAccessList(program.id);
   const mayManageAccess = canManageProgramAccess(program.id);
 
-  const grantableAccounts = useMemo(
-    () =>
-      accounts.filter((account) => canGrantProgramAccess(program.id, account.email)),
-    [accounts, canGrantProgramAccess, program.id]
-  );
+  async function handleGrantAccess() {
+    const email = selectedEmail.trim().toLowerCase();
+    if (!email) return;
 
-  const pendingRevokeAccount = pendingRevokeEmail
-    ? accounts.find((account) => account.email === pendingRevokeEmail) ?? null
-    : null;
-  const creator = accounts.find((account) => account.email === program.creatorEmail) ?? null;
+    setIsSavingAccess(true);
+    setAccessError(null);
+
+    try {
+      const res = await fetch(`/api/programs/${program.id}/access`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ email }),
+      });
+
+      if (!res.ok) {
+        const json = await res.json().catch(() => null);
+        throw new Error(json?.error ?? "Failed to grant access.");
+      }
+
+      grantProgramAccess(program.id, email);
+      setSelectedEmail("");
+    } catch (error) {
+      setAccessError(error instanceof Error ? error.message : "Failed to grant access.");
+    } finally {
+      setIsSavingAccess(false);
+    }
+  }
 
   return (
     <Card variant="outlined">
@@ -79,7 +102,7 @@ export default function ProgramAccessManager({ program }: { program: Program }) 
         </Typography>
 
         <Alert severity="info" sx={{ mb: 2 }}>
-          Program creator: {creator ? `${creator.name} (${creator.email})` : program.creatorEmail}
+          Program creator: {program.creatorEmail}
         </Alert>
 
         {mayManageAccess ? (
@@ -92,66 +115,30 @@ export default function ProgramAccessManager({ program }: { program: Program }) 
               mb: 2,
             }}
           >
-            <Autocomplete
-              options={grantableAccounts}
-              value={grantableAccounts.find((account) => account.email === selectedEmail) ?? null}
-              onChange={(_, value) => setSelectedEmail(value?.email ?? null)}
-              getOptionLabel={(option) => `${option.name} (${option.email})`}
-              filterOptions={(options, state) => {
-                const query = state.inputValue.trim().toLowerCase();
-                if (!query) return options;
-                return options.filter((option) =>
-                  `${option.name} ${option.email}`.toLowerCase().includes(query)
-                );
-              }}
-              noOptionsText="No matching accounts"
+            <TextField
+              size="small"
+              label="Invite reviewer by email"
+              placeholder="name@example.com"
+              value={selectedEmail}
+              onChange={(event) => setSelectedEmail(event.target.value)}
               sx={{ minWidth: 320, maxWidth: "100%", flex: 1 }}
-              renderInput={(params) => (
-                <TextField
-                  {...params}
-                  size="small"
-                  label="Add account"
-                  placeholder="Search by name or email"
-                />
-              )}
-              renderOption={(props, option) => (
-                <Box component="li" {...props}>
-                  <Box sx={{ display: "flex", flexDirection: "column" }}>
-                    <Typography variant="body2" sx={{ fontWeight: 600 }}>
-                      {option.name}
-                    </Typography>
-                    <Typography variant="caption" sx={{ color: "text.secondary" }}>
-                      {option.email} · {ROLE_LABELS[option.role]}
-                    </Typography>
-                  </Box>
-                </Box>
-              )}
             />
             <Button
               variant="contained"
               size="small"
-              disabled={!selectedEmail}
-              onClick={() => {
-                if (selectedEmail) {
-                  grantProgramAccess(program.id, selectedEmail);
-                }
-                setSelectedEmail(null);
-              }}
+              disabled={!canGrantProgramAccess(program.id, selectedEmail) || isSavingAccess}
+              onClick={handleGrantAccess}
             >
-              Grant Access
+              {isSavingAccess ? "Sending Invite..." : "Grant Access"}
             </Button>
           </Box>
         ) : (
           <Alert severity="info" sx={{ mb: 2 }}>
-            Only DRG admins, program creators, or DRG staff already assigned to this program can manage this access list.
+            Only DRG admins or assigned DRG staff can manage this access list.
           </Alert>
         )}
 
-        {role === "drg-staff" && mayManageAccess && (
-          <Alert severity="info" sx={{ mb: 2 }}>
-            As DRG staff, you can add government reviewers and other DRG staff. Only the program creator can revoke other DRG staff.
-          </Alert>
-        )}
+        {accessError && <Alert severity="error" sx={{ mb: 2 }}>{accessError}</Alert>}
 
         <TableContainer>
           <Table size="small">
@@ -167,13 +154,12 @@ export default function ProgramAccessManager({ program }: { program: Program }) 
             </TableHead>
             <TableBody>
               {accessList.map((entry) => {
-                const grantor = accounts.find((account) => account.email === entry.grantedByEmail);
                 const mayRevoke = canRevokeProgramAccess(program.id, entry.email);
                 return (
                   <TableRow key={entry.email} hover>
                     <TableCell sx={{ fontWeight: 600 }}>
-                      {entry.account?.name ?? entry.email}
-                      {entry.email === currentUser.email && (
+                      {entry.email}
+                      {normalizeEmail(entry.email) === normalizeEmail(currentUser?.email) && (
                         <Typography component="span" variant="caption" sx={{ color: "text.secondary", ml: 0.75 }}>
                           (You)
                         </Typography>
@@ -182,13 +168,13 @@ export default function ProgramAccessManager({ program }: { program: Program }) 
                     <TableCell>{entry.email}</TableCell>
                     <TableCell>
                       <Chip
-                        label={entry.account ? ROLE_LABELS[entry.account.role] : "External"}
+                        label={getAccessBadgeLabel(entry.email)}
                         size="small"
                         variant="outlined"
                       />
                     </TableCell>
                     <TableCell>{formatDateTime(entry.grantedAt)}</TableCell>
-                    <TableCell>{grantor ? `${grantor.name} (${grantor.email})` : entry.grantedByEmail}</TableCell>
+                    <TableCell>{entry.grantedByEmail}</TableCell>
                     {mayManageAccess && (
                       <TableCell>
                         <Button
@@ -216,7 +202,7 @@ export default function ProgramAccessManager({ program }: { program: Program }) 
           <DialogContent>
             <DialogContentText>
               Are you sure you would like to revoke access
-              {pendingRevokeAccount ? ` for ${pendingRevokeAccount.name} (${pendingRevokeAccount.email})` : ""}?
+              {pendingRevokeEmail ? ` for ${pendingRevokeEmail}` : ""}?
             </DialogContentText>
           </DialogContent>
           <DialogActions>

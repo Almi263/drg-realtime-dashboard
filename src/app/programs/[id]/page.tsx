@@ -6,6 +6,8 @@ import BackButton from "@/components/BackButton";
 import { MockDeliverableConnector } from "@/lib/connectors/mock-deliverables";
 import { MockDocumentConnector } from "@/lib/connectors/mock-documents";
 import ProgramDetailView from "@/components/ProgramDetailView";
+import { assertCanViewProgram, requireUser } from "@/lib/auth/guards";
+import { MockProgramConnector } from "@/lib/connectors/mock-programs";
 
 async function ProgramDetailContent({ id }: { id: string }) {
   const [deliverables, documents] = await Promise.all([
@@ -23,7 +25,11 @@ export default async function ProgramPage({
 }: {
   params: Promise<{ id: string }>;
 }) {
+  const user = await requireUser();
   const { id } = await params;
+  const program = await new MockProgramConnector().getProgramById(id);
+
+  assertCanViewProgram(user, program);
 
   return (
     <Container maxWidth="lg" sx={{ py: { xs: 3, sm: 4 } }}>

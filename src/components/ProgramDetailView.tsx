@@ -36,18 +36,12 @@ export default function ProgramDetailView({
   documents,
 }: ProgramDetailViewProps) {
   const [activeTab, setActiveTab] = useState(0);
-  const { canViewProgram, getProgramById } = useRole();
+  const { getProgramById } = useRole();
   const program = getProgramById(programId);
 
   if (!program) {
     return (
       <AccessRestrictedNotice title="Program not found" message="This program could not be found in the current workspace." />
-    );
-  }
-
-  if (!canViewProgram(program.id)) {
-    return (
-      <AccessRestrictedNotice message="This account does not currently have access to this program." />
     );
   }
 

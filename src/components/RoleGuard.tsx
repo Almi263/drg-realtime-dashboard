@@ -10,7 +10,7 @@ interface RoleGuardProps {
   children: React.ReactNode;
 }
 
-function AccessDenied({ role }: { role: Role }) {
+function AccessDenied({ role }: { role: Role | null }) {
   return (
     <Box
       sx={{
@@ -28,17 +28,19 @@ function AccessDenied({ role }: { role: Role }) {
         Access restricted
       </Typography>
       <Typography variant="body2" sx={{ textAlign: "center", maxWidth: 360 }}>
-        This page is not available for the <strong>{ROLE_LABELS[role]}</strong> role.
-        Switch accounts in the header to access this section.
+        This page is not available for the{" "}
+        <strong>{role ? ROLE_LABELS[role] : "current"}</strong> role.
       </Typography>
     </Box>
   );
 }
 
 export default function RoleGuard({ allowedRoles, children }: RoleGuardProps) {
-  const { role } = useRole();
-  if (!allowedRoles.includes(role)) {
+  const { role, hasAnyRole } = useRole();
+
+  if (!hasAnyRole(allowedRoles)) {
     return <AccessDenied role={role} />;
   }
+
   return <>{children}</>;
 }

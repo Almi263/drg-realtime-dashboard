@@ -1,23 +1,15 @@
 "use client";
 
 import AppBar from "@mui/material/AppBar";
+import Box from "@mui/material/Box";
+import Chip from "@mui/material/Chip";
 import Toolbar from "@mui/material/Toolbar";
 import Typography from "@mui/material/Typography";
-import Box from "@mui/material/Box";
-import Select from "@mui/material/Select";
-import MenuItem from "@mui/material/MenuItem";
-import Chip from "@mui/material/Chip";
-import PersonIcon from "@mui/icons-material/Person";
-import { useRole, ROLE_LABELS, type Role } from "@/lib/context/role-context";
-
-const ROLE_CHIP_COLORS: Record<Role, string> = {
-  "drg-admin": "rgba(255,255,255,0.18)",
-  "drg-staff": "rgba(255,255,255,0.18)",
-  "gov-reviewer": "rgba(255,193,7,0.25)",
-};
+import { SignInButton, SignOutButton } from "@/components/AuthButtons";
+import { useRole, ROLE_LABELS } from "@/lib/context/role-context";
 
 export default function AppHeader() {
-  const { role, accounts, currentUser, setCurrentUserEmail } = useRole();
+  const { role, currentUser } = useRole();
 
   return (
     <AppBar position="sticky" elevation={0} sx={{ bgcolor: "primary.main" }}>
@@ -31,26 +23,17 @@ export default function AppHeader() {
           gap: 1.5,
         }}
       >
-        {/* Wordmark */}
         <Box
-          sx={{
-            bgcolor: "rgba(255,255,255,0.15)",
-            color: "#fff",
-            fontWeight: 800,
-            fontSize: "0.7rem",
-            letterSpacing: 1.5,
-            px: 1.2,
-            py: 0.4,
-            borderRadius: 1,
-            userSelect: "none",
-            flexShrink: 0,
-          }}
-          component="span"
+          sx={{ display: "flex", alignItems: "center", flexShrink: 0 }}
         >
-          DRG
+          <Box
+            component="img"
+            src="/DRG-logo-horizontal.avif"
+            alt="Delaware Resource Group"
+            sx={{ width: "auto", height: 36, display: "block" }}
+          />
         </Box>
 
-        {/* App name */}
         <Box sx={{ mr: "auto" }}>
           <Typography
             variant="subtitle2"
@@ -63,52 +46,25 @@ export default function AppHeader() {
           </Typography>
         </Box>
 
-        {/* Role switcher */}
         <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-          <PersonIcon sx={{ color: "rgba(255,255,255,0.5)", fontSize: "1rem" }} />
-          <Typography variant="caption" sx={{ color: "rgba(255,255,255,0.5)", fontSize: "0.7rem", whiteSpace: "nowrap" }}>
-            Viewing as
-          </Typography>
-          <Select
-            value={currentUser.email}
-            onChange={(e) => setCurrentUserEmail(e.target.value)}
-            size="small"
-            variant="outlined"
-            renderValue={(v) => (
+          {currentUser ? (
+            <>
               <Chip
-                label={String(v)}
+                label={`${currentUser.email}${role ? ` · ${ROLE_LABELS[role]}` : ""}`}
                 size="small"
                 sx={{
-                  bgcolor: ROLE_CHIP_COLORS[role],
+                  bgcolor: "rgba(255,255,255,0.18)",
                   color: "#fff",
                   fontWeight: 600,
                   fontSize: "0.72rem",
-                  height: 22,
-                  cursor: "pointer",
+                  height: 24,
                 }}
               />
-            )}
-            sx={{
-              color: "#fff",
-              "& .MuiOutlinedInput-notchedOutline": { border: "none" },
-              "& .MuiSelect-icon": { color: "rgba(255,255,255,0.5)" },
-              "& .MuiSelect-select": { p: "2px 28px 2px 4px !important" },
-              minWidth: 130,
-            }}
-          >
-            {accounts.map((account) => (
-              <MenuItem key={account.email} value={account.email}>
-                <Box sx={{ display: "flex", flexDirection: "column", minWidth: 280 }}>
-                  <Typography variant="body2" sx={{ fontWeight: 600 }}>
-                    {account.name}
-                  </Typography>
-                  <Typography variant="caption" sx={{ color: "text.secondary" }}>
-                    {account.email} · {ROLE_LABELS[account.role]}
-                  </Typography>
-                </Box>
-              </MenuItem>
-            ))}
-          </Select>
+              <SignOutButton />
+            </>
+          ) : (
+            <SignInButton />
+          )}
         </Box>
       </Toolbar>
     </AppBar>
