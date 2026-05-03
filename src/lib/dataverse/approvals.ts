@@ -4,6 +4,7 @@ import type { Approval, ApprovalDecision } from "@/lib/models/approval";
 import type { Program } from "@/lib/models/program";
 import {
   dataverseFetch,
+  escapeODataString,
   getFormattedValue,
   isDataverseConfigured,
   listRows,
@@ -81,6 +82,25 @@ export async function getApprovalById(id: string): Promise<Approval | undefined>
   return rows[0] ? mapApprovalRow(rows[0]) : undefined;
 }
 
+export async function listVisibleApprovals(user: {
+  email?: string | null;
+  internalRoles: InternalRole[];
+}): Promise<Approval[]> {
+  if (!isDataverseConfigured()) return [];
+
+  const reviewerEmail = escapeODataString(String(user.email ?? "").trim().toLowerCase());
+  const filter = user.internalRoles.includes("external-reviewer")
+    ? `statecode eq 0 and drg_iscurrent eq true and drg_revieweremail eq '${reviewerEmail}'`
+    : "statecode eq 0 and drg_iscurrent eq true";
+
+  const rows = await listRows<DataverseApprovalRow>(
+    "drg_approvals",
+    `$select=drg_approvalid,drg_name,_drg_program_value,_drg_deliverable_value,_drg_document_value,drg_submissionnumber,_drg_revieweruser_value,drg_revieweremail,drg_comments,_drg_responsedocument_value,drg_duedate,drg_decisiondate,drg_iscurrent,drg_decision&$filter=${filter}&$orderby=drg_duedate asc`
+  );
+
+  return rows.map(mapApprovalRow);
+}
+
 async function patchApprovalDecision(input: SubmitApprovalDecisionInput) {
   if (!isDataverseConfigured()) {
     throw new Error("Dataverse is not configured for approval writes.");
@@ -111,4 +131,20 @@ export async function submitApprovalDecision(input: SubmitApprovalDecisionForUse
   }
 
   await patchApprovalDecision(input);
+}
+
+export async function acknowledgeApproval(input: {
+  user: { email?: string | null; internalRoles: InternalRole[] };
+  program: Program;
+  approval: Approval;
+}) {
+  if (!input.approval.isCurrent) {
+    throw new Error("Only current approvals can be acknowledged.");
+  }
+  if (input.approval.programId !== input.program.id) {
+    throw new Error("Approval does not belong to this program.");
+  }
+  if (input.program.status === "Archived") {
+    throw new Error("Archived programs cannot be acknowledged.");
+  }
 }

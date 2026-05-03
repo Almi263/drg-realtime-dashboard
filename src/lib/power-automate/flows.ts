@@ -2,6 +2,7 @@ export type FlowName =
   | "submissionCreated"
   | "documentDownloaded"
   | "approvalDecisionSubmitted"
+  | "approvalAcknowledged"
   | "programAccessChanged";
 
 const FLOW_URLS: Record<FlowName, string | undefined> = {
@@ -9,6 +10,7 @@ const FLOW_URLS: Record<FlowName, string | undefined> = {
   documentDownloaded: process.env.POWER_AUTOMATE_DOCUMENT_DOWNLOADED_URL,
   approvalDecisionSubmitted:
     process.env.POWER_AUTOMATE_APPROVAL_DECISION_SUBMITTED_URL,
+  approvalAcknowledged: process.env.POWER_AUTOMATE_APPROVAL_ACKNOWLEDGED_URL,
   programAccessChanged: process.env.POWER_AUTOMATE_PROGRAM_ACCESS_CHANGED_URL,
 };
 

@@ -207,8 +207,7 @@ Trigger:
 - Scope: Organization
 - Filter rows: `statecode eq 0`
 - Trigger condition:
-  - `drg_documentrole = DRG Submission`
-  - parent program is not archived
+  - `@equals(triggerOutputs()?['body/drg_documentrole@OData.Community.Display.V1.FormattedValue'], 'DRG Submission')`
 
 Actions:
 
@@ -226,71 +225,73 @@ Actions:
   - Row ID: `_drg_program_value` from the document row
 - Validate parent program is not archived:
   - Action: Control `Condition`
-  - Condition: parent program `drg_status` is not equal to Archived
-  - If archived, terminate the flow as Failed or Cancelled.
-- List previous current DRG submission documents:
-  - Action: Dataverse `List rows`
-  - Table name: `drg_documents`
-  - Filter rows: `_drg_deliverable_value eq @{outputs('Get_parent_deliverable')?['body/drg_deliverableid']} and drg_iscurrentversion eq true and drg_documentid ne @{outputs('Get_the_new_document_row')?['body/drg_documentid']}`
-- For each previous current submission, update the document:
-  - Action: Dataverse `Update a row`
-  - Table name: `drg_documents`
-  - Row ID: current item `drg_documentid`
-  - `drg_status`: Outdated
-  - `drg_iscurrentversion`: No
-  - `drg_supersededbydocument`: new document
-  - `drg_supersededon`: current date/time
-- Calculate next submission number:
-  - Action: Data Operations `Compose`
-  - if deliverable `drg_currentsubmissionnumber` is blank, use `1`
-  - otherwise use `drg_currentsubmissionnumber + 1`
-- Update new document:
-  - Action: Dataverse `Update a row`
-  - Table name: `drg_documents`
-  - Row ID: new document row ID
-  - `drg_submissionnumber`: calculated number
-  - `drg_status`: Submitted
-  - `drg_iscurrentversion`: Yes
-- Update parent deliverable:
-  - Action: Dataverse `Update a row`
-  - Table name: `drg_deliverables`
-  - Row ID: parent deliverable row ID
-  - `drg_status`: Submitted
-  - `drg_currentsubmissionnumber`: calculated number
-  - `drg_lastsubmittedon`: current date/time
-  - `drg_isclosed`: No
-- List active external reviewer access rows:
-  - Action: Dataverse `List rows`
-  - Table name: `drg_programaccesses`
-  - Filter rows: `_drg_program_value eq @{outputs('Get_parent_program')?['body/drg_programid']} and drg_isactive eq true and drg_accessrole eq <External Reviewer choice value>`
-- For each external reviewer, create an approval:
-  - Action: Dataverse `Add a new row`
-  - Table name: `drg_approvals`
-  - `drg_name`: `{deliverable number} submission {submission number} | {reviewer email}`
-  - `drg_program`: parent program
-  - `drg_deliverable`: parent deliverable
-  - `drg_document`: new document
-  - `drg_submissionnumber`: calculated number
-  - `drg_revieweruser`: reviewer user
-  - `drg_revieweremail`: reviewer email
-  - `drg_decision`: Pending
-  - `drg_duedate`: new document `drg_reviewduedate`
-  - `drg_iscurrent`: Yes
-- List older current approvals for the deliverable:
-  - Action: Dataverse `List rows`
-  - Table name: `drg_approvals`
-  - Filter rows: `_drg_deliverable_value eq @{outputs('Get_parent_deliverable')?['body/drg_deliverableid']} and drg_iscurrent eq true`
-- For each older approval that is not one of the approvals just created, update the approval:
-  - Action: Dataverse `Update a row`
-  - Table name: `drg_approvals`
-  - Row ID: current item `drg_approvalid`
-  - `drg_iscurrent`: No
-- Send notification to each external reviewer:
-  - Action: Office 365 Outlook `Send an email (V2)`, Teams `Post message`, or your selected notification connector
-  - include program name/number
-  - deliverable title/number
-  - document link
-  - review due date if provided
+  - Condition: `@not(equals(outputs('Get_parent_program')?['body/drg_status@OData.Community.Display.V1.FormattedValue'], 'Archived'))`
+  - If no:
+    - Terminate the flow as Failed or Cancelled.
+  - If yes:
+    - List previous current DRG submission documents:
+      - Action: Dataverse `List rows`
+      - Table name: `drg_documents`
+      - Filter rows: `_drg_deliverable_value eq @{outputs('Get_parent_deliverable')?['body/drg_deliverableid']} and drg_iscurrentversion eq true and drg_documentid ne @{outputs('Get_the_new_document_row')?['body/drg_documentid']}`
+    - For each previous current submission, update the document:
+      - Action: Dataverse `Update a row`
+      - Table name: `drg_documents`
+      - Row ID: current item `drg_documentid`
+      - `drg_status`: Outdated
+      - `drg_iscurrentversion`: No
+      - `drg_supersededbydocument`: new document
+      - `drg_supersededon`: current date/time
+    - Calculate next submission number:
+      - Action: Data Operations `Compose`
+      - if deliverable `drg_currentsubmissionnumber` is blank, use `1`
+      - otherwise use `drg_currentsubmissionnumber + 1`
+    - Update new document:
+      - Action: Dataverse `Update a row`
+      - Table name: `drg_documents`
+      - Row ID: new document row ID
+      - `drg_submissionnumber`: calculated number
+      - `drg_status`: Submitted
+      - `drg_iscurrentversion`: Yes
+    - Update parent deliverable:
+      - Action: Dataverse `Update a row`
+      - Table name: `drg_deliverables`
+      - Row ID: parent deliverable row ID
+      - `drg_status`: Submitted
+      - `drg_currentsubmissionnumber`: calculated number
+      - `drg_lastsubmittedon`: current date/time
+      - `drg_isclosed`: No
+    - List active external reviewer access rows:
+      - Action: Dataverse `List rows`
+      - Table name: `drg_programaccesses`
+      - Filter rows: `_drg_program_value eq @{outputs('Get_parent_program')?['body/drg_programid']} and drg_isactive eq true and drg_accessrole eq <External Reviewer choice value>`
+    - For each external reviewer, create an approval:
+      - Action: Dataverse `Add a new row`
+      - Table name: `drg_approvals`
+      - `drg_name`: `{deliverable number} submission {submission number} | {reviewer email}`
+      - `drg_program`: parent program
+      - `drg_deliverable`: parent deliverable
+      - `drg_document`: new document
+      - `drg_submissionnumber`: calculated number
+      - `drg_revieweruser`: reviewer user
+      - `drg_revieweremail`: reviewer email
+      - `drg_decision`: Pending
+      - `drg_duedate`: new document `drg_reviewduedate`
+      - `drg_iscurrent`: Yes
+    - List older current approvals for the deliverable:
+      - Action: Dataverse `List rows`
+      - Table name: `drg_approvals`
+      - Filter rows: `_drg_deliverable_value eq @{outputs('Get_parent_deliverable')?['body/drg_deliverableid']} and drg_iscurrent eq true`
+    - For each older approval that is not one of the approvals just created, update the approval:
+      - Action: Dataverse `Update a row`
+      - Table name: `drg_approvals`
+      - Row ID: current item `drg_approvalid`
+      - `drg_iscurrent`: No
+    - Send notification to each external reviewer:
+      - Action: Office 365 Outlook `Send an email (V2)`, Teams `Post message`, or your selected notification connector
+      - include program name/number
+      - deliverable title/number
+      - document link
+      - review due date if provided
 
 Notes:
 

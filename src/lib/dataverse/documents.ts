@@ -58,6 +58,8 @@ export interface CreateDocumentMetadataInput {
   checksum?: string;
   documentRole?: DocumentRole;
   reviewDueDate?: string;
+  parentDocumentId?: string;
+  approvalId?: string;
 }
 
 function toUiFileType(fileName: string): FileType {
@@ -237,8 +239,31 @@ export async function createDocumentMetadata(input: CreateDocumentMetadataInput)
     drg_reviewduedate: input.reviewDueDate || undefined,
   };
 
-  await dataverseFetch<void>("/drg_documents", {
+  if (input.parentDocumentId) {
+    payload["drg_parentdocument@odata.bind"] = lookupBind(
+      "drg_documents",
+      input.parentDocumentId
+    );
+  }
+
+  if (input.approvalId) {
+    payload["drg_approval@odata.bind"] = lookupBind(
+      "drg_approvals",
+      input.approvalId
+    );
+  }
+
+  const response = await dataverseFetch<{ drg_documentid?: string }>("/drg_documents", {
     method: "POST",
+    headers: {
+      Prefer: "return=representation",
+    },
     body: JSON.stringify(payload),
   });
+
+  if (!response.drg_documentid) {
+    throw new Error("Dataverse did not return the created document ID.");
+  }
+
+  return response.drg_documentid;
 }
