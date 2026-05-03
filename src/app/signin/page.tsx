@@ -34,7 +34,7 @@ export default async function SignInPage() {
             width: "100%",
             maxWidth: 450,
             p: { xs: 3, sm: 5 },
-            borderRadius: 0.5,
+            borderRadius: 0,
             border: "1px solid",
             borderColor: "rgba(0,32,80,0.12)",
             backgroundColor: "#fff",
@@ -66,7 +66,7 @@ export default async function SignInPage() {
                 "use server";
                 await signIn("microsoft-entra-id", { redirectTo: "/" });
               }}
-              style={{ width: "100%", maxWidth: "430px", alignSelf: "center" }}
+              style={{ width: "100%", maxWidth: "340px", alignSelf: "center" }}
             >
               <Button
                 type="submit"
@@ -99,7 +99,7 @@ export default async function SignInPage() {
                 sx={{
                   py: 1.4,
                   fontWeight: 700,
-                  borderRadius: 0.5,
+                  borderRadius: 0,
                   bgcolor: MICROSOFT_BLUE,
                   boxShadow: "none",
                   justifyContent: "flex-start",
