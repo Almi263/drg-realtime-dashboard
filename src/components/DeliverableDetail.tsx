@@ -65,12 +65,14 @@ interface DeliverableDetailProps {
   deliverable: Deliverable;
   documents: DeliverableDocument[];
   program: Program | undefined;
+  accessLogCountsByDocumentId?: Record<string, number>;
 }
 
 export default function DeliverableDetail({
   deliverable: d,
   documents,
   program,
+  accessLogCountsByDocumentId = {},
 }: DeliverableDetailProps) {
   const { role } = useRole();
   const canSubmit =
@@ -209,54 +211,58 @@ export default function DeliverableDetail({
           </Box>
         ) : (
           <Box sx={{ display: "flex", flexDirection: "column", gap: 1 }}>
-            {documents.map((doc) => (
-              <Card key={doc.id} variant="outlined">
-                <CardContent
-                  sx={{
-                    display: "flex",
-                    alignItems: "center",
-                    gap: 2,
-                    py: 1.5,
-                    "&:last-child": { pb: 1.5 },
-                    flexWrap: "wrap",
-                  }}
-                >
-                  <Chip
-                    label={doc.fileType}
-                    size="small"
-                    sx={{ bgcolor: FILE_TYPE_COLORS[doc.fileType], color: "#fff", fontSize: "0.7rem", flexShrink: 0 }}
-                  />
-                  <MuiLink
-                    component={NextLink}
-                    href={`/documents/${doc.id}`}
-                    underline="hover"
-                    sx={{ fontWeight: 600, color: "text.primary", flex: 1, minWidth: 0 }}
+            {documents.map((doc) => {
+              const accessCount = accessLogCountsByDocumentId[doc.id] ?? 0;
+
+              return (
+                <Card key={doc.id} variant="outlined">
+                  <CardContent
+                    sx={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 2,
+                      py: 1.5,
+                      "&:last-child": { pb: 1.5 },
+                      flexWrap: "wrap",
+                    }}
                   >
-                    {doc.fileName}
-                  </MuiLink>
-                  <Box sx={{ display: "flex", alignItems: "center", gap: 1.5, flexShrink: 0 }}>
-                    <Typography variant="caption" sx={{ color: "text.secondary" }}>
-                      {doc.uploadedBy} · {formatDateTime(doc.uploadedAt)}
-                    </Typography>
-                    <Chip label={doc.status} size="small" variant="outlined" sx={{ fontSize: "0.7rem" }} />
-                    {canSeeAccessLog && doc.accessLog.length > 0 && (
-                      <Tooltip title={`${doc.accessLog.length} access event${doc.accessLog.length !== 1 ? "s" : ""}`}>
-                        <Chip
-                          icon={<VisibilityIcon sx={{ fontSize: "0.75rem !important" }} />}
-                          label={doc.accessLog.length}
-                          size="small"
-                          variant="outlined"
-                          component={NextLink}
-                          href={`/documents/${doc.id}`}
-                          clickable
-                          sx={{ fontSize: "0.65rem", height: 20 }}
-                        />
-                      </Tooltip>
-                    )}
-                  </Box>
-                </CardContent>
-              </Card>
-            ))}
+                    <Chip
+                      label={doc.fileType}
+                      size="small"
+                      sx={{ bgcolor: FILE_TYPE_COLORS[doc.fileType], color: "#fff", fontSize: "0.7rem", flexShrink: 0 }}
+                    />
+                    <MuiLink
+                      component={NextLink}
+                      href={`/documents/${doc.id}`}
+                      underline="hover"
+                      sx={{ fontWeight: 600, color: "text.primary", flex: 1, minWidth: 0 }}
+                    >
+                      {doc.fileName}
+                    </MuiLink>
+                    <Box sx={{ display: "flex", alignItems: "center", gap: 1.5, flexShrink: 0 }}>
+                      <Typography variant="caption" sx={{ color: "text.secondary" }}>
+                        {doc.uploadedBy} · {formatDateTime(doc.uploadedAt)}
+                      </Typography>
+                      <Chip label={doc.status} size="small" variant="outlined" sx={{ fontSize: "0.7rem" }} />
+                      {canSeeAccessLog && accessCount > 0 && (
+                        <Tooltip title={`${accessCount} access event${accessCount !== 1 ? "s" : ""}`}>
+                          <Chip
+                            icon={<VisibilityIcon sx={{ fontSize: "0.75rem !important" }} />}
+                            label={accessCount}
+                            size="small"
+                            variant="outlined"
+                            component={NextLink}
+                            href={`/documents/${doc.id}`}
+                            clickable
+                            sx={{ fontSize: "0.65rem", height: 20 }}
+                          />
+                        </Tooltip>
+                      )}
+                    </Box>
+                  </CardContent>
+                </Card>
+              );
+            })}
           </Box>
         )}
       </Box>

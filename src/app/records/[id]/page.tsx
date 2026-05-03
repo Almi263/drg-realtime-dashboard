@@ -6,6 +6,7 @@ import CircularProgress from "@mui/material/CircularProgress";
 import BackButton from "@/components/BackButton";
 import DeliverableDetail from "@/components/DeliverableDetail";
 import { assertCanViewProgram, requireUser } from "@/lib/auth/guards";
+import { listDocumentAccessLogs } from "@/lib/dataverse/document-access-logs";
 import { getVisibleDeliverableById, listVisibleDeliverables } from "@/lib/dataverse/deliverables";
 import { listVisibleDocuments } from "@/lib/dataverse/documents";
 import { getProgramById, listVisiblePrograms } from "@/lib/dataverse/programs";
@@ -22,12 +23,17 @@ async function DeliverableDetailContent({ id, user }: { id: string; user: Awaite
 
   const linkedDocs = documents.filter((doc) => doc.deliverableId === id);
   const program = programs.find((p) => p.id === deliverable.programId);
+  const accessLogMap = await listDocumentAccessLogs(linkedDocs.map((doc) => doc.id));
+  const accessLogCountsByDocumentId = Object.fromEntries(
+    [...accessLogMap].map(([documentId, logs]) => [documentId, logs.length])
+  );
 
   return (
     <DeliverableDetail
       deliverable={deliverable}
       documents={linkedDocs}
       program={program}
+      accessLogCountsByDocumentId={accessLogCountsByDocumentId}
     />
   );
 }

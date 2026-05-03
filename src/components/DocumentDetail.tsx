@@ -13,7 +13,13 @@ import DownloadIcon from "@mui/icons-material/Download";
 import LockIcon from "@mui/icons-material/Lock";
 import VisibilityIcon from "@mui/icons-material/Visibility";
 import FileDownloadIcon from "@mui/icons-material/FileDownload";
-import type { DeliverableDocument, FileType, DocumentAccessAction } from "@/lib/models/document";
+import UploadFileIcon from "@mui/icons-material/UploadFile";
+import type {
+  DeliverableDocument,
+  DocumentAccessAction,
+  DocumentAccessLog,
+  FileType,
+} from "@/lib/models/document";
 import type { Program } from "@/lib/models/program";
 import { useRole } from "@/lib/context/role-context";
 
@@ -31,7 +37,7 @@ const FILE_TYPE_COLORS: Record<FileType, string> = {
 const ACTION_ICONS: Record<DocumentAccessAction, React.ReactNode> = {
   View: <VisibilityIcon sx={{ fontSize: "0.9rem" }} />,
   Download: <FileDownloadIcon sx={{ fontSize: "0.9rem" }} />,
-  Upload: <VisibilityIcon sx={{ fontSize: "0.9rem" }} />,
+  Upload: <UploadFileIcon sx={{ fontSize: "0.9rem" }} />,
   Delete: <VisibilityIcon sx={{ fontSize: "0.9rem" }} />,
   Acknowledge: <VisibilityIcon sx={{ fontSize: "0.9rem" }} />,
 };
@@ -54,36 +60,25 @@ function formatFileSize(sizeKb: number) {
 /*  Access timeline                                                   */
 /* ------------------------------------------------------------------ */
 
-function AccessTimeline({ doc }: { doc: DeliverableDocument }) {
-  const events = [
-    // Treat the upload itself as the first event
-    {
-      action: "uploaded" as const,
-      userName: doc.uploadedBy,
-      timestamp: doc.uploadedAt,
-      isUpload: true,
-    },
-    ...doc.accessLog.map((e) => ({ ...e, isUpload: false })),
-  ];
-
+function AccessTimeline({ logs }: { logs: DocumentAccessLog[] }) {
   return (
     <Box>
       <Box sx={{ display: "flex", alignItems: "center", gap: 1, mb: 2 }}>
         <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>
           Access Log
         </Typography>
-        <Chip label={doc.accessLog.length} size="small" variant="outlined" sx={{ fontSize: "0.7rem", height: 20 }} />
+        <Chip label={logs.length} size="small" variant="outlined" sx={{ fontSize: "0.7rem", height: 20 }} />
       </Box>
 
-      {events.length === 1 && (
+      {logs.length === 0 && (
         <Typography variant="body2" sx={{ color: "text.secondary" }}>
-          No access events yet. This document has not been viewed or downloaded by any external user.
+          No access activity recorded yet.
         </Typography>
       )}
 
       <Box sx={{ position: "relative" }}>
         {/* Vertical line */}
-        {events.length > 1 && (
+        {logs.length > 1 && (
           <Box
             sx={{
               position: "absolute",
@@ -97,8 +92,8 @@ function AccessTimeline({ doc }: { doc: DeliverableDocument }) {
         )}
 
         <Box sx={{ display: "flex", flexDirection: "column", gap: 2 }}>
-          {events.map((event, i) => (
-            <Box key={i} sx={{ display: "flex", alignItems: "flex-start", gap: 2 }}>
+          {logs.map((event) => (
+            <Box key={event.id} sx={{ display: "flex", alignItems: "flex-start", gap: 2 }}>
               {/* Timeline dot */}
               <Box
                 sx={{
@@ -106,43 +101,47 @@ function AccessTimeline({ doc }: { doc: DeliverableDocument }) {
                   height: 24,
                   borderRadius: "50%",
                   border: "2px solid",
-                  borderColor: event.isUpload ? "primary.main" : event.action === "Download" ? "success.main" : "divider",
+                  borderColor: event.action === "Upload" ? "primary.main" : event.action === "Download" ? "success.main" : "divider",
                   display: "flex",
                   alignItems: "center",
                   justifyContent: "center",
-                  color: event.isUpload || event.action === "Download" ? "#fff" : "text.secondary",
+                  color: event.action === "Upload" || event.action === "Download" ? "#fff" : "text.secondary",
                   flexShrink: 0,
                   zIndex: 1,
-                  bgcolor: event.isUpload ? "primary.main" : event.action === "Download" ? "success.main" : "background.paper",
+                  bgcolor: event.action === "Upload" ? "primary.main" : event.action === "Download" ? "success.main" : "background.paper",
                 }}
               >
-                {event.isUpload ? (
-                  <Typography sx={{ fontSize: "0.6rem", fontWeight: 900 }}>UP</Typography>
-                ) : (
-                  ACTION_ICONS[event.action as DocumentAccessAction]
-                )}
+                {ACTION_ICONS[event.action]}
               </Box>
 
               {/* Event content */}
               <Box sx={{ flex: 1, pb: 0.5 }}>
                 <Box sx={{ display: "flex", alignItems: "baseline", gap: 1, flexWrap: "wrap" }}>
                   <Typography variant="body2" sx={{ fontWeight: 600 }}>
-                    {event.userName}
+                    {event.actorName || event.actorEmail}
                   </Typography>
                   <Chip
-                    label={event.isUpload ? "uploaded" : event.action}
+                    label={event.action}
                     size="small"
                     variant="outlined"
                     color={
-                      event.isUpload ? "primary"
+                      event.action === "Upload" ? "primary"
                       : event.action === "Download" ? "success"
                       : "default"
                     }
                     sx={{ fontSize: "0.65rem", height: 18 }}
                   />
+                  {event.source && (
+                    <Chip
+                      label={event.source}
+                      size="small"
+                      variant="outlined"
+                      sx={{ fontSize: "0.65rem", height: 18 }}
+                    />
+                  )}
                 </Box>
                 <Typography variant="caption" sx={{ color: "text.secondary" }}>
-                  {formatDateTime(event.timestamp)}
+                  {formatDateTime(event.occurredOn)}
                 </Typography>
               </Box>
             </Box>
@@ -161,9 +160,15 @@ interface DocumentDetailProps {
   doc: DeliverableDocument;
   deliverableTitle: string;
   program: Program | undefined;
+  accessLogs?: DocumentAccessLog[];
 }
 
-export default function DocumentDetail({ doc, deliverableTitle, program }: DocumentDetailProps) {
+export default function DocumentDetail({
+  doc,
+  deliverableTitle,
+  program,
+  accessLogs = [],
+}: DocumentDetailProps) {
   const { role } = useRole();
   const canSeeAccessLog =
     role === "drg-admin" || role === "drg-program-owner" || role === "drg-staff";
@@ -194,16 +199,15 @@ export default function DocumentDetail({ doc, deliverableTitle, program }: Docum
               </Typography>
             </Box>
             <Tooltip title="Download">
-              <span>
-                <Button
-                  variant="contained"
-                  startIcon={<DownloadIcon />}
-                  disabled
-                  size="small"
-                >
-                  Download
-                </Button>
-              </span>
+              <Button
+                component="a"
+                href={`/api/documents/${doc.id}/download`}
+                variant="contained"
+                startIcon={<DownloadIcon />}
+                size="small"
+              >
+                Download
+              </Button>
             </Tooltip>
           </Box>
 
@@ -239,7 +243,7 @@ export default function DocumentDetail({ doc, deliverableTitle, program }: Docum
 
       {/* Access log — staff/admin only */}
       {canSeeAccessLog ? (
-        <AccessTimeline doc={doc} />
+        <AccessTimeline logs={accessLogs} />
       ) : (
         <Box sx={{ py: 2 }}>
           <Typography variant="body2" sx={{ color: "text.secondary" }}>

@@ -4,19 +4,21 @@ import Typography from "@mui/material/Typography";
 import DocumentsTable from "@/components/DocumentsTable";
 import { useRole } from "@/lib/context/role-context";
 import type { Deliverable } from "@/lib/models/deliverable";
-import type { DeliverableDocument } from "@/lib/models/document";
+import type { DeliverableDocument, DocumentAccessLog } from "@/lib/models/document";
 import type { Program } from "@/lib/models/program";
 
 interface FilteredDocumentsViewProps {
   documents: DeliverableDocument[];
   deliverables: Deliverable[];
   programs: Program[];
+  accessLogsByDocumentId?: Record<string, DocumentAccessLog[]>;
 }
 
 export default function FilteredDocumentsView({
   documents,
   deliverables,
   programs,
+  accessLogsByDocumentId = {},
 }: FilteredDocumentsViewProps) {
   const { canViewProgram } = useRole();
   const visiblePrograms = programs.filter((program) => canViewProgram(program.id));
@@ -42,6 +44,7 @@ export default function FilteredDocumentsView({
       documents={visibleDocuments}
       deliverableMap={deliverableMap}
       programs={visiblePrograms}
+      accessLogsByDocumentId={accessLogsByDocumentId}
       detailSource="documents"
     />
   );

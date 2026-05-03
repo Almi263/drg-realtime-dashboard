@@ -5,6 +5,7 @@ import Typography from "@mui/material/Typography";
 import CircularProgress from "@mui/material/CircularProgress";
 import FilteredDocumentsView from "@/components/FilteredDocumentsView";
 import { requireUser } from "@/lib/auth/guards";
+import { listDocumentAccessLogs } from "@/lib/dataverse/document-access-logs";
 import { listVisibleDeliverables } from "@/lib/dataverse/deliverables";
 import { listVisibleDocuments } from "@/lib/dataverse/documents";
 import { listVisiblePrograms } from "@/lib/dataverse/programs";
@@ -16,7 +17,19 @@ async function DocumentsContent() {
     listVisibleDeliverables(user),
     listVisiblePrograms(user),
   ]);
-  return <FilteredDocumentsView documents={documents} deliverables={deliverables} programs={programs} />;
+  const accessLogMap = await listDocumentAccessLogs(
+    documents.map((document) => document.id)
+  );
+  const accessLogsByDocumentId = Object.fromEntries(accessLogMap);
+
+  return (
+    <FilteredDocumentsView
+      documents={documents}
+      deliverables={deliverables}
+      programs={programs}
+      accessLogsByDocumentId={accessLogsByDocumentId}
+    />
+  );
 }
 
 export default function DocumentsPage() {

@@ -1,6 +1,5 @@
 import { MockDocumentConnector } from "@/lib/connectors/mock-documents";
 import type {
-  AccessEvent,
   DeliverableDocument,
   DocumentRole,
   DocumentStatus,
@@ -15,7 +14,6 @@ import {
   type DataverseUser,
 } from "@/lib/dataverse/client";
 import { listVisiblePrograms } from "@/lib/dataverse/programs";
-import { listDocumentAccessEvents } from "@/lib/dataverse/document-access-logs";
 
 interface DataverseDocumentRow extends Record<string, unknown> {
   drg_documentid: string;
@@ -110,7 +108,6 @@ function toDocumentRole(value: string | undefined): DocumentRole {
 function normalizeMockDocument(document: DeliverableDocument): DeliverableDocument {
   const legacy = document as unknown as {
     status?: string;
-    accessLog?: Array<AccessEvent & { action: string }>;
   };
   const statusMap: Record<string, DocumentStatus> = {
     Draft: "Submitted",
@@ -128,23 +125,10 @@ function normalizeMockDocument(document: DeliverableDocument): DeliverableDocume
     sharePointUrl: document.sharePointUrl ?? "",
     status: statusMap[legacy.status ?? ""] ?? toUiStatus(legacy.status),
     isCurrentVersion: document.isCurrentVersion ?? true,
-    accessLog:
-      legacy.accessLog?.map((event) => ({
-        ...event,
-        action:
-          String(event.action) === "downloaded"
-            ? "Download"
-            : String(event.action) === "viewed"
-              ? "View"
-              : event.action,
-      })) ?? [],
   };
 }
 
-function mapDocumentRow(
-  row: DataverseDocumentRow,
-  accessLog: Awaited<ReturnType<typeof listDocumentAccessEvents>>
-): DeliverableDocument {
+function mapDocumentRow(row: DataverseDocumentRow): DeliverableDocument {
   const fileName = row.drg_filename ?? row.drg_documentid;
 
   return {
@@ -177,7 +161,6 @@ function mapDocumentRow(
     supersededOn: row.drg_supersededon,
     checksum: row.drg_checksum,
     isCurrentVersion: row.drg_iscurrentversion ?? true,
-    accessLog: accessLog.get(row.drg_documentid) ?? [],
   };
 }
 
@@ -191,11 +174,7 @@ export async function listDocuments(): Promise<DeliverableDocument[]> {
     "drg_documents",
     "$select=drg_documentid,drg_name,drg_filename,drg_filesizekb,drg_submissionnumber,drg_uploadedbyemail,drg_uploadedon,_drg_uploadedby_value,_drg_deliverable_value,_drg_program_value,_drg_parentdocument_value,_drg_approval_value,drg_sharepointsiteurl,drg_sharepointdriveid,drg_sharepointitemid,drg_sharepointurl,drg_versionlabel,drg_reviewduedate,_drg_viewedby_value,drg_viewedbyemail,drg_viewedon,_drg_supersededbydocument_value,drg_supersededon,drg_checksum,drg_iscurrentversion,drg_documentrole,drg_status&$filter=statecode eq 0 and drg_iscurrentversion eq true"
   );
-  const accessLog = await listDocumentAccessEvents(
-    rows.map((row) => row.drg_documentid)
-  );
-
-  return rows.map((row) => mapDocumentRow(row, accessLog));
+  return rows.map(mapDocumentRow);
 }
 
 export async function listVisibleDocuments(

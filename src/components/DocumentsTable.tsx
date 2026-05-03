@@ -27,7 +27,12 @@ import VisibilityIcon from "@mui/icons-material/Visibility";
 import MuiLink from "@mui/material/Link";
 import NextLink from "next/link";
 import type { SelectChangeEvent } from "@mui/material/Select";
-import type { DeliverableDocument, FileType, DocumentAccessAction } from "@/lib/models/document";
+import type {
+  DeliverableDocument,
+  DocumentAccessAction,
+  DocumentAccessLog,
+  FileType,
+} from "@/lib/models/document";
 import type { Program } from "@/lib/models/program";
 import { useRole } from "@/lib/context/role-context";
 
@@ -71,8 +76,8 @@ function formatDateTime(iso: string): string {
 /*  AccessLogRow — expandable panel below a document row             */
 /* ------------------------------------------------------------------ */
 
-function AccessLogRow({ doc, colSpan }: { doc: DeliverableDocument; colSpan: number }) {
-  if (doc.accessLog.length === 0) {
+function AccessLogRow({ logs, colSpan }: { logs: DocumentAccessLog[]; colSpan: number }) {
+  if (logs.length === 0) {
     return (
       <TableRow>
         <TableCell colSpan={colSpan} sx={{ py: 1.5, pl: 6, bgcolor: "action.hover" }}>
@@ -91,8 +96,8 @@ function AccessLogRow({ doc, colSpan }: { doc: DeliverableDocument; colSpan: num
           Access Log
         </Typography>
         <Box sx={{ display: "flex", flexDirection: "column", gap: 0.5 }}>
-          {doc.accessLog.map((event, i) => (
-            <Box key={i} sx={{ display: "flex", alignItems: "center", gap: 1.5 }}>
+          {logs.map((event) => (
+            <Box key={event.id} sx={{ display: "flex", alignItems: "center", gap: 1.5 }}>
               <Chip
                 label={ACTION_LABELS[event.action]}
                 size="small"
@@ -101,10 +106,10 @@ function AccessLogRow({ doc, colSpan }: { doc: DeliverableDocument; colSpan: num
                 sx={{ fontSize: "0.65rem", height: 20, minWidth: 80 }}
               />
               <Typography variant="caption" sx={{ fontWeight: 600 }}>
-                {event.userName}
+                {event.actorName || event.actorEmail}
               </Typography>
               <Typography variant="caption" sx={{ color: "text.secondary" }}>
-                {formatDateTime(event.timestamp)}
+                {formatDateTime(event.occurredOn)}
               </Typography>
             </Box>
           ))}
@@ -122,10 +127,17 @@ interface DocumentsTableProps {
   documents: DeliverableDocument[];
   deliverableMap: Record<string, string>;
   programs: Program[];
+  accessLogsByDocumentId?: Record<string, DocumentAccessLog[]>;
   detailSource?: "documents";
 }
 
-export default function DocumentsTable({ documents, deliverableMap, programs, detailSource }: DocumentsTableProps) {
+export default function DocumentsTable({
+  documents,
+  deliverableMap,
+  programs,
+  accessLogsByDocumentId = {},
+  detailSource,
+}: DocumentsTableProps) {
   const { role } = useRole();
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [programFilter, setProgramFilter] = useState<string>("All");
@@ -208,7 +220,8 @@ export default function DocumentsTable({ documents, deliverableMap, programs, de
           <TableBody>
             {filtered.map((doc) => {
               const isExpanded = expandedId === doc.id;
-              const accessCount = doc.accessLog.length;
+              const logs = accessLogsByDocumentId[doc.id] ?? [];
+              const accessCount = logs.length;
 
               return (
                 <Fragment key={doc.id}>
@@ -271,12 +284,14 @@ export default function DocumentsTable({ documents, deliverableMap, programs, de
 
                     <TableCell>
                       <Box sx={{ display: "flex", gap: 0.5 }}>
-                        <Tooltip title="Download — available once Azure Storage is connected">
-                          <span>
-                            <IconButton size="small" disabled>
-                              <DownloadIcon fontSize="small" />
-                            </IconButton>
-                          </span>
+                        <Tooltip title="Download">
+                          <IconButton
+                            component={NextLink}
+                            href={`/api/documents/${doc.id}/download`}
+                            size="small"
+                          >
+                            <DownloadIcon fontSize="small" />
+                          </IconButton>
                         </Tooltip>
                         <Typography variant="caption" sx={{ color: "text.secondary", alignSelf: "center" }}>
                           {formatFileSize(doc.sizeKb)}
@@ -302,7 +317,7 @@ export default function DocumentsTable({ documents, deliverableMap, programs, de
                         <Collapse in={isExpanded} timeout="auto" unmountOnExit>
                           <Table size="small">
                             <TableBody>
-                              <AccessLogRow doc={doc} colSpan={colSpan} />
+                              <AccessLogRow logs={logs} colSpan={colSpan} />
                             </TableBody>
                           </Table>
                         </Collapse>

@@ -14,7 +14,7 @@ import ProgramAccessManager from "@/components/ProgramAccessManager";
 import RecordsTable from "@/components/RecordsTable";
 import { useRole } from "@/lib/context/role-context";
 import type { Deliverable } from "@/lib/models/deliverable";
-import type { DeliverableDocument } from "@/lib/models/document";
+import type { DeliverableDocument, DocumentAccessLog } from "@/lib/models/document";
 
 function formatDate(iso: string) {
   return new Date(iso).toLocaleDateString("en-US", {
@@ -28,12 +28,14 @@ interface ProgramDetailViewProps {
   programId: string;
   deliverables: Deliverable[];
   documents: DeliverableDocument[];
+  accessLogsByDocumentId?: Record<string, DocumentAccessLog[]>;
 }
 
 export default function ProgramDetailView({
   programId,
   deliverables,
   documents,
+  accessLogsByDocumentId = {},
 }: ProgramDetailViewProps) {
   const [activeTab, setActiveTab] = useState(0);
   const { getProgramById } = useRole();
@@ -123,7 +125,12 @@ export default function ProgramDetailView({
         <Box sx={{ p: 2.5 }}>
           {activeTab === 0 && <RecordsTable deliverables={deliverables} programs={[program]} />}
           {activeTab === 1 && (
-            <DocumentsTable documents={documents} deliverableMap={deliverableMap} programs={[program]} />
+            <DocumentsTable
+              documents={documents}
+              deliverableMap={deliverableMap}
+              programs={[program]}
+              accessLogsByDocumentId={accessLogsByDocumentId}
+            />
           )}
           {activeTab === 2 && <ProgramAccessManager program={program} />}
         </Box>

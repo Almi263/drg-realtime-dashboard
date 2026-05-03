@@ -48,6 +48,8 @@ export interface AcknowledgeSignedApprovalInput {
   signedApprovalDocumentId: string;
   approvalId?: string;
   acknowledgedByEmail: string;
+  acknowledgedByName?: string;
+  acknowledgedByUserId?: string;
 }
 
 export async function acknowledgeSignedApprovalFlow(
@@ -69,5 +71,7 @@ export async function acknowledgeSignedApprovalFlow(
     signedApprovalDocumentId: input.signedApprovalDocumentId,
     approvalId: input.approvalId,
     acknowledgedByEmail: input.acknowledgedByEmail,
+    acknowledgedByName: input.acknowledgedByName,
+    acknowledgedByUserId: input.acknowledgedByUserId,
   });
 }

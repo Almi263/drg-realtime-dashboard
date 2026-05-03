@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { canUploadToProgram } from "@/lib/auth/guards";
+import { createDocumentAccessLog } from "@/lib/dataverse/document-access-logs";
 import { getVisibleDeliverableById } from "@/lib/dataverse/deliverables";
 import { createDocumentMetadata } from "@/lib/dataverse/documents";
 import { getProgramById } from "@/lib/dataverse/programs";
@@ -61,7 +62,7 @@ export async function POST(request: Request) {
       content,
     });
 
-    await createDocumentMetadata({
+    const documentId = await createDocumentMetadata({
       programId,
       deliverableId,
       fileName: file.name,
@@ -75,6 +76,16 @@ export async function POST(request: Request) {
       reviewDueDate,
     });
 
+    await createDocumentAccessLog({
+      documentId,
+      programId,
+      actorUserId: session.user.id,
+      actorName: session.user.name ?? session.user.email ?? "Signed-in user",
+      actorEmail: session.user.email ?? "",
+      action: "Upload",
+      source: "Web App",
+    });
+
     await triggerFlow("submissionCreated", {
       programId,
       deliverableId,
@@ -86,6 +97,7 @@ export async function POST(request: Request) {
 
     return NextResponse.json({
       submitted: true,
+      documentId,
       submissionRef: sharePointFile.itemId,
       sharePointUrl: sharePointFile.webUrl,
     });

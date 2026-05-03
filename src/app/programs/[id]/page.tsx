@@ -5,6 +5,7 @@ import CircularProgress from "@mui/material/CircularProgress";
 import BackButton from "@/components/BackButton";
 import ProgramDetailView from "@/components/ProgramDetailView";
 import { assertCanViewProgram, requireUser } from "@/lib/auth/guards";
+import { listDocumentAccessLogs } from "@/lib/dataverse/document-access-logs";
 import { listVisibleDeliverables } from "@/lib/dataverse/deliverables";
 import { listVisibleDocuments } from "@/lib/dataverse/documents";
 import { getProgramById } from "@/lib/dataverse/programs";
@@ -17,7 +18,19 @@ async function ProgramDetailContent({ id, user }: { id: string; user: Awaited<Re
 
   const programDeliverables = deliverables.filter((d) => d.programId === id);
   const programDocuments = documents.filter((d) => d.programId === id);
-  return <ProgramDetailView programId={id} deliverables={programDeliverables} documents={programDocuments} />;
+  const accessLogMap = await listDocumentAccessLogs(
+    programDocuments.map((document) => document.id)
+  );
+  const accessLogsByDocumentId = Object.fromEntries(accessLogMap);
+
+  return (
+    <ProgramDetailView
+      programId={id}
+      deliverables={programDeliverables}
+      documents={programDocuments}
+      accessLogsByDocumentId={accessLogsByDocumentId}
+    />
+  );
 }
 
 export default async function ProgramPage({

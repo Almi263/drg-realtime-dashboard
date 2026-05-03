@@ -1,4 +1,7 @@
-import type { AccessEvent, DocumentAccessAction } from "@/lib/models/document";
+import type {
+  DocumentAccessAction,
+  DocumentAccessLog,
+} from "@/lib/models/document";
 import {
   dataverseFetch,
   getFormattedValue,
@@ -13,6 +16,8 @@ interface DataverseDocumentAccessLogRow extends Record<string, unknown> {
   drg_actoremail?: string;
   drg_occurredon?: string;
   _drg_document_value?: string;
+  _drg_program_value?: string;
+  _drg_actoruser_value?: string;
 }
 
 function toDocumentAccessAction(value: string | undefined): DocumentAccessAction {
@@ -28,15 +33,29 @@ function toDocumentAccessAction(value: string | undefined): DocumentAccessAction
   }
 }
 
-export async function listDocumentAccessEvents(
+function mapAccessLogRow(row: DataverseDocumentAccessLogRow): DocumentAccessLog {
+  return {
+    id: row.drg_documentaccesslogid,
+    documentId: row._drg_document_value ?? "",
+    programId: row._drg_program_value ?? "",
+    actorUserId: row._drg_actoruser_value,
+    actorName: row.drg_actorname ?? row.drg_actoremail ?? "",
+    actorEmail: row.drg_actoremail ?? "",
+    action: toDocumentAccessAction(getFormattedValue(row, "drg_action")),
+    occurredOn: row.drg_occurredon ?? "",
+    source: getFormattedValue(row, "drg_source") as DocumentAccessLog["source"],
+  };
+}
+
+export async function listDocumentAccessLogs(
   documentIds: readonly string[]
-): Promise<Map<string, AccessEvent[]>> {
-  const grouped = new Map<string, AccessEvent[]>();
+): Promise<Map<string, DocumentAccessLog[]>> {
+  const grouped = new Map<string, DocumentAccessLog[]>();
   if (!isDataverseConfigured() || documentIds.length === 0) return grouped;
 
   const rows = await listRows<DataverseDocumentAccessLogRow>(
     "drg_documentaccesslogs",
-    "$select=drg_actorname,drg_actoremail,drg_occurredon,_drg_document_value,drg_action&$filter=statecode eq 0&$orderby=drg_occurredon desc"
+    "$select=drg_documentaccesslogid,drg_actorname,drg_actoremail,drg_occurredon,_drg_document_value,_drg_program_value,_drg_actoruser_value,drg_action,drg_source&$filter=statecode eq 0&$orderby=drg_occurredon desc"
   );
 
   const allowedIds = new Set(documentIds);
@@ -46,16 +65,27 @@ export async function listDocumentAccessEvents(
 
     grouped.set(documentId, [
       ...(grouped.get(documentId) ?? []),
-      {
-        userId: row.drg_actoremail ?? row.drg_actorname ?? "",
-        userName: row.drg_actorname ?? row.drg_actoremail ?? "",
-        action: toDocumentAccessAction(getFormattedValue(row, "drg_action")),
-        timestamp: row.drg_occurredon ?? "",
-      },
+      mapAccessLogRow(row),
     ]);
   }
 
   return grouped;
+}
+
+export async function listProgramDocumentAccessLogs(
+  programIds: readonly string[]
+): Promise<DocumentAccessLog[]> {
+  if (!isDataverseConfigured() || programIds.length === 0) return [];
+
+  const rows = await listRows<DataverseDocumentAccessLogRow>(
+    "drg_documentaccesslogs",
+    "$select=drg_documentaccesslogid,drg_actorname,drg_actoremail,drg_occurredon,_drg_document_value,_drg_program_value,_drg_actoruser_value,drg_action,drg_source&$filter=statecode eq 0&$orderby=drg_occurredon desc"
+  );
+  const allowedIds = new Set(programIds);
+
+  return rows
+    .map(mapAccessLogRow)
+    .filter((log) => allowedIds.has(log.programId));
 }
 
 export async function createDocumentAccessLog(input: {

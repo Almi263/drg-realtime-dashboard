@@ -6,7 +6,10 @@ import CircularProgress from "@mui/material/CircularProgress";
 import BackButton from "@/components/BackButton";
 import DocumentDetail from "@/components/DocumentDetail";
 import { assertCanViewProgram, requireUser } from "@/lib/auth/guards";
-import { createDocumentAccessLog } from "@/lib/dataverse/document-access-logs";
+import {
+  createDocumentAccessLog,
+  listDocumentAccessLogs,
+} from "@/lib/dataverse/document-access-logs";
 import { listVisibleDeliverables } from "@/lib/dataverse/deliverables";
 import { getVisibleDocumentById, listVisibleDocuments } from "@/lib/dataverse/documents";
 import { getProgramById, listVisiblePrograms } from "@/lib/dataverse/programs";
@@ -23,12 +26,15 @@ async function DocumentDetailContent({ id, user }: { id: string; user: Awaited<R
 
   const deliverable = deliverables.find((d) => d.id === doc.deliverableId);
   const program = programs.find((p) => p.id === doc.programId);
+  const accessLogMap = await listDocumentAccessLogs([doc.id]);
+  const accessLogs = accessLogMap.get(doc.id) ?? [];
 
   return (
     <DocumentDetail
       doc={doc}
       deliverableTitle={deliverable?.title ?? doc.deliverableId}
       program={program}
+      accessLogs={accessLogs}
     />
   );
 }

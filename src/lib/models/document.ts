@@ -42,13 +42,6 @@ export interface DocumentAccessLog {
   source?: "Web App" | "SharePoint" | "Teams" | "API";
 }
 
-export interface AccessEvent {
-  userId: string;
-  userName: string;
-  action: DocumentAccessAction;
-  timestamp: string;
-}
-
 export interface DeliverableDocument {
   id: string;
   name: string;
@@ -79,5 +72,4 @@ export interface DeliverableDocument {
   supersededOn?: string;
   checksum?: string;
   isCurrentVersion: boolean;
-  accessLog: AccessEvent[];
 }
