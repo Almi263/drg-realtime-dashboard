@@ -1,3 +1,5 @@
+import "server-only";
+
 export type FlowName =
   | "submissionCreated"
   | "documentDownloaded"
@@ -38,4 +40,34 @@ export async function triggerFlow(
   }
 
   return { skipped: false };
+}
+
+export interface AcknowledgeSignedApprovalInput {
+  deliverableId: string;
+  acceptedSubmissionDocumentId: string;
+  signedApprovalDocumentId: string;
+  approvalId?: string;
+  acknowledgedByEmail: string;
+}
+
+export async function acknowledgeSignedApprovalFlow(
+  input: AcknowledgeSignedApprovalInput
+) {
+  if (!input.deliverableId) {
+    throw new Error("Deliverable ID is required for acknowledgment.");
+  }
+  if (!input.acceptedSubmissionDocumentId) {
+    throw new Error("Accepted submission document ID is required for acknowledgment.");
+  }
+  if (!input.signedApprovalDocumentId) {
+    throw new Error("Signed approval document ID is required for acknowledgment.");
+  }
+
+  return triggerFlow("approvalAcknowledged", {
+    deliverableId: input.deliverableId,
+    acceptedSubmissionDocumentId: input.acceptedSubmissionDocumentId,
+    signedApprovalDocumentId: input.signedApprovalDocumentId,
+    approvalId: input.approvalId,
+    acknowledgedByEmail: input.acknowledgedByEmail,
+  });
 }

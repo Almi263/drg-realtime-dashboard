@@ -1,4 +1,4 @@
-import { canSubmitApprovalDecision } from "@/lib/auth/guards";
+import { canSubmitApprovalDecision, canWorkProgram } from "@/lib/auth/guards";
 import type { InternalRole } from "@/lib/auth/roles";
 import type { Approval, ApprovalDecision } from "@/lib/models/approval";
 import type { Program } from "@/lib/models/program";
@@ -146,5 +146,8 @@ export async function acknowledgeApproval(input: {
   }
   if (input.program.status === "Archived") {
     throw new Error("Archived programs cannot be acknowledged.");
+  }
+  if (!canWorkProgram(input.user, input.program)) {
+    throw new Error("You are not authorized to acknowledge this approval.");
   }
 }

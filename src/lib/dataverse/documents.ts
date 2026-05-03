@@ -220,7 +220,7 @@ export async function createDocumentMetadata(input: CreateDocumentMetadataInput)
     throw new Error("Dataverse is not configured for document metadata writes.");
   }
 
-  const payload = {
+  const payload: Record<string, unknown> = {
     drg_name: input.fileName,
     "drg_program@odata.bind": lookupBind("drg_programs", input.programId),
     "drg_deliverable@odata.bind": lookupBind("drg_deliverables", input.deliverableId),
