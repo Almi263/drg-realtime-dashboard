@@ -1,3 +1,5 @@
+import "server-only";
+
 import { cache } from "react";
 
 export interface SharePointFileResult {
@@ -58,6 +60,27 @@ function encodePathSegment(segment: string) {
   return segment.replace(/[\\/:*?"<>|]/g, "-");
 }
 
+function getSharePointFolderPath(programId: string, deliverableId: string) {
+  const baseFolder = process.env.SHAREPOINT_DOCUMENT_FOLDER ?? "DRG Submissions";
+  const folderStrategy =
+    process.env.SHAREPOINT_FOLDER_STRATEGY ?? "program-deliverable";
+
+  if (folderStrategy === "flat") {
+    return baseFolder;
+  }
+
+  return [
+    baseFolder,
+    encodePathSegment(programId),
+    encodePathSegment(deliverableId),
+  ].join("/");
+}
+
+function getStoredFileName(fileName: string) {
+  const timestamp = new Date().toISOString().replace(/[:.]/g, "-");
+  return `${timestamp}-${encodePathSegment(fileName)}`;
+}
+
 export async function uploadPdfToSharePoint(input: {
   programId: string;
   deliverableId: string;
@@ -71,13 +94,10 @@ export async function uploadPdfToSharePoint(input: {
   const token = await getGraphToken();
   const siteId = process.env.SHAREPOINT_SITE_ID ?? "";
   const driveId = process.env.SHAREPOINT_DRIVE_ID ?? "";
-  const baseFolder = process.env.SHAREPOINT_DOCUMENT_FOLDER ?? "DRG Submissions";
-  const path = [
-    baseFolder,
-    encodePathSegment(input.programId),
-    encodePathSegment(input.deliverableId),
-    encodePathSegment(input.fileName),
-  ].join("/");
+  const path = `${getSharePointFolderPath(
+    input.programId,
+    input.deliverableId
+  )}/${getStoredFileName(input.fileName)}`;
 
   const response = await fetch(
     `https://graph.microsoft.com/v1.0/sites/${siteId}/drives/${driveId}/root:/${path}:/content`,

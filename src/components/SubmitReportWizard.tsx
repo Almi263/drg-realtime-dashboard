@@ -10,6 +10,7 @@ import Button from "@mui/material/Button";
 import Chip from "@mui/material/Chip";
 import Divider from "@mui/material/Divider";
 import Alert from "@mui/material/Alert";
+import TextField from "@mui/material/TextField";
 import CheckCircleIcon from "@mui/icons-material/CheckCircle";
 import UploadFileIcon from "@mui/icons-material/UploadFile";
 import ArrowBackIcon from "@mui/icons-material/ArrowBack";
@@ -242,11 +243,12 @@ function UploadStep({
 }: {
   deliverable: Deliverable;
   program: Program;
-  onSubmit: (file: File) => void;
+  onSubmit: (file: File, reviewDueDate: string) => void;
   onBack: () => void;
   isSubmitting: boolean;
 }) {
   const [file, setFile] = useState<File | null>(null);
+  const [reviewDueDate, setReviewDueDate] = useState("");
   const [dragging, setDragging] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -324,8 +326,18 @@ function UploadStep({
         notified and can view and download it, but cannot edit or delete it.
       </Alert>
 
+      <TextField
+        label="Review due date"
+        type="date"
+        value={reviewDueDate}
+        onChange={(event) => setReviewDueDate(event.target.value)}
+        fullWidth
+        sx={{ mb: 3 }}
+        InputLabelProps={{ shrink: true }}
+      />
+
       <Box sx={{ display: "flex", gap: 2 }}>
-        <Button variant="contained" disabled={!file || isSubmitting} onClick={() => file && onSubmit(file)}>
+        <Button variant="contained" disabled={!file || isSubmitting} onClick={() => file && onSubmit(file, reviewDueDate)}>
           {isSubmitting ? "Submitting..." : "Submit Document"}
         </Button>
         <Button component={Link} href="/documents" color="inherit">
@@ -468,7 +480,7 @@ export default function SubmitReportWizard({
     setStep(2);
   };
 
-  const handleSubmit = async (f: File) => {
+  const handleSubmit = async (f: File, reviewDueDate: string) => {
     if (!program || !deliverable) return;
 
     setIsSubmitting(true);
@@ -479,6 +491,7 @@ export default function SubmitReportWizard({
       formData.set("programId", program.id);
       formData.set("deliverableId", deliverable.id);
       formData.set("file", f);
+      if (reviewDueDate) formData.set("reviewDueDate", reviewDueDate);
 
       const res = await fetch("/api/documents/submit", {
         method: "POST",

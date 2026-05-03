@@ -57,6 +57,7 @@ export interface CreateDocumentMetadataInput {
   sharePointUrl: string;
   checksum?: string;
   documentRole?: DocumentRole;
+  reviewDueDate?: string;
 }
 
 function toUiFileType(fileName: string): FileType {
@@ -233,6 +234,7 @@ export async function createDocumentMetadata(input: CreateDocumentMetadataInput)
     drg_status: "Submitted",
     drg_iscurrentversion: true,
     drg_checksum: input.checksum,
+    drg_reviewduedate: input.reviewDueDate || undefined,
   };
 
   await dataverseFetch<void>("/drg_documents", {

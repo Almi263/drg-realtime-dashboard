@@ -18,6 +18,7 @@ export async function POST(request: Request) {
   const file = formData?.get("file");
   const deliverableId = String(formData?.get("deliverableId") ?? "");
   const programId = String(formData?.get("programId") ?? "");
+  const reviewDueDate = String(formData?.get("reviewDueDate") ?? "");
 
   if (!(file instanceof File)) {
     return NextResponse.json({ error: "PDF file is required." }, { status: 400 });
@@ -71,6 +72,7 @@ export async function POST(request: Request) {
       sharePointItemId: sharePointFile.itemId,
       sharePointUrl: sharePointFile.webUrl,
       documentRole: "DRG Submission",
+      reviewDueDate,
     });
 
     await triggerFlow("submissionCreated", {
@@ -79,6 +81,7 @@ export async function POST(request: Request) {
       fileName: file.name,
       uploadedByEmail: session.user.email,
       sharePointItemId: sharePointFile.itemId,
+      reviewDueDate,
     });
 
     return NextResponse.json({

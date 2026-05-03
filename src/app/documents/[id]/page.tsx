@@ -6,6 +6,7 @@ import CircularProgress from "@mui/material/CircularProgress";
 import BackButton from "@/components/BackButton";
 import DocumentDetail from "@/components/DocumentDetail";
 import { assertCanViewProgram, requireUser } from "@/lib/auth/guards";
+import { createDocumentAccessLog } from "@/lib/dataverse/document-access-logs";
 import { listVisibleDeliverables } from "@/lib/dataverse/deliverables";
 import { getVisibleDocumentById, listVisibleDocuments } from "@/lib/dataverse/documents";
 import { getProgramById, listVisiblePrograms } from "@/lib/dataverse/programs";
@@ -69,6 +70,18 @@ export default async function DocumentPage({
   const program = doc ? await getProgramById(doc.programId, user) : undefined;
 
   assertCanViewProgram(user, program);
+
+  if (doc) {
+    await createDocumentAccessLog({
+      documentId: doc.id,
+      programId: doc.programId,
+      actorUserId: user.id,
+      actorName: user.name ?? user.email ?? "Signed-in user",
+      actorEmail: user.email ?? "",
+      action: "View",
+      source: "Web App",
+    });
+  }
 
   const backConfig = await getDocumentBackConfig(id, from, user);
 

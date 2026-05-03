@@ -1,5 +1,11 @@
 import type { AccessEvent, DocumentAccessAction } from "@/lib/models/document";
-import { getFormattedValue, isDataverseConfigured, listRows } from "@/lib/dataverse/client";
+import {
+  dataverseFetch,
+  getFormattedValue,
+  isDataverseConfigured,
+  listRows,
+  lookupBind,
+} from "@/lib/dataverse/client";
 
 interface DataverseDocumentAccessLogRow extends Record<string, unknown> {
   drg_documentaccesslogid: string;
@@ -50,4 +56,40 @@ export async function listDocumentAccessEvents(
   }
 
   return grouped;
+}
+
+export async function createDocumentAccessLog(input: {
+  documentId: string;
+  programId: string;
+  actorUserId?: string;
+  actorName: string;
+  actorEmail: string;
+  action: DocumentAccessAction;
+  source?: "Web App" | "SharePoint" | "Teams" | "API";
+}) {
+  if (!isDataverseConfigured()) return;
+
+  const occurredOn = new Date().toISOString();
+  const payload: Record<string, unknown> = {
+    drg_name: `${input.action} | ${input.actorEmail} | ${occurredOn}`,
+    "drg_document@odata.bind": lookupBind("drg_documents", input.documentId),
+    "drg_program@odata.bind": lookupBind("drg_programs", input.programId),
+    drg_actorname: input.actorName,
+    drg_actoremail: input.actorEmail,
+    drg_action: input.action,
+    drg_occurredon: occurredOn,
+    drg_source: input.source ?? "Web App",
+  };
+
+  if (input.actorUserId) {
+    payload["drg_actoruser@odata.bind"] = lookupBind(
+      "systemusers",
+      input.actorUserId
+    );
+  }
+
+  await dataverseFetch<void>("/drg_documentaccesslogs", {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
 }
