@@ -199,15 +199,31 @@ export async function listDocuments(): Promise<DeliverableDocument[]> {
 }
 
 export async function listVisibleDocuments(
-  user: DataverseUser
+  user: DataverseUser,
+  options: {
+    includeArchivedPrograms?: boolean;
+    documentRole?: DocumentRole;
+    status?: DocumentStatus;
+    currentOnly?: boolean;
+  } = {}
 ): Promise<DeliverableDocument[]> {
   const [documents, programs] = await Promise.all([
     listDocuments(),
-    listVisiblePrograms(user),
+    listVisiblePrograms(user, {
+      includeArchived: options.includeArchivedPrograms,
+    }),
   ]);
   const visibleProgramIds = new Set(programs.map((program) => program.id));
 
-  return documents.filter((document) => visibleProgramIds.has(document.programId));
+  return documents.filter((document) => {
+    if (!visibleProgramIds.has(document.programId)) return false;
+    if (options.documentRole && document.documentRole !== options.documentRole) {
+      return false;
+    }
+    if (options.status && document.status !== options.status) return false;
+    if (options.currentOnly !== false && !document.isCurrentVersion) return false;
+    return true;
+  });
 }
 
 export async function getVisibleDocumentById(id: string, user: DataverseUser) {

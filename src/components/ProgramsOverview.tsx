@@ -6,20 +6,26 @@ import CreateProgramDialog from "@/components/CreateProgramDialog";
 import ProgramStatusCard from "@/components/ProgramStatusCard";
 import { useRole } from "@/lib/context/role-context";
 import type { Deliverable } from "@/lib/models/deliverable";
+import type { Program } from "@/lib/models/program";
 
 interface ProgramsOverviewProps {
   deliverables: Deliverable[];
+  programsOverride?: Program[];
+  hideCreateProgram?: boolean;
 }
 
 export default function ProgramsOverview({
   deliverables,
+  programsOverride,
+  hideCreateProgram,
 }: ProgramsOverviewProps) {
   const { programs, canViewProgram, role } = useRole();
-  const visiblePrograms = programs.filter((program) => canViewProgram(program.id));
+  const sourcePrograms = programsOverride ?? programs;
+  const visiblePrograms = sourcePrograms.filter((program) => canViewProgram(program.id));
 
   return (
     <Box sx={{ display: "flex", flexDirection: "column", gap: 2 }}>
-      {role === "drg-admin" && (
+      {role === "drg-admin" && !hideCreateProgram && (
         <Box sx={{ display: "flex", justifyContent: "flex-end" }}>
           <CreateProgramDialog />
         </Box>

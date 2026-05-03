@@ -185,16 +185,42 @@ export async function listPrograms(): Promise<Program[]> {
   return listProgramsFromDataverse();
 }
 
-export async function listVisiblePrograms(user: DataverseUser): Promise<Program[]> {
-  const programs = await listPrograms();
+export interface ProgramVisibilityOptions {
+  includeArchived?: boolean;
+  archivedOnly?: boolean;
+}
 
-  if (isInternalAllProgramsUser(user)) {
+function filterProgramArchiveState(
+  programs: Program[],
+  options: ProgramVisibilityOptions = {}
+) {
+  if (options.archivedOnly) {
+    return programs.filter((program) => program.status === "Archived");
+  }
+
+  if (options.includeArchived) {
     return programs;
   }
 
+  return programs.filter((program) => program.status !== "Archived");
+}
+
+export async function listVisiblePrograms(
+  user: DataverseUser,
+  options: ProgramVisibilityOptions = {}
+): Promise<Program[]> {
+  const programs = await listPrograms();
+  const filteredPrograms = filterProgramArchiveState(programs, options);
+
+  if (isInternalAllProgramsUser(user)) {
+    return filteredPrograms;
+  }
+
   const email = normalizeEmail(user.email);
-  return programs.filter((program) =>
-    program.access.some((entry) => normalizeEmail(entry.email) === email)
+  return filteredPrograms.filter((program) =>
+    program.access.some(
+      (entry) => entry.isActive && normalizeEmail(entry.email) === email
+    )
   );
 }
 
@@ -202,7 +228,9 @@ export async function getProgramById(
   id: string,
   user?: DataverseUser
 ): Promise<Program | undefined> {
-  const programs = user ? await listVisiblePrograms(user) : await listPrograms();
+  const programs = user
+    ? await listVisiblePrograms(user, { includeArchived: true })
+    : await listPrograms();
   return programs.find((program) => program.id === id);
 }
 

@@ -109,11 +109,14 @@ export async function listDeliverables(): Promise<Deliverable[]> {
 }
 
 export async function listVisibleDeliverables(
-  user: DataverseUser
+  user: DataverseUser,
+  options: { includeArchivedPrograms?: boolean } = {}
 ): Promise<Deliverable[]> {
   const [deliverables, programs] = await Promise.all([
     listDeliverables(),
-    listVisiblePrograms(user),
+    listVisiblePrograms(user, {
+      includeArchived: options.includeArchivedPrograms,
+    }),
   ]);
   const visibleProgramIds = new Set(programs.map((program) => program.id));
 
