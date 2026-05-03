@@ -2,9 +2,11 @@ import { MockProgramConnector } from "@/lib/connectors/mock-programs";
 import { normalizeEmail } from "@/lib/auth/roles";
 import type { Program, ProgramAccess, ProgramSite, ProgramStatus } from "@/lib/models/program";
 import {
+  dataverseFetch,
   getFormattedValue,
   isDataverseConfigured,
   listRows,
+  lookupBind,
   type DataverseUser,
 } from "@/lib/dataverse/client";
 import { listActiveProgramAccess } from "@/lib/dataverse/program-access";
@@ -34,6 +36,22 @@ interface DataverseProgramSiteRow {
   drg_region?: string;
   drg_isprimary?: boolean;
   _drg_program_value?: string;
+}
+
+interface DataverseSystemUserRow {
+  systemuserid: string;
+}
+
+export interface CreateProgramInput {
+  name: string;
+  programNumber: string;
+  contractRef: string;
+  description?: string;
+  sites: string[];
+  startDate?: string;
+  endDate?: string;
+  ownerUpn: string;
+  creatorUpn: string;
 }
 
 function isInternalAllProgramsUser(user: DataverseUser) {
@@ -186,4 +204,76 @@ export async function getProgramById(
 ): Promise<Program | undefined> {
   const programs = user ? await listVisiblePrograms(user) : await listPrograms();
   return programs.find((program) => program.id === id);
+}
+
+async function findSystemUserIdByEmail(email: string) {
+  const normalizedEmail = normalizeEmail(email);
+  const rows = await listRows<DataverseSystemUserRow>(
+    "systemusers",
+    `$select=systemuserid&$top=1&$filter=internalemailaddress eq '${normalizedEmail}' or domainname eq '${normalizedEmail}'`
+  );
+
+  return rows[0]?.systemuserid;
+}
+
+export async function createProgram(input: CreateProgramInput) {
+  if (!isDataverseConfigured()) {
+    throw new Error("Dataverse is not configured for program creation.");
+  }
+
+  const [creatorUserId, ownerUserId] = await Promise.all([
+    findSystemUserIdByEmail(input.creatorUpn),
+    findSystemUserIdByEmail(input.ownerUpn),
+  ]);
+
+  const payload: Record<string, unknown> = {
+    drg_name: input.name,
+    drg_programnumber: input.programNumber,
+    drg_contractref: input.contractRef,
+    drg_description: input.description ?? "",
+    drg_startdate: input.startDate,
+    drg_enddate: input.endDate,
+    drg_creatorupn: input.creatorUpn,
+    drg_ownerupn: input.ownerUpn,
+    drg_primarysitecount: input.sites.length,
+  };
+
+  if (creatorUserId) {
+    payload["drg_creatoruser@odata.bind"] = lookupBind("systemusers", creatorUserId);
+  }
+
+  if (ownerUserId) {
+    payload["drg_owneruser@odata.bind"] = lookupBind("systemusers", ownerUserId);
+  }
+
+  const response = await dataverseFetch<{ drg_programid?: string }>(
+    "/drg_programs",
+    {
+      method: "POST",
+      headers: {
+        Prefer: "return=representation",
+      },
+      body: JSON.stringify(payload),
+    }
+  );
+
+  const programId = response.drg_programid;
+  if (!programId) {
+    throw new Error("Dataverse did not return the created program ID.");
+  }
+
+  await Promise.all(
+    input.sites.map((site, index) =>
+      dataverseFetch<void>("/drg_programsites", {
+        method: "POST",
+        body: JSON.stringify({
+          drg_name: site,
+          "drg_program@odata.bind": lookupBind("drg_programs", programId),
+          drg_isprimary: index === 0,
+        }),
+      })
+    )
+  );
+
+  return programId;
 }

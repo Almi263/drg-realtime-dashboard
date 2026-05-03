@@ -31,6 +31,83 @@ async function getGraphToken() {
   return json.access_token as string;
 }
 
+export interface ExternalReviewerPrincipal {
+  id: string;
+  email: string;
+  displayName?: string;
+}
+
+export async function getExternalReviewerPrincipal(
+  email: string
+): Promise<ExternalReviewerPrincipal | null> {
+  const externalReviewerGroupId = process.env.ENTRA_EXTERNAL_REVIEWER_GROUP_ID;
+
+  if (!externalReviewerGroupId) {
+    throw new Error("Missing ENTRA_EXTERNAL_REVIEWER_GROUP_ID.");
+  }
+
+  const token = await getGraphToken();
+  const normalizedEmail = email.trim().toLowerCase().replace(/'/g, "''");
+  const usersRes = await fetch(
+    `https://graph.microsoft.com/v1.0/users?$select=id,mail,userPrincipalName,displayName&$top=1&$filter=mail eq '${normalizedEmail}' or userPrincipalName eq '${normalizedEmail}'`,
+    {
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+      cache: "no-store",
+    }
+  );
+
+  if (!usersRes.ok) {
+    throw new Error(`Failed to verify external reviewer: ${await usersRes.text()}`);
+  }
+
+  const usersJson = (await usersRes.json()) as {
+    value?: Array<{
+      id: string;
+      mail?: string | null;
+      userPrincipalName?: string | null;
+      displayName?: string;
+    }>;
+  };
+  const user = usersJson.value?.[0];
+
+  if (!user) {
+    return null;
+  }
+
+  const memberOfRes = await fetch(
+    `https://graph.microsoft.com/v1.0/users/${user.id}/transitiveMemberOf/microsoft.graph.group?$select=id&$filter=id eq '${externalReviewerGroupId}'`,
+    {
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+      cache: "no-store",
+    }
+  );
+
+  if (!memberOfRes.ok) {
+    throw new Error(
+      `Failed to verify external reviewer group membership: ${await memberOfRes.text()}`
+    );
+  }
+
+  const memberOfJson = (await memberOfRes.json()) as { value?: Array<{ id: string }> };
+  const isExternalReviewer = memberOfJson.value?.some(
+    (group) => group.id === externalReviewerGroupId
+  );
+
+  if (!isExternalReviewer) {
+    return null;
+  }
+
+  return {
+    id: user.id,
+    email: user.mail ?? user.userPrincipalName ?? email,
+    displayName: user.displayName,
+  };
+}
+
 export async function inviteExternalReviewer(email: string) {
   const appUrl = process.env.APP_URL;
 

@@ -9,7 +9,7 @@ import {
   type EffectiveRole,
   type InternalRole,
 } from "@/lib/auth/roles";
-import type { Program, ProgramAccess, ProgramSite } from "@/lib/models/program";
+import type { Program, ProgramAccess } from "@/lib/models/program";
 
 export const ROLES = EFFECTIVE_ROLES;
 export type Role = EffectiveRole;
@@ -35,15 +35,6 @@ function getEffectiveRoles(
   return EFFECTIVE_ROLES.filter((role) => roles.has(role));
 }
 
-interface CreateProgramInput {
-  name: string;
-  contractRef: string;
-  description: string;
-  sites: string[];
-  startDate: string;
-  endDate: string;
-}
-
 interface RoleContextValue {
   role: Role | null;
   roles: Role[];
@@ -62,9 +53,7 @@ interface RoleContextValue {
   canManageProgramAccess: (programId: string) => boolean;
   canGrantProgramAccess: (programId: string, email: string) => boolean;
   canRevokeProgramAccess: (programId: string, email: string) => boolean;
-  createProgram: (input: CreateProgramInput) => void;
-  grantProgramAccess: (programId: string, email: string) => void;
-  revokeProgramAccess: (programId: string, email: string) => void;
+  refreshPrograms: () => Promise<void>;
   hasAnyRole: (allowedRoles: readonly Role[]) => boolean;
 }
 
@@ -81,9 +70,7 @@ const RoleContext = createContext<RoleContextValue>({
   canManageProgramAccess: () => false,
   canGrantProgramAccess: () => false,
   canRevokeProgramAccess: () => false,
-  createProgram: () => {},
-  grantProgramAccess: () => {},
-  revokeProgramAccess: () => {},
+  refreshPrograms: async () => {},
   hasAnyRole: () => false,
 });
 
@@ -101,9 +88,7 @@ export function RoleProvider({ children }: { children: React.ReactNode }) {
   );
   const role = roles[0] ?? null;
 
-  useEffect(() => {
-    if (status === "loading") return;
-
+  const refreshPrograms = async () => {
     if (!session?.user) {
       setPrograms([]);
       setProgramAccessMap({});
@@ -111,33 +96,35 @@ export function RoleProvider({ children }: { children: React.ReactNode }) {
       return;
     }
 
-    let cancelled = false;
     setIsLoadingPrograms(true);
 
-    fetch("/api/programs")
-      .then(async (response) => {
-        if (!response.ok) {
-          throw new Error("Failed to load programs.");
-        }
-        return (await response.json()) as { programs: Program[] };
-      })
-      .then(({ programs }) => {
-        if (cancelled) return;
-        setPrograms(programs);
-        setProgramAccessMap(
-          Object.fromEntries(
-            programs.map((program) => [program.id, program.access])
-          )
-        );
-      })
-      .catch(() => {
-        if (cancelled) return;
-        setPrograms([]);
-        setProgramAccessMap({});
-      })
-      .finally(() => {
-        if (!cancelled) setIsLoadingPrograms(false);
-      });
+    try {
+      const response = await fetch("/api/programs");
+      if (!response.ok) {
+        throw new Error("Failed to load programs.");
+      }
+      const json = (await response.json()) as { programs: Program[] };
+      setPrograms(json.programs);
+      setProgramAccessMap(
+        Object.fromEntries(
+          json.programs.map((program) => [program.id, program.access])
+        )
+      );
+    } catch {
+      setPrograms([]);
+      setProgramAccessMap({});
+    } finally {
+      setIsLoadingPrograms(false);
+    }
+  };
+
+  useEffect(() => {
+    if (status === "loading") return;
+
+    let cancelled = false;
+    refreshPrograms().finally(() => {
+      if (cancelled) return;
+    });
 
     return () => {
       cancelled = true;
@@ -220,9 +207,7 @@ export function RoleProvider({ children }: { children: React.ReactNode }) {
 
     if (!normalizedEmail || !canManageProgramAccess(programId)) return false;
 
-    return !(programAccessMap[programId] ?? []).some(
-      (entry) => normalizeEmail(entry.email) === normalizedEmail
-    );
+    return true;
   };
 
   const canRevokeProgramAccess = (programId: string, email: string) => {
@@ -234,91 +219,6 @@ export function RoleProvider({ children }: { children: React.ReactNode }) {
     return (programAccessMap[programId] ?? []).some(
       (entry) => normalizeEmail(entry.email) === normalizedEmail
     );
-  };
-
-  const createProgram = (input: CreateProgramInput) => {
-    if (
-      !currentUserEmail ||
-      !internalRoles.includes("drg-admin")
-    ) {
-      return;
-    }
-
-    const createdAt = new Date().toISOString();
-    const nextNumber = programs.length + 1;
-    const programId = `PROG-${String(nextNumber).padStart(3, "0")}`;
-    const newProgram: Program = {
-      id: programId,
-      name: input.name,
-      contractRef: input.contractRef,
-      description: input.description,
-      sites: input.sites.map((site, index): ProgramSite => ({
-        id: `${programId}-site-${index}`,
-        programId,
-        name: site,
-        isPrimary: index === 0,
-      })),
-      programNumber: programId,
-      status: "Draft",
-      startDate: input.startDate,
-      endDate: input.endDate,
-      creatorUpn: currentUserEmail,
-      ownerUpn: currentUserEmail,
-      primarySiteCount: input.sites.length,
-      createdAt,
-      access: [
-        {
-          id: `${programId}-${currentUserEmail}`,
-          programId,
-          email: currentUserEmail,
-          accessRole: "Program Owner",
-          isActive: true,
-          grantedAt: createdAt,
-          grantedByEmail: currentUserEmail,
-        },
-      ],
-    };
-
-    setPrograms((prev) => [...prev, newProgram]);
-    setProgramAccessMap((prev) => ({
-      ...prev,
-      [programId]: newProgram.access,
-    }));
-  };
-
-  const grantProgramAccess = (programId: string, email: string) => {
-    const normalizedEmail = normalizeEmail(email);
-
-    if (!canGrantProgramAccess(programId, normalizedEmail)) return;
-
-    setProgramAccessMap((prev) => ({
-      ...prev,
-      [programId]: [
-        ...(prev[programId] ?? []),
-        {
-          email: normalizedEmail,
-          id: `${programId}-${normalizedEmail}`,
-          programId,
-          accessRole: "External Reviewer",
-          isActive: true,
-          grantedAt: new Date().toISOString(),
-          grantedByEmail: currentUserEmail,
-        },
-      ],
-    }));
-  };
-
-  const revokeProgramAccess = (programId: string, email: string) => {
-    const normalizedEmail = normalizeEmail(email);
-
-    if (!canRevokeProgramAccess(programId, normalizedEmail)) return;
-
-    setProgramAccessMap((prev) => ({
-      ...prev,
-      [programId]: (prev[programId] ?? []).filter(
-        (entry) => normalizeEmail(entry.email) !== normalizedEmail
-      ),
-    }));
   };
 
   return (
@@ -336,9 +236,7 @@ export function RoleProvider({ children }: { children: React.ReactNode }) {
         canManageProgramAccess,
         canGrantProgramAccess,
         canRevokeProgramAccess,
-        createProgram,
-        grantProgramAccess,
-        revokeProgramAccess,
+        refreshPrograms,
         hasAnyRole: (allowedRoles) => allowedRoles.some((allowedRole) => roles.includes(allowedRole)),
       }}
     >

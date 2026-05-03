@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Alert from "@mui/material/Alert";
 import Box from "@mui/material/Box";
 import Button from "@mui/material/Button";
@@ -23,6 +23,7 @@ import TextField from "@mui/material/TextField";
 import Typography from "@mui/material/Typography";
 import { normalizeEmail } from "@/lib/auth/roles";
 import type { Program } from "@/lib/models/program";
+import type { ProgramAccess } from "@/lib/models/program";
 import { useRole } from "@/lib/context/role-context";
 
 function getAccessBadgeLabel(email: string) {
@@ -42,21 +43,44 @@ function formatDateTime(iso: string) {
 export default function ProgramAccessManager({ program }: { program: Program }) {
   const {
     currentUser,
-    getProgramAccessList,
     canManageProgramAccess,
     canGrantProgramAccess,
     canRevokeProgramAccess,
-    grantProgramAccess,
-    revokeProgramAccess,
+    refreshPrograms,
   } = useRole();
+  const [accessList, setAccessList] = useState<ProgramAccess[]>(program.access);
   const [selectedEmail, setSelectedEmail] = useState("");
   const [isSavingAccess, setIsSavingAccess] = useState(false);
   const [isRevokingAccess, setIsRevokingAccess] = useState(false);
+  const [isLoadingAccess, setIsLoadingAccess] = useState(false);
   const [accessError, setAccessError] = useState<string | null>(null);
   const [pendingRevokeEmail, setPendingRevokeEmail] = useState<string | null>(null);
 
-  const accessList = getProgramAccessList(program.id);
   const mayManageAccess = canManageProgramAccess(program.id);
+
+  async function refreshAccessList() {
+    setIsLoadingAccess(true);
+    setAccessError(null);
+
+    try {
+      const res = await fetch(`/api/programs/${program.id}/access`);
+      if (!res.ok) {
+        const json = await res.json().catch(() => null);
+        throw new Error(json?.error ?? "Failed to load program access.");
+      }
+
+      const json = (await res.json()) as { access: ProgramAccess[] };
+      setAccessList(json.access);
+    } catch (error) {
+      setAccessError(error instanceof Error ? error.message : "Failed to load program access.");
+    } finally {
+      setIsLoadingAccess(false);
+    }
+  }
+
+  useEffect(() => {
+    void refreshAccessList();
+  }, [program.id]);
 
   async function handleGrantAccess() {
     const email = selectedEmail.trim().toLowerCase();
@@ -79,7 +103,7 @@ export default function ProgramAccessManager({ program }: { program: Program }) 
         throw new Error(json?.error ?? "Failed to grant access.");
       }
 
-      grantProgramAccess(program.id, email);
+      await Promise.all([refreshAccessList(), refreshPrograms()]);
       setSelectedEmail("");
     } catch (error) {
       setAccessError(error instanceof Error ? error.message : "Failed to grant access.");
@@ -108,7 +132,7 @@ export default function ProgramAccessManager({ program }: { program: Program }) 
         throw new Error(json?.error ?? "Failed to revoke access.");
       }
 
-      revokeProgramAccess(program.id, pendingRevokeEmail);
+      await Promise.all([refreshAccessList(), refreshPrograms()]);
       setPendingRevokeEmail(null);
     } catch (error) {
       setAccessError(error instanceof Error ? error.message : "Failed to revoke access.");
@@ -125,6 +149,7 @@ export default function ProgramAccessManager({ program }: { program: Program }) 
             Program Access
           </Typography>
           <Chip label={`${accessList.length} account${accessList.length === 1 ? "" : "s"}`} size="small" />
+          {isLoadingAccess && <Chip label="Refreshing" size="small" variant="outlined" />}
         </Stack>
 
         <Typography variant="body2" sx={{ color: "text.secondary", mb: 2 }}>
@@ -184,7 +209,7 @@ export default function ProgramAccessManager({ program }: { program: Program }) 
             </TableHead>
             <TableBody>
               {accessList.map((entry) => {
-                const mayRevoke = canRevokeProgramAccess(program.id, entry.email);
+                const mayRevoke = entry.isActive && canRevokeProgramAccess(program.id, entry.email);
                 return (
                   <TableRow key={entry.email} hover>
                     <TableCell sx={{ fontWeight: 600 }}>
@@ -198,9 +223,10 @@ export default function ProgramAccessManager({ program }: { program: Program }) 
                     <TableCell>{entry.email}</TableCell>
                     <TableCell>
                       <Chip
-                        label={getAccessBadgeLabel(entry.email)}
+                        label={entry.isActive ? getAccessBadgeLabel(entry.email) : "Inactive"}
                         size="small"
                         variant="outlined"
+                        color={entry.isActive ? "default" : "warning"}
                       />
                     </TableCell>
                     <TableCell>{formatDateTime(entry.grantedAt)}</TableCell>

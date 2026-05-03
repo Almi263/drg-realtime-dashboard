@@ -98,7 +98,7 @@ export async function listProgramAccess(
 
   const rows = await listRows<DataverseProgramAccessRow>(
     "drg_programaccesses",
-    `$select=drg_programaccessid,drg_email,drg_grantedon,drg_grantedbyemail,drg_isactive,_drg_program_value,_drg_user_value,drg_revokedon,drg_revokedbyemail,drg_entraobjectid,drg_accessrole&$filter=statecode eq 0 and drg_isactive eq true and _drg_program_value eq ${programId}`
+    `$select=drg_programaccessid,drg_email,drg_grantedon,drg_grantedbyemail,drg_isactive,_drg_program_value,_drg_user_value,drg_revokedon,drg_revokedbyemail,drg_entraobjectid,drg_accessrole&$filter=statecode eq 0 and _drg_program_value eq ${programId}`
   );
 
   return rows.map(mapAccessRow);
@@ -127,6 +127,15 @@ export async function createProgramAccess(input: {
   const grantedByEmail = normalizeEmail(input.grantedByEmail);
 
   if (!isDataverseConfigured()) {
+    const existing = await listProgramAccess(input.programId);
+    const matching = existing.find((entry) => entry.email === email);
+    if (matching?.isActive) return matching;
+    if (matching && !matching.isActive) {
+      throw new Error(
+        "This user has inactive access for the program. Reactivate the existing Dataverse access row instead of creating a duplicate."
+      );
+    }
+
     return {
       id: `${input.programId}-${email}`,
       programId: input.programId,
@@ -136,6 +145,15 @@ export async function createProgramAccess(input: {
       grantedByEmail,
       isActive: true,
     } satisfies ProgramAccessRecord;
+  }
+
+  const existing = await listProgramAccess(input.programId);
+  const matching = existing.find((entry) => entry.email === email);
+  if (matching?.isActive) return matching;
+  if (matching && !matching.isActive) {
+    throw new Error(
+      "This user has inactive access for the program. Reactivate the existing Dataverse access row instead of creating a duplicate."
+    );
   }
 
   const payload: Record<string, unknown> = {
@@ -181,7 +199,6 @@ export async function createProgramAccess(input: {
 export async function revokeProgramAccess(input: {
   programId: string;
   email: string;
-  revokedByEmail: string;
 }) {
   if (!isDataverseConfigured()) return;
 
@@ -198,8 +215,6 @@ export async function revokeProgramAccess(input: {
     method: "PATCH",
     body: JSON.stringify({
       drg_isactive: false,
-      drg_revokedon: new Date().toISOString(),
-      drg_revokedbyemail: normalizeEmail(input.revokedByEmail),
     }),
   });
 }

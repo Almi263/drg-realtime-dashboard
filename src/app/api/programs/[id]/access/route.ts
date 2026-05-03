@@ -1,14 +1,39 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/auth";
-import { canManageProgramAccess } from "@/lib/auth/guards";
+import { canManageProgramAccess, canViewProgram } from "@/lib/auth/guards";
 import { normalizeEmail } from "@/lib/auth/roles";
-import { createProgramAccess, revokeProgramAccess } from "@/lib/dataverse/program-access";
+import { createProgramAccess, listProgramAccess, revokeProgramAccess } from "@/lib/dataverse/program-access";
 import { getProgramById } from "@/lib/dataverse/programs";
-import { inviteExternalReviewer } from "@/lib/graph/invitations";
+import { getExternalReviewerPrincipal } from "@/lib/graph/invitations";
 import { triggerFlow } from "@/lib/power-automate/flows";
 
 function isValidEmail(email: string) {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+}
+
+export async function GET(
+  _request: Request,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  const session = await auth();
+
+  if (!session?.user) {
+    return NextResponse.json({ error: "Authentication required." }, { status: 401 });
+  }
+
+  const { id: programId } = await params;
+  const program = await getProgramById(programId, session.user);
+
+  if (!program) {
+    return NextResponse.json({ error: "Program not found." }, { status: 404 });
+  }
+
+  if (!canViewProgram(session.user, program)) {
+    return NextResponse.json({ error: "Forbidden." }, { status: 403 });
+  }
+
+  const access = await listProgramAccess(programId);
+  return NextResponse.json({ access });
 }
 
 export async function POST(
@@ -40,29 +65,41 @@ export async function POST(
   }
 
   try {
-    await inviteExternalReviewer(email);
+    const reviewer = await getExternalReviewerPrincipal(email);
+
+    if (!reviewer) {
+      return NextResponse.json(
+        {
+          error:
+            "External reviewer must already exist as an Entra guest and be a member of the external reviewer group before program access can be granted.",
+        },
+        { status: 400 }
+      );
+    }
+
     const access = await createProgramAccess({
       programId,
       programNumber: program.contractRef,
-      email,
+      email: reviewer.email,
       grantedByEmail: session.user.email ?? "",
+      accessRole: "External Reviewer",
+      entraObjectId: reviewer.id,
     });
     await triggerFlow("programAccessChanged", {
       action: "granted",
       programId,
-      email,
+      email: access.email,
       grantedByEmail: session.user.email,
     });
 
     return NextResponse.json({
       email: access.email,
-      invited: true,
       granted: true,
     });
   } catch (error) {
     return NextResponse.json(
       {
-        error: error instanceof Error ? error.message : "Failed to invite reviewer.",
+        error: error instanceof Error ? error.message : "Failed to grant access.",
       },
       { status: 500 }
     );
@@ -108,7 +145,6 @@ export async function DELETE(
     await revokeProgramAccess({
       programId,
       email,
-      revokedByEmail: session.user.email ?? "",
     });
     await triggerFlow("programAccessChanged", {
       action: "revoked",
