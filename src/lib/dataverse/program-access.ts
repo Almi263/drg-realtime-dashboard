@@ -3,6 +3,7 @@ import { normalizeEmail } from "@/lib/auth/roles";
 import type { ProgramAccess, ProgramAccessRole } from "@/lib/models/program";
 import {
   dataverseFetch,
+  DataverseError,
   escapeODataString,
   isDataverseConfigured,
   listRows,
@@ -138,10 +139,20 @@ export async function createProgramAccess(input: {
     payload.drg_entraobjectid = input.entraObjectId;
   }
 
-  await dataverseFetch<void>("/drg_programaccesses", {
-    method: "POST",
-    body: JSON.stringify(payload),
-  });
+  try {
+    await dataverseFetch<void>("/drg_programaccesses", {
+      method: "POST",
+      body: JSON.stringify(payload),
+    });
+  } catch (error) {
+    if (error instanceof DataverseError && error.isAlternateKeyConflict) {
+      const existing = await listProgramAccess(input.programId);
+      const matching = existing.find((entry) => entry.email === email);
+      if (matching) return matching;
+    }
+
+    throw error;
+  }
 
   return {
     id: `${input.programId}-${email}`,
