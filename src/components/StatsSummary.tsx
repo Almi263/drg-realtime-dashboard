@@ -11,14 +11,14 @@ interface Props {
 }
 
 export default function StatsSummary({ deliverables, programs }: Props) {
-  const overdue = deliverables.filter((d) => d.status === "Overdue").length;
-  const submitted = deliverables.filter((d) => d.status === "Submitted" || d.status === "Approved").length;
+  const overdue = deliverables.filter((d) => d.status.startsWith("Overdue")).length;
+  const submitted = deliverables.filter((d) => d.status === "Submitted" || d.status === "Complete").length;
 
   const stats = [
     { value: String(programs.length), label: "Programs" },
     { value: String(deliverables.length), label: "Deliverables" },
     { value: String(overdue), label: "Overdue", alert: overdue > 0 },
-    { value: String(submitted), label: "Submitted / Approved" },
+    { value: String(submitted), label: "Submitted / Complete" },
   ];
 
   return (

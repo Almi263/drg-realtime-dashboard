@@ -2,7 +2,7 @@
 // and when, which is the data behind the audit trail feature.
 import type { DeliverableDocument } from "@/lib/models/document";
 
-const MOCK_DOCUMENTS: DeliverableDocument[] = [
+const MOCK_DOCUMENTS = [
   {
     id: "doc-001",
     fileName: "SDP_v2.1_Draft.docx",
@@ -191,7 +191,7 @@ const MOCK_DOCUMENTS: DeliverableDocument[] = [
       { userId: "u-dpark", userName: "Dana Park", action: "viewed", timestamp: "2026-02-28T09:35:00Z" },
     ],
   },
-];
+] as unknown as DeliverableDocument[];
 
 export class MockDocumentConnector {
   readonly name = "MockDocuments";

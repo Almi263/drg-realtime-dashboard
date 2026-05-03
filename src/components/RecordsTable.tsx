@@ -19,7 +19,7 @@ import MenuItem from "@mui/material/MenuItem";
 import Typography from "@mui/material/Typography";
 import type { SelectChangeEvent } from "@mui/material/Select";
 import type { Deliverable, DeliverableStatus } from "@/lib/models/deliverable";
-import { DELIVERABLE_STATUSES, DELIVERABLE_TYPES } from "@/lib/models/deliverable";
+import { DELIVERABLE_STATUSES } from "@/lib/models/deliverable";
 import type { Program } from "@/lib/models/program";
 
 /* ------------------------------------------------------------------ */
@@ -29,16 +29,19 @@ import type { Program } from "@/lib/models/program";
 type SortableKey = "id" | "title" | "type" | "status" | "dueDate" | "assignedTo";
 type Order = "asc" | "desc";
 
-const STATUS_CHIP_STYLE: Record<DeliverableStatus, object> = {
-  Draft: {},
+const STATUS_CHIP_STYLE: Partial<Record<DeliverableStatus, object>> = {
+  "Not Submitted": {},
   "In Review": { bgcolor: "#0078d4", color: "#fff" },
-  Approved: { bgcolor: "#2e7d32", color: "#fff" },
+  Returned: { bgcolor: "#ed6c02", color: "#fff" },
+  "Pending Acknowledgment": { bgcolor: "#6d4c41", color: "#fff" },
+  Complete: { bgcolor: "#2e7d32", color: "#fff" },
   Submitted: { bgcolor: "#00695c", color: "#fff" },
-  Overdue: { bgcolor: "#d32f2f", color: "#fff" },
+  "Overdue - Waiting on Reviewer": { bgcolor: "#d32f2f", color: "#fff" },
+  "Overdue - Waiting on DRG": { bgcolor: "#d32f2f", color: "#fff" },
 };
 
 function getStatusChipProps(status: DeliverableStatus) {
-  if (status === "Draft") return { color: "default" as const };
+  if (status === "Not Submitted") return { color: "default" as const };
   return { sx: STATUS_CHIP_STYLE[status] };
 }
 
@@ -79,6 +82,7 @@ export default function RecordsTable({ deliverables, programs, detailSource }: R
   const [order, setOrder] = useState<Order>("asc");
 
   const programMap = Object.fromEntries(programs.map((p) => [p.id, p.name]));
+  const deliverableTypes = [...new Set(deliverables.map((d) => d.type))].sort();
 
   const filtered = useMemo(() => {
     let rows = deliverables;
@@ -144,7 +148,7 @@ export default function RecordsTable({ deliverables, programs, detailSource }: R
             onChange={(e: SelectChangeEvent) => setTypeFilter(e.target.value)}
           >
             <MenuItem value="All">All Types</MenuItem>
-            {DELIVERABLE_TYPES.map((t) => (
+            {deliverableTypes.map((t) => (
               <MenuItem key={t} value={t}>{t}</MenuItem>
             ))}
           </Select>
@@ -202,7 +206,7 @@ export default function RecordsTable({ deliverables, programs, detailSource }: R
                 <TableCell>
                   <Chip label={d.status} size="small" {...getStatusChipProps(d.status)} />
                 </TableCell>
-                <TableCell sx={d.status === "Overdue" ? { color: "error.main" } : undefined}>
+                <TableCell sx={d.status.startsWith("Overdue") ? { color: "error.main" } : undefined}>
                   {formatDate(d.dueDate)}
                 </TableCell>
                 <TableCell>{d.assignedTo}</TableCell>

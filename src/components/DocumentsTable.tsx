@@ -27,7 +27,7 @@ import VisibilityIcon from "@mui/icons-material/Visibility";
 import MuiLink from "@mui/material/Link";
 import NextLink from "next/link";
 import type { SelectChangeEvent } from "@mui/material/Select";
-import type { DeliverableDocument, FileType, AccessAction } from "@/lib/models/document";
+import type { DeliverableDocument, FileType, DocumentAccessAction } from "@/lib/models/document";
 import type { Program } from "@/lib/models/program";
 import { useRole } from "@/lib/context/role-context";
 
@@ -42,9 +42,12 @@ const FILE_TYPE_COLORS: Record<FileType, string> = {
   PowerPoint: "#d24726",
 };
 
-const ACTION_LABELS: Record<AccessAction, string> = {
-  viewed: "Viewed",
-  downloaded: "Downloaded",
+const ACTION_LABELS: Record<DocumentAccessAction, string> = {
+  View: "Viewed",
+  Download: "Downloaded",
+  Upload: "Uploaded",
+  Delete: "Deleted",
+  Acknowledge: "Acknowledged",
 };
 
 function formatFileSize(sizeKb: number): string {
@@ -94,7 +97,7 @@ function AccessLogRow({ doc, colSpan }: { doc: DeliverableDocument; colSpan: num
                 label={ACTION_LABELS[event.action]}
                 size="small"
                 variant="outlined"
-                color={event.action === "downloaded" ? "primary" : "default"}
+                color={event.action === "Download" ? "primary" : "default"}
                 sx={{ fontSize: "0.65rem", height: 20, minWidth: 80 }}
               />
               <Typography variant="caption" sx={{ fontWeight: 600 }}>

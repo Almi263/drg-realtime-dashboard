@@ -13,16 +13,19 @@ import type { Deliverable, DeliverableStatus } from "@/lib/models/deliverable";
 /*  Status chip styling (matches RecordsTable)                        */
 /* ------------------------------------------------------------------ */
 
-const STATUS_CHIP_STYLE: Record<DeliverableStatus, object> = {
-  Draft: {},
+const STATUS_CHIP_STYLE: Partial<Record<DeliverableStatus, object>> = {
+  "Not Submitted": {},
   "In Review": { bgcolor: "#0078d4", color: "#fff" },
-  Approved: { bgcolor: "#2e7d32", color: "#fff" },
+  Returned: { bgcolor: "#ed6c02", color: "#fff" },
+  "Pending Acknowledgment": { bgcolor: "#6d4c41", color: "#fff" },
+  Complete: { bgcolor: "#2e7d32", color: "#fff" },
   Submitted: { bgcolor: "#00695c", color: "#fff" },
-  Overdue: { bgcolor: "#d32f2f", color: "#fff" },
+  "Overdue - Waiting on Reviewer": { bgcolor: "#d32f2f", color: "#fff" },
+  "Overdue - Waiting on DRG": { bgcolor: "#d32f2f", color: "#fff" },
 };
 
 function getStatusChipProps(status: DeliverableStatus) {
-  if (status === "Draft") {
+  if (status === "Not Submitted") {
     return { color: "default" as const };
   }
   return { sx: STATUS_CHIP_STYLE[status] };
@@ -173,8 +176,8 @@ function DeliverableCard({ deliverable }: { deliverable: Deliverable }) {
           <Typography
             variant="body2"
             sx={{
-              color: deliverable.status === "Overdue" ? "error.main" : "text.secondary",
-              fontWeight: deliverable.status === "Overdue" ? 600 : 400,
+              color: deliverable.status.startsWith("Overdue") ? "error.main" : "text.secondary",
+              fontWeight: deliverable.status.startsWith("Overdue") ? 600 : 400,
             }}
           >
             Due: {formatDueDate(deliverable.dueDate)}
@@ -202,7 +205,7 @@ interface DeadlinesListProps {
 export default function DeadlinesList({ deliverables }: DeadlinesListProps) {
   // Exclude completed items — the calendar is an action surface, not a history view
   const actionable = deliverables.filter(
-    (d) => d.status !== "Submitted" && d.status !== "Approved"
+    (d) => d.status !== "Submitted" && d.status !== "Complete"
   );
   const groups = useMemo(() => groupDeliverables(actionable), [actionable]);
 

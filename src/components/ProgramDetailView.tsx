@@ -46,7 +46,7 @@ export default function ProgramDetailView({
   }
 
   const deliverableMap = Object.fromEntries(deliverables.map((d) => [d.id, d.title]));
-  const overdue = deliverables.filter((d) => d.status === "Overdue").length;
+  const overdue = deliverables.filter((d) => d.status.startsWith("Overdue")).length;
 
   return (
     <Box sx={{ display: "flex", flexDirection: "column", gap: 4 }}>
@@ -87,7 +87,7 @@ export default function ProgramDetailView({
           <Box sx={{ display: "flex", alignItems: "center", gap: 0.5, flexWrap: "wrap" }}>
             <LocationOnIcon sx={{ fontSize: "0.875rem", color: "text.secondary" }} />
             <Typography variant="caption" sx={{ color: "text.secondary" }}>
-              {program.sites.slice(0, 5).join(", ")}
+              {program.sites.slice(0, 5).map((site) => site.name).join(", ")}
               {program.sites.length > 5 && ` +${program.sites.length - 5} more`}
             </Typography>
           </Box>

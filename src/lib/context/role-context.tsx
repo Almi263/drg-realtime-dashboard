@@ -9,13 +9,13 @@ import {
   type EffectiveRole,
   type InternalRole,
 } from "@/lib/auth/roles";
-import type { Program, ProgramAccessGrant } from "@/lib/models/program";
+import type { Program, ProgramAccess, ProgramSite } from "@/lib/models/program";
 
 export const ROLES = EFFECTIVE_ROLES;
 export type Role = EffectiveRole;
 export { ROLE_LABELS };
 
-type ProgramAccessMap = Record<string, ProgramAccessGrant[]>;
+type ProgramAccessMap = Record<string, ProgramAccess[]>;
 
 function getEffectiveRoles(
   email: string,
@@ -56,7 +56,7 @@ interface RoleContextValue {
   isLoading: boolean;
   programs: Program[];
   getProgramById: (programId: string) => Program | undefined;
-  getProgramAccessList: (programId: string) => ProgramAccessGrant[];
+  getProgramAccessList: (programId: string) => ProgramAccess[];
   canViewProgram: (programId: string) => boolean;
   canManageProgramAccess: (programId: string) => boolean;
   canGrantProgramAccess: (programId: string, email: string) => boolean;
@@ -124,7 +124,7 @@ export function RoleProvider({ children }: { children: React.ReactNode }) {
         setPrograms(programs);
         setProgramAccessMap(
           Object.fromEntries(
-            programs.map((program) => [program.id, program.accessList])
+            programs.map((program) => [program.id, program.access])
           )
         );
       })
@@ -146,7 +146,7 @@ export function RoleProvider({ children }: { children: React.ReactNode }) {
     () =>
       programs.map((program) => ({
         ...program,
-        accessList: programAccessMap[program.id] ?? program.accessList,
+        access: programAccessMap[program.id] ?? program.access,
       })),
     [programs, programAccessMap]
   );
@@ -218,14 +218,27 @@ export function RoleProvider({ children }: { children: React.ReactNode }) {
       name: input.name,
       contractRef: input.contractRef,
       description: input.description,
-      sites: input.sites,
+      sites: input.sites.map((site, index): ProgramSite => ({
+        id: `${programId}-site-${index}`,
+        programId,
+        name: site,
+        isPrimary: index === 0,
+      })),
+      programNumber: programId,
+      status: "Draft",
       startDate: input.startDate,
       endDate: input.endDate,
-      creatorEmail: currentUserEmail,
+      creatorUpn: currentUserEmail,
+      ownerUpn: currentUserEmail,
+      primarySiteCount: input.sites.length,
       createdAt,
-      accessList: [
+      access: [
         {
+          id: `${programId}-${currentUserEmail}`,
+          programId,
           email: currentUserEmail,
+          accessRole: "Program Owner",
+          isActive: true,
           grantedAt: createdAt,
           grantedByEmail: currentUserEmail,
         },
@@ -235,7 +248,7 @@ export function RoleProvider({ children }: { children: React.ReactNode }) {
     setPrograms((prev) => [...prev, newProgram]);
     setProgramAccessMap((prev) => ({
       ...prev,
-      [programId]: newProgram.accessList,
+      [programId]: newProgram.access,
     }));
   };
 
@@ -250,6 +263,10 @@ export function RoleProvider({ children }: { children: React.ReactNode }) {
         ...(prev[programId] ?? []),
         {
           email: normalizedEmail,
+          id: `${programId}-${normalizedEmail}`,
+          programId,
+          accessRole: "External Reviewer",
+          isActive: true,
           grantedAt: new Date().toISOString(),
           grantedByEmail: currentUserEmail,
         },

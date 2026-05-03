@@ -132,7 +132,7 @@ export default function ProgramAccessManager({ program }: { program: Program }) 
         </Typography>
 
         <Alert severity="info" sx={{ mb: 2 }}>
-          Program creator: {program.creatorEmail}
+          Program creator: {program.creatorUpn}
         </Alert>
 
         {mayManageAccess ? (

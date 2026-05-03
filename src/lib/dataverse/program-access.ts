@@ -1,6 +1,6 @@
 import { MockProgramConnector } from "@/lib/connectors/mock-programs";
 import { normalizeEmail } from "@/lib/auth/roles";
-import type { ProgramAccessGrant } from "@/lib/models/program";
+import type { ProgramAccess, ProgramAccessRole } from "@/lib/models/program";
 import {
   dataverseFetch,
   escapeODataString,
@@ -16,22 +16,27 @@ interface DataverseProgramAccessRow {
   drg_grantedbyemail?: string;
   drg_isactive?: boolean;
   _drg_program_value?: string;
+  _drg_user_value?: string;
+  drg_revokedon?: string;
+  drg_revokedbyemail?: string;
+  drg_entraobjectid?: string;
 }
 
-export interface ProgramAccessRecord extends ProgramAccessGrant {
-  id: string;
-  programId: string;
-  isActive: boolean;
-}
+export type ProgramAccessRecord = ProgramAccess;
 
 function mapAccessRow(row: DataverseProgramAccessRow): ProgramAccessRecord {
   return {
     id: row.drg_programaccessid,
     programId: row._drg_program_value ?? "",
+    userId: row._drg_user_value,
     email: normalizeEmail(row.drg_email),
+    accessRole: "External Reviewer",
     grantedAt: row.drg_grantedon ?? new Date().toISOString(),
     grantedByEmail: normalizeEmail(row.drg_grantedbyemail),
     isActive: row.drg_isactive !== false,
+    revokedAt: row.drg_revokedon,
+    revokedByEmail: normalizeEmail(row.drg_revokedbyemail),
+    entraObjectId: row.drg_entraobjectid,
   };
 }
 
@@ -39,10 +44,14 @@ export async function listActiveProgramAccess(): Promise<ProgramAccessRecord[]> 
   if (!isDataverseConfigured()) {
     const programs = await new MockProgramConnector().getPrograms();
     return programs.flatMap((program) =>
-      program.accessList.map((grant, index) => ({
+      (
+        (program as unknown as { accessList?: ProgramAccess[] }).accessList ??
+        []
+      ).map((grant, index) => ({
         ...grant,
         id: `${program.id}-${index}`,
         programId: program.id,
+        accessRole: grant.accessRole ?? "External Reviewer",
         isActive: true,
       }))
     );
@@ -50,7 +59,7 @@ export async function listActiveProgramAccess(): Promise<ProgramAccessRecord[]> 
 
   const rows = await listRows<DataverseProgramAccessRow>(
     "drg_programaccesses",
-    "$select=drg_programaccessid,drg_email,drg_grantedon,drg_grantedbyemail,drg_isactive,_drg_program_value&$filter=statecode eq 0 and drg_isactive eq true"
+    "$select=drg_programaccessid,drg_email,drg_grantedon,drg_grantedbyemail,drg_isactive,_drg_program_value,_drg_user_value,drg_revokedon,drg_revokedbyemail,drg_entraobjectid&$filter=statecode eq 0 and drg_isactive eq true"
   );
 
   return rows.map(mapAccessRow);
@@ -61,17 +70,21 @@ export async function listProgramAccess(
 ): Promise<ProgramAccessRecord[]> {
   if (!isDataverseConfigured()) {
     const program = await new MockProgramConnector().getProgramById(programId);
-    return (program?.accessList ?? []).map((grant, index) => ({
+    return (
+      (program as unknown as { accessList?: ProgramAccess[] } | undefined)
+        ?.accessList ?? []
+    ).map((grant, index) => ({
       ...grant,
       id: `${programId}-${index}`,
       programId,
+      accessRole: grant.accessRole ?? "External Reviewer",
       isActive: true,
     }));
   }
 
   const rows = await listRows<DataverseProgramAccessRow>(
     "drg_programaccesses",
-    `$select=drg_programaccessid,drg_email,drg_grantedon,drg_grantedbyemail,drg_isactive,_drg_program_value&$filter=statecode eq 0 and drg_isactive eq true and _drg_program_value eq ${programId}`
+    `$select=drg_programaccessid,drg_email,drg_grantedon,drg_grantedbyemail,drg_isactive,_drg_program_value,_drg_user_value,drg_revokedon,drg_revokedbyemail,drg_entraobjectid&$filter=statecode eq 0 and drg_isactive eq true and _drg_program_value eq ${programId}`
   );
 
   return rows.map(mapAccessRow);
@@ -93,7 +106,7 @@ export async function createProgramAccess(input: {
   programNumber?: string;
   email: string;
   grantedByEmail: string;
-  accessRole?: "Program Owner" | "DRG Staff" | "External Reviewer" | "Read Only";
+  accessRole?: ProgramAccessRole;
   entraObjectId?: string;
 }) {
   const email = normalizeEmail(input.email);
@@ -104,6 +117,7 @@ export async function createProgramAccess(input: {
       id: `${input.programId}-${email}`,
       programId: input.programId,
       email,
+      accessRole: input.accessRole ?? "External Reviewer",
       grantedAt: new Date().toISOString(),
       grantedByEmail,
       isActive: true,
@@ -133,6 +147,7 @@ export async function createProgramAccess(input: {
     id: `${input.programId}-${email}`,
     programId: input.programId,
     email,
+    accessRole: input.accessRole ?? "External Reviewer",
     grantedAt: new Date().toISOString(),
     grantedByEmail,
     isActive: true,

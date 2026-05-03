@@ -25,9 +25,12 @@ import { useRole } from "@/lib/context/role-context";
 
 const STATUS_COLORS: Partial<Record<DeliverableStatus, { bg: string; color: string }>> = {
   "In Review": { bg: "#0078d4", color: "#fff" },
-  Approved: { bg: "#2e7d32", color: "#fff" },
+  Returned: { bg: "#ed6c02", color: "#fff" },
+  "Pending Acknowledgment": { bg: "#6d4c41", color: "#fff" },
+  Complete: { bg: "#2e7d32", color: "#fff" },
   Submitted: { bg: "#00695c", color: "#fff" },
-  Overdue: { bg: "#d32f2f", color: "#fff" },
+  "Overdue - Waiting on Reviewer": { bg: "#d32f2f", color: "#fff" },
+  "Overdue - Waiting on DRG": { bg: "#d32f2f", color: "#fff" },
 };
 
 const FILE_TYPE_COLORS: Record<FileType, string> = {
@@ -80,7 +83,7 @@ export default function DeliverableDetail({
       {/* Header card */}
       <Card
         variant="outlined"
-        sx={{ borderColor: d.status === "Overdue" ? "error.main" : "divider" }}
+        sx={{ borderColor: d.status.startsWith("Overdue") ? "error.main" : "divider" }}
       >
         <CardContent sx={{ p: 2.5 }}>
           <Box
@@ -125,7 +128,7 @@ export default function DeliverableDetail({
           <Box sx={{ display: "flex", flexWrap: "wrap", gap: 2.5 }}>
             <Box sx={{ display: "flex", alignItems: "center", gap: 0.75 }}>
               <CalendarTodayIcon sx={{ fontSize: "0.9rem", color: "text.secondary" }} />
-              <Typography variant="body2" sx={{ color: d.status === "Overdue" ? "error.main" : "text.secondary" }}>
+              <Typography variant="body2" sx={{ color: d.status.startsWith("Overdue") ? "error.main" : "text.secondary" }}>
                 Due {formatDate(d.dueDate)}
               </Typography>
             </Box>
@@ -151,7 +154,7 @@ export default function DeliverableDetail({
       </Card>
 
       {/* Submit action */}
-      {canSubmit && d.status !== "Approved" && (
+      {canSubmit && d.status !== "Complete" && (
         <Box>
           <Button
             component={NextLink}

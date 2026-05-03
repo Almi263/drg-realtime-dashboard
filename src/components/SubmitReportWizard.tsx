@@ -27,9 +27,12 @@ const STEPS = ["Select Program", "Select Deliverable", "Attach Document", "Submi
 
 const STATUS_CHIP_STYLE: Partial<Record<DeliverableStatus, object>> = {
   "In Review": { bgcolor: "#0078d4", color: "#fff" },
-  Approved: { bgcolor: "#2e7d32", color: "#fff" },
+  Returned: { bgcolor: "#ed6c02", color: "#fff" },
+  "Pending Acknowledgment": { bgcolor: "#6d4c41", color: "#fff" },
+  Complete: { bgcolor: "#2e7d32", color: "#fff" },
   Submitted: { bgcolor: "#00695c", color: "#fff" },
-  Overdue: { bgcolor: "#d32f2f", color: "#fff" },
+  "Overdue - Waiting on Reviewer": { bgcolor: "#d32f2f", color: "#fff" },
+  "Overdue - Waiting on DRG": { bgcolor: "#d32f2f", color: "#fff" },
 };
 
 // Fake ref, server would return a real one after persisting
@@ -122,7 +125,7 @@ function ProgramStep({
         {programs.map((p) => {
           const progDeliverables = deliverables.filter((d) => d.programId === p.id);
           const pending = progDeliverables.filter(
-            (d) => d.status !== "Submitted" && d.status !== "Approved"
+            (d) => d.status !== "Submitted" && d.status !== "Complete"
           ).length;
           return (
             <Card key={p.id} variant="outlined" sx={{ "&:hover": { boxShadow: 3 } }}>
@@ -167,7 +170,7 @@ function DeliverableStep({
   onBack: () => void;
 }) {
   const submittable = deliverables.filter(
-    (d) => d.status !== "Submitted" && d.status !== "Approved"
+    (d) => d.status !== "Submitted" && d.status !== "Complete"
   );
 
   return (

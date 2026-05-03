@@ -13,7 +13,7 @@ import DownloadIcon from "@mui/icons-material/Download";
 import LockIcon from "@mui/icons-material/Lock";
 import VisibilityIcon from "@mui/icons-material/Visibility";
 import FileDownloadIcon from "@mui/icons-material/FileDownload";
-import type { DeliverableDocument, FileType, AccessAction } from "@/lib/models/document";
+import type { DeliverableDocument, FileType, DocumentAccessAction } from "@/lib/models/document";
 import type { Program } from "@/lib/models/program";
 import { useRole } from "@/lib/context/role-context";
 
@@ -28,9 +28,12 @@ const FILE_TYPE_COLORS: Record<FileType, string> = {
   PowerPoint: "#d24726",
 };
 
-const ACTION_ICONS: Record<AccessAction, React.ReactNode> = {
-  viewed: <VisibilityIcon sx={{ fontSize: "0.9rem" }} />,
-  downloaded: <FileDownloadIcon sx={{ fontSize: "0.9rem" }} />,
+const ACTION_ICONS: Record<DocumentAccessAction, React.ReactNode> = {
+  View: <VisibilityIcon sx={{ fontSize: "0.9rem" }} />,
+  Download: <FileDownloadIcon sx={{ fontSize: "0.9rem" }} />,
+  Upload: <VisibilityIcon sx={{ fontSize: "0.9rem" }} />,
+  Delete: <VisibilityIcon sx={{ fontSize: "0.9rem" }} />,
+  Acknowledge: <VisibilityIcon sx={{ fontSize: "0.9rem" }} />,
 };
 
 function formatDateTime(iso: string) {
@@ -103,20 +106,20 @@ function AccessTimeline({ doc }: { doc: DeliverableDocument }) {
                   height: 24,
                   borderRadius: "50%",
                   border: "2px solid",
-                  borderColor: event.isUpload ? "primary.main" : event.action === "downloaded" ? "success.main" : "divider",
+                  borderColor: event.isUpload ? "primary.main" : event.action === "Download" ? "success.main" : "divider",
                   display: "flex",
                   alignItems: "center",
                   justifyContent: "center",
-                  color: event.isUpload || event.action === "downloaded" ? "#fff" : "text.secondary",
+                  color: event.isUpload || event.action === "Download" ? "#fff" : "text.secondary",
                   flexShrink: 0,
                   zIndex: 1,
-                  bgcolor: event.isUpload ? "primary.main" : event.action === "downloaded" ? "success.main" : "background.paper",
+                  bgcolor: event.isUpload ? "primary.main" : event.action === "Download" ? "success.main" : "background.paper",
                 }}
               >
                 {event.isUpload ? (
                   <Typography sx={{ fontSize: "0.6rem", fontWeight: 900 }}>UP</Typography>
                 ) : (
-                  ACTION_ICONS[event.action as AccessAction]
+                  ACTION_ICONS[event.action as DocumentAccessAction]
                 )}
               </Box>
 
@@ -132,7 +135,7 @@ function AccessTimeline({ doc }: { doc: DeliverableDocument }) {
                     variant="outlined"
                     color={
                       event.isUpload ? "primary"
-                      : event.action === "downloaded" ? "success"
+                      : event.action === "Download" ? "success"
                       : "default"
                     }
                     sx={{ fontSize: "0.65rem", height: 18 }}

@@ -37,7 +37,7 @@ export function getEffectiveRolesForProgram(
   const userEmail = normalizeEmail(user.email);
 
   if (
-    program?.accessList?.some(
+    program?.access?.some(
       (entry) => normalizeEmail(entry.email) === userEmail
     )
   ) {
@@ -55,7 +55,7 @@ export function canViewProgram(
 
   const userEmail = normalizeEmail(user.email);
 
-  return program.accessList.some(
+  return program.access.some(
     (entry) => normalizeEmail(entry.email) === userEmail
   );
 }

@@ -62,7 +62,7 @@ export async function uploadPdfToSharePoint(input: {
   programId: string;
   deliverableId: string;
   fileName: string;
-  content: Blob | ArrayBuffer | Uint8Array;
+  content: Blob | ArrayBuffer;
 }): Promise<SharePointFileResult> {
   if (!input.fileName.toLowerCase().endsWith(".pdf")) {
     throw new Error("Only PDF files can be uploaded.");
@@ -87,7 +87,7 @@ export async function uploadPdfToSharePoint(input: {
         Authorization: `Bearer ${token}`,
         "Content-Type": "application/pdf",
       },
-      body: input.content,
+      body: input.content instanceof Blob ? input.content : new Blob([input.content]),
       cache: "no-store",
     }
   );

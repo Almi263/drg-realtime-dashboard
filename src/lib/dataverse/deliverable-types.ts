@@ -1,5 +1,5 @@
 import { isDataverseConfigured, listRows } from "@/lib/dataverse/client";
-import { DELIVERABLE_TYPES, type DeliverableType } from "@/lib/models/deliverable";
+import type { DeliverableType } from "@/lib/models/deliverable";
 
 interface DataverseDeliverableTypeRow {
   drg_deliverabletypeid: string;
@@ -8,22 +8,13 @@ interface DataverseDeliverableTypeRow {
   drg_isactive?: boolean;
 }
 
-export interface DataverseDeliverableType {
-  id: string;
-  name: string;
-  normalizedName: string;
-  isActive: boolean;
+export function toDeliverableTypeName(value: string | undefined) {
+  return value?.trim() || "CDRL";
 }
 
-export function toUiDeliverableType(value: string | undefined): DeliverableType {
-  return DELIVERABLE_TYPES.includes(value as DeliverableType)
-    ? (value as DeliverableType)
-    : "CDRL";
-}
-
-export async function listDeliverableTypes(): Promise<DataverseDeliverableType[]> {
+export async function listDeliverableTypes(): Promise<DeliverableType[]> {
   if (!isDataverseConfigured()) {
-    return DELIVERABLE_TYPES.map((type) => ({
+    return ["CDRL", "SDRL"].map((type) => ({
       id: type,
       name: type,
       normalizedName: type.toLowerCase(),

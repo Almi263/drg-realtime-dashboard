@@ -1,4 +1,4 @@
-import type { AccessAction, AccessEvent } from "@/lib/models/document";
+import type { AccessEvent, DocumentAccessAction } from "@/lib/models/document";
 import { getFormattedValue, isDataverseConfigured, listRows } from "@/lib/dataverse/client";
 
 interface DataverseDocumentAccessLogRow extends Record<string, unknown> {
@@ -9,8 +9,17 @@ interface DataverseDocumentAccessLogRow extends Record<string, unknown> {
   _drg_document_value?: string;
 }
 
-function toUiAction(value: string | undefined): AccessAction {
-  return value === "Download" ? "downloaded" : "viewed";
+function toDocumentAccessAction(value: string | undefined): DocumentAccessAction {
+  switch (value) {
+    case "Download":
+    case "Upload":
+    case "Delete":
+    case "Acknowledge":
+    case "View":
+      return value;
+    default:
+      return "View";
+  }
 }
 
 export async function listDocumentAccessEvents(
@@ -34,7 +43,7 @@ export async function listDocumentAccessEvents(
       {
         userId: row.drg_actoremail ?? row.drg_actorname ?? "",
         userName: row.drg_actorname ?? row.drg_actoremail ?? "",
-        action: toUiAction(getFormattedValue(row, "drg_action")),
+        action: toDocumentAccessAction(getFormattedValue(row, "drg_action")),
         timestamp: row.drg_occurredon ?? "",
       },
     ]);
