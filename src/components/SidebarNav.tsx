@@ -29,7 +29,7 @@ const NAV_ITEMS = [
 export default function SidebarNav() {
   const pathname = usePathname();
   const { role } = useRole();
-  const canSubmit = role === "drg-admin" || role === "drg-staff";
+  const canSubmit = role ? role === "drg-admin" || role === "drg-staff" : false;
 
   return (
     <Box sx={{ display: "flex", flexDirection: "column", height: "100%" }}>

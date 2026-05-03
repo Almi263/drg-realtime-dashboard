@@ -18,7 +18,7 @@ function formatDate(iso: string) {
 }
 
 export default function ProgramAccessPageView({ programId }: { programId: string }) {
-  const { canViewProgram, getProgramById } = useRole();
+  const { getProgramById } = useRole();
   const program = getProgramById(programId);
 
   if (!program) {
@@ -27,12 +27,6 @@ export default function ProgramAccessPageView({ programId }: { programId: string
         title="Program not found"
         message="This program could not be found in the current workspace."
       />
-    );
-  }
-
-  if (!canViewProgram(program.id)) {
-    return (
-      <AccessRestrictedNotice message="This account does not currently have access to this program." />
     );
   }
 

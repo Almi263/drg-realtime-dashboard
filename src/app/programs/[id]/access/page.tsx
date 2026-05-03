@@ -2,8 +2,11 @@ import { Suspense } from "react";
 import Box from "@mui/material/Box";
 import Container from "@mui/material/Container";
 import CircularProgress from "@mui/material/CircularProgress";
+import { notFound, redirect } from "next/navigation";
 import BackButton from "@/components/BackButton";
 import ProgramAccessPageView from "@/components/ProgramAccessPageView";
+import { canManageProgramAccess, requireUser } from "@/lib/auth/guards";
+import { MockProgramConnector } from "@/lib/connectors/mock-programs";
 
 function ProgramAccessContent({ id }: { id: string }) {
   return <ProgramAccessPageView programId={id} />;
@@ -14,7 +17,17 @@ export default async function ProgramAccessPage({
 }: {
   params: Promise<{ id: string }>;
 }) {
+  const user = await requireUser();
   const { id } = await params;
+  const program = await new MockProgramConnector().getProgramById(id);
+
+  if (!program) {
+    notFound();
+  }
+
+  if (!canManageProgramAccess(user, program)) {
+    redirect("/unauthorized");
+  }
 
   return (
     <Container maxWidth="lg" sx={{ py: { xs: 3, sm: 4 } }}>

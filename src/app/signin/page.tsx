@@ -27,14 +27,14 @@ export default async function SignInPage() {
         py: 4,
       }}
     >
-      <Container maxWidth={false} sx={{ width: "100%", display: "flex", justifyContent: "center" }}>
+      <Container maxWidth="sm">
         <Paper
           elevation={0}
           sx={{
             width: "100%",
             maxWidth: 450,
             p: { xs: 3, sm: 5 },
-            borderRadius: 0,
+            borderRadius: 0.5,
             border: "1px solid",
             borderColor: "rgba(0,32,80,0.12)",
             backgroundColor: "#fff",
@@ -99,7 +99,7 @@ export default async function SignInPage() {
                 sx={{
                   py: 1.4,
                   fontWeight: 700,
-                  borderRadius: 0,
+                  borderRadius: 0.5,
                   bgcolor: MICROSOFT_BLUE,
                   boxShadow: "none",
                   justifyContent: "flex-start",

@@ -1,54 +1,22 @@
 "use client";
 
-// Demo RBAC, swappable for MSAL when we get a real tenant
 import { createContext, useContext, useMemo, useState } from "react";
+import { useSession } from "next-auth/react";
 import { MOCK_PROGRAMS } from "@/lib/connectors/mock-programs";
-import type { Account } from "@/lib/models/account";
+import {
+  EFFECTIVE_ROLES,
+  ROLE_LABELS,
+  normalizeEmail,
+  type EffectiveRole,
+  type InternalRole,
+} from "@/lib/auth/roles";
 import type { Program, ProgramAccessGrant } from "@/lib/models/program";
 
-export const ROLES = ["drg-admin", "drg-staff", "gov-reviewer"] as const;
-export type Role = (typeof ROLES)[number];
-
-export const ROLE_LABELS: Record<Role, string> = {
-  "drg-admin": "DRG Admin",
-  "drg-staff": "DRG Staff",
-  "gov-reviewer": "Gov Reviewer",
-};
+export const ROLES = EFFECTIVE_ROLES;
+export type Role = EffectiveRole;
+export { ROLE_LABELS };
 
 type ProgramAccessMap = Record<string, ProgramAccessGrant[]>;
-
-export const ACCOUNTS: Account[] = [
-  {
-    id: "acct-001",
-    name: "Samantha Reed",
-    email: "samantha.reed@drgok.com",
-    role: "drg-admin",
-  },
-  {
-    id: "acct-002",
-    name: "Javier Morales",
-    email: "javier.morales@drgok.com",
-    role: "drg-staff",
-  },
-  {
-    id: "acct-003",
-    name: "Erin Choi",
-    email: "erin.choi@drgok.com",
-    role: "drg-staff",
-  },
-  {
-    id: "acct-004",
-    name: "Kelly Madison",
-    email: "kelly.madison@navy.mil",
-    role: "gov-reviewer",
-  },
-  {
-    id: "acct-005",
-    name: "Marcus Hill",
-    email: "marcus.hill@us.af.mil",
-    role: "gov-reviewer",
-  },
-];
 
 function buildInitialAccessMap(): ProgramAccessMap {
   return Object.fromEntries(
@@ -56,8 +24,22 @@ function buildInitialAccessMap(): ProgramAccessMap {
   );
 }
 
-function findAccountByEmail(email: string) {
-  return ACCOUNTS.find((account) => account.email === email);
+function getEffectiveRoles(
+  email: string,
+  internalRoles: InternalRole[],
+  accessMap: ProgramAccessMap
+) {
+  const roles = new Set<Role>(internalRoles);
+
+  const hasProgramAccess = Object.values(accessMap).some((entries) =>
+    entries.some((entry) => normalizeEmail(entry.email) === email)
+  );
+
+  if (hasProgramAccess) {
+    roles.add("gov-reviewer");
+  }
+
+  return EFFECTIVE_ROLES.filter((role) => roles.has(role));
 }
 
 interface CreateProgramInput {
@@ -70,14 +52,18 @@ interface CreateProgramInput {
 }
 
 interface RoleContextValue {
-  role: Role;
-  setRole: (r: Role) => void;
-  accounts: Account[];
-  currentUser: Account;
-  setCurrentUserEmail: (email: string) => void;
+  role: Role | null;
+  roles: Role[];
+  currentUser: {
+    id: string;
+    name: string;
+    email: string;
+    role: Role | null;
+  } | null;
+  isLoading: boolean;
   programs: Program[];
   getProgramById: (programId: string) => Program | undefined;
-  getProgramAccessList: (programId: string) => Array<ProgramAccessGrant & { account?: Account }>;
+  getProgramAccessList: (programId: string) => ProgramAccessGrant[];
   canViewProgram: (programId: string) => boolean;
   canManageProgramAccess: (programId: string) => boolean;
   canGrantProgramAccess: (programId: string, email: string) => boolean;
@@ -85,94 +71,107 @@ interface RoleContextValue {
   createProgram: (input: CreateProgramInput) => void;
   grantProgramAccess: (programId: string, email: string) => void;
   revokeProgramAccess: (programId: string, email: string) => void;
+  hasAnyRole: (allowedRoles: readonly Role[]) => boolean;
 }
 
 const RoleContext = createContext<RoleContextValue>({
-  role: "drg-admin",
-  setRole: () => {},
-  accounts: ACCOUNTS,
-  currentUser: ACCOUNTS[0],
-  setCurrentUserEmail: () => {},
+  role: null,
+  roles: [],
+  currentUser: null,
+  isLoading: true,
   programs: MOCK_PROGRAMS,
   getProgramById: () => undefined,
   getProgramAccessList: () => [],
-  canViewProgram: () => true,
-  canManageProgramAccess: () => true,
+  canViewProgram: () => false,
+  canManageProgramAccess: () => false,
   canGrantProgramAccess: () => false,
   canRevokeProgramAccess: () => false,
   createProgram: () => {},
   grantProgramAccess: () => {},
   revokeProgramAccess: () => {},
+  hasAnyRole: () => false,
 });
 
 export function RoleProvider({ children }: { children: React.ReactNode }) {
-  const [currentUserEmail, setCurrentUserEmail] = useState<string>(ACCOUNTS[0].email);
+  const { data: session, status } = useSession();
   const [programs, setPrograms] = useState<Program[]>(MOCK_PROGRAMS);
   const [programAccessMap, setProgramAccessMap] = useState<ProgramAccessMap>(buildInitialAccessMap);
 
-  const currentUser = useMemo(
-    () => findAccountByEmail(currentUserEmail) ?? ACCOUNTS[0],
-    [currentUserEmail]
+  const internalRoles = (session?.user.internalRoles ?? []) as InternalRole[];
+  const currentUserEmail = normalizeEmail(session?.user.email);
+  const roles = useMemo(
+    () => getEffectiveRoles(currentUserEmail, internalRoles, programAccessMap),
+    [currentUserEmail, internalRoles, programAccessMap]
+  );
+  const role = roles[0] ?? null;
+
+  const mergedPrograms = useMemo(
+    () =>
+      programs.map((program) => ({
+        ...program,
+        accessList: programAccessMap[program.id] ?? program.accessList,
+      })),
+    [programs, programAccessMap]
   );
 
-  const role = currentUser.role;
-  const getProgramById = (programId: string) =>
-    programs.find((program) => program.id === programId);
+  const currentUser = session?.user
+    ? {
+        id: session.user.id,
+        name: session.user.name ?? session.user.email ?? "Signed-in user",
+        email: session.user.email ?? "",
+        role,
+      }
+    : null;
 
-  const setRole = (nextRole: Role) => {
-    const matchingAccount = ACCOUNTS.find((account) => account.role === nextRole);
-    if (matchingAccount) {
-      setCurrentUserEmail(matchingAccount.email);
-    }
-  };
+  const getProgramById = (programId: string) =>
+    mergedPrograms.find((program) => program.id === programId);
 
   const getProgramAccessList = (programId: string) => {
-    const entries = programAccessMap[programId] ?? [];
-    return entries.map((entry) => ({
-      ...entry,
-      account: findAccountByEmail(entry.email),
-    }));
+    return programAccessMap[programId] ?? [];
   };
 
   const canViewProgram = (programId: string) => {
-    if (role === "drg-admin") return true;
-    return (programAccessMap[programId] ?? []).some((entry) => entry.email === currentUser.email);
+    if (internalRoles.includes("drg-admin")) return true;
+
+    return (programAccessMap[programId] ?? []).some(
+      (entry) => normalizeEmail(entry.email) === currentUserEmail
+    );
   };
 
   const canManageProgramAccess = (programId: string) => {
-    if (role === "drg-admin") return true;
-    if (role !== "drg-staff") return false;
+    if (internalRoles.includes("drg-admin")) return true;
+    if (!internalRoles.includes("drg-staff")) return false;
     return canViewProgram(programId);
   };
 
-  const isProgramCreator = (programId: string) => {
-    const program = getProgramById(programId);
-    return program?.creatorEmail === currentUser.email;
-  };
-
   const canGrantProgramAccess = (programId: string, email: string) => {
-    const targetAccount = findAccountByEmail(email);
-    if (!targetAccount || !canManageProgramAccess(programId)) return false;
-    if ((programAccessMap[programId] ?? []).some((entry) => entry.email === email)) return false;
-    if (role === "drg-admin") return true;
-    if (targetAccount.role === "gov-reviewer") return true;
-    if (targetAccount.role === "drg-staff") return true;
-    return false;
+    const normalizedEmail = normalizeEmail(email);
+
+    if (!normalizedEmail || !canManageProgramAccess(programId)) return false;
+
+    return !(programAccessMap[programId] ?? []).some(
+      (entry) => normalizeEmail(entry.email) === normalizedEmail
+    );
   };
 
   const canRevokeProgramAccess = (programId: string, email: string) => {
-    const targetAccount = findAccountByEmail(email);
-    if (!targetAccount || !canManageProgramAccess(programId)) return false;
-    if (!(programAccessMap[programId] ?? []).some((entry) => entry.email === email)) return false;
-    if (role === "drg-admin") return true;
-    if (email === currentUser.email) return false;
-    if (targetAccount.role === "gov-reviewer") return true;
-    if (targetAccount.role === "drg-staff") return isProgramCreator(programId);
-    return false;
+    const normalizedEmail = normalizeEmail(email);
+
+    if (!normalizedEmail || !canManageProgramAccess(programId)) return false;
+    if (normalizedEmail === currentUserEmail) return false;
+
+    return (programAccessMap[programId] ?? []).some(
+      (entry) => normalizeEmail(entry.email) === normalizedEmail
+    );
   };
 
   const createProgram = (input: CreateProgramInput) => {
-    if (role !== "drg-admin" && role !== "drg-staff") return;
+    if (
+      !currentUserEmail ||
+      (!internalRoles.includes("drg-admin") && !internalRoles.includes("drg-staff"))
+    ) {
+      return;
+    }
 
     const createdAt = new Date().toISOString();
     const nextNumber = programs.length + 1;
@@ -185,13 +184,13 @@ export function RoleProvider({ children }: { children: React.ReactNode }) {
       sites: input.sites,
       startDate: input.startDate,
       endDate: input.endDate,
-      creatorEmail: currentUser.email,
+      creatorEmail: currentUserEmail,
       createdAt,
       accessList: [
         {
-          email: currentUser.email,
+          email: currentUserEmail,
           grantedAt: createdAt,
-          grantedByEmail: currentUser.email,
+          grantedByEmail: currentUserEmail,
         },
       ],
     };
@@ -204,27 +203,33 @@ export function RoleProvider({ children }: { children: React.ReactNode }) {
   };
 
   const grantProgramAccess = (programId: string, email: string) => {
-    if (!canGrantProgramAccess(programId, email)) return;
+    const normalizedEmail = normalizeEmail(email);
+
+    if (!canGrantProgramAccess(programId, normalizedEmail)) return;
 
     setProgramAccessMap((prev) => ({
       ...prev,
       [programId]: [
         ...(prev[programId] ?? []),
         {
-          email,
+          email: normalizedEmail,
           grantedAt: new Date().toISOString(),
-          grantedByEmail: currentUser.email,
+          grantedByEmail: currentUserEmail,
         },
       ],
     }));
   };
 
   const revokeProgramAccess = (programId: string, email: string) => {
-    if (!canRevokeProgramAccess(programId, email)) return;
+    const normalizedEmail = normalizeEmail(email);
+
+    if (!canRevokeProgramAccess(programId, normalizedEmail)) return;
 
     setProgramAccessMap((prev) => ({
       ...prev,
-      [programId]: (prev[programId] ?? []).filter((entry) => entry.email !== email),
+      [programId]: (prev[programId] ?? []).filter(
+        (entry) => normalizeEmail(entry.email) !== normalizedEmail
+      ),
     }));
   };
 
@@ -232,11 +237,10 @@ export function RoleProvider({ children }: { children: React.ReactNode }) {
     <RoleContext.Provider
       value={{
         role,
-        setRole,
-        accounts: ACCOUNTS,
+        roles,
         currentUser,
-        setCurrentUserEmail,
-        programs,
+        isLoading: status === "loading",
+        programs: mergedPrograms,
         getProgramById,
         getProgramAccessList,
         canViewProgram,
@@ -246,6 +250,7 @@ export function RoleProvider({ children }: { children: React.ReactNode }) {
         createProgram,
         grantProgramAccess,
         revokeProgramAccess,
+        hasAnyRole: (allowedRoles) => allowedRoles.some((allowedRole) => roles.includes(allowedRole)),
       }}
     >
       {children}

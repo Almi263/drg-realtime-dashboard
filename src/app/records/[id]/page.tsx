@@ -4,7 +4,8 @@ import Box from "@mui/material/Box";
 import Container from "@mui/material/Container";
 import CircularProgress from "@mui/material/CircularProgress";
 import BackButton from "@/components/BackButton";
-import ProtectedDeliverableDetail from "@/components/ProtectedDeliverableDetail";
+import DeliverableDetail from "@/components/DeliverableDetail";
+import { assertCanViewProgram, requireUser } from "@/lib/auth/guards";
 import { MockDeliverableConnector } from "@/lib/connectors/mock-deliverables";
 import { MockDocumentConnector } from "@/lib/connectors/mock-documents";
 import { MockProgramConnector } from "@/lib/connectors/mock-programs";
@@ -23,7 +24,7 @@ async function DeliverableDetailContent({ id }: { id: string }) {
   const program = programs.find((p) => p.id === deliverable.programId);
 
   return (
-    <ProtectedDeliverableDetail
+    <DeliverableDetail
       deliverable={deliverable}
       documents={linkedDocs}
       program={program}
@@ -59,7 +60,17 @@ export default async function RecordPage({
   params: Promise<{ id: string }>;
   searchParams: Promise<{ from?: string | string[] }>;
 }) {
+  const user = await requireUser();
   const [{ id }, { from }] = await Promise.all([params, searchParams]);
+  const [deliverables, programs] = await Promise.all([
+    new MockDeliverableConnector().getDeliverables(),
+    new MockProgramConnector().getPrograms(),
+  ]);
+  const deliverable = deliverables.find((currentDeliverable) => currentDeliverable.id === id);
+  const program = programs.find((currentProgram) => currentProgram.id === deliverable?.programId);
+
+  assertCanViewProgram(user, program);
+
   const backConfig = await getDeliverableBackConfig(id, from);
 
   return (

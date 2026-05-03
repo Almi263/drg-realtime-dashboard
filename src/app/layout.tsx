@@ -3,11 +3,10 @@ import { Geist, Geist_Mono } from "next/font/google";
 import { AppRouterCacheProvider } from "@mui/material-nextjs/v16-appRouter";
 import { ThemeProvider } from "@mui/material/styles";
 import CssBaseline from "@mui/material/CssBaseline";
-import Box from "@mui/material/Box";
 import theme from "@/lib/theme";
+import AuthProvider from "@/components/AuthProvider";
+import AppShell from "@/components/AppShell";
 import { RoleProvider } from "@/lib/context/role-context";
-import AppHeader from "@/components/AppHeader";
-import SidebarNav from "@/components/SidebarNav";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -41,26 +40,11 @@ export default function RootLayout({
         <AppRouterCacheProvider>
           <ThemeProvider theme={theme}>
             <CssBaseline />
-            <RoleProvider>
-              <AppHeader />
-              <Box sx={{ display: "flex", flex: 1, minHeight: 0 }}>
-                <Box
-                  component="nav"
-                  sx={{
-                    width: 240,
-                    flexShrink: 0,
-                    bgcolor: "background.paper",
-                    borderRight: "1px solid",
-                    borderColor: "divider",
-                  }}
-                >
-                  <SidebarNav />
-                </Box>
-                <Box component="main" sx={{ flex: 1, bgcolor: "background.default", overflow: "auto" }}>
-                  {children}
-                </Box>
-              </Box>
-            </RoleProvider>
+            <AuthProvider>
+              <RoleProvider>
+                <AppShell>{children}</AppShell>
+              </RoleProvider>
+            </AuthProvider>
           </ThemeProvider>
         </AppRouterCacheProvider>
       </body>

@@ -6,7 +6,7 @@ import CircularProgress from "@mui/material/CircularProgress";
 import { MockDeliverableConnector } from "@/lib/connectors/mock-deliverables";
 import SubmitReportWizard from "@/components/SubmitReportWizard";
 import BackButton from "@/components/BackButton";
-import RoleGuard from "@/components/RoleGuard";
+import { requireInternalRole } from "@/lib/auth/guards";
 
 async function SubmitContent({
   initialProgramId,
@@ -31,6 +31,8 @@ export default async function SubmitPage({
 }: {
   searchParams: Promise<{ programId?: string; deliverableId?: string }>;
 }) {
+  await requireInternalRole(["drg-admin", "drg-staff"]);
+
   const { programId, deliverableId } = await searchParams;
 
   return (
@@ -42,17 +44,15 @@ export default async function SubmitPage({
           Upload a deliverable document to the permanent record
         </Typography>
       </Box>
-      <RoleGuard allowedRoles={["drg-admin", "drg-staff"]}>
-        <Suspense
-          fallback={
-            <Box sx={{ display: "flex", justifyContent: "center", py: 8 }}>
-              <CircularProgress />
-            </Box>
-          }
-        >
-          <SubmitContent initialProgramId={programId} initialDeliverableId={deliverableId} />
-        </Suspense>
-      </RoleGuard>
+      <Suspense
+        fallback={
+          <Box sx={{ display: "flex", justifyContent: "center", py: 8 }}>
+            <CircularProgress />
+          </Box>
+        }
+      >
+        <SubmitContent initialProgramId={programId} initialDeliverableId={deliverableId} />
+      </Suspense>
     </Container>
   );
 }
