@@ -2,30 +2,68 @@ import Box from "@mui/material/Box";
 import Card from "@mui/material/Card";
 import CardContent from "@mui/material/CardContent";
 import Typography from "@mui/material/Typography";
+import type { Approval } from "@/lib/models/approval";
 import type { Deliverable } from "@/lib/models/deliverable";
+import type { DeliverableDocument } from "@/lib/models/document";
 import type { Program } from "@/lib/models/program";
 
 interface Props {
   deliverables: Deliverable[];
+  documents: DeliverableDocument[];
+  approvals: Approval[];
   programs: Program[];
 }
 
-export default function StatsSummary({ deliverables, programs }: Props) {
-  const overdue = deliverables.filter((d) => d.status.startsWith("Overdue")).length;
-  const submitted = deliverables.filter((d) => d.status === "Submitted" || d.status === "Complete").length;
+export default function StatsSummary({
+  deliverables,
+  documents,
+  approvals,
+  programs,
+}: Props) {
+  const overdueDeliverables = deliverables.filter((deliverable) =>
+    deliverable.status.startsWith("Overdue")
+  ).length;
+  const returnedDeliverables = deliverables.filter(
+    (deliverable) => deliverable.status === "Returned"
+  ).length;
+  const currentSubmissions = documents.filter(
+    (document) =>
+      document.isCurrentVersion && document.documentRole === "DRG Submission"
+  ).length;
+  const pendingApprovals = approvals.filter(
+    (approval) => approval.isCurrent && approval.decision === "Pending"
+  ).length;
 
   const stats = [
-    { value: String(programs.length), label: "Programs" },
+    { value: String(programs.length), label: "Active Programs" },
     { value: String(deliverables.length), label: "Deliverables" },
-    { value: String(overdue), label: "Overdue", alert: overdue > 0 },
-    { value: String(submitted), label: "Submitted / Complete" },
+    { value: String(currentSubmissions), label: "Current Submissions" },
+    {
+      value: String(pendingApprovals),
+      label: "Pending Approvals",
+      alert: pendingApprovals > 0,
+    },
+    {
+      value: String(returnedDeliverables),
+      label: "Returned",
+      alert: returnedDeliverables > 0,
+    },
+    {
+      value: String(overdueDeliverables),
+      label: "Overdue by Flow Status",
+      alert: overdueDeliverables > 0,
+    },
   ];
 
   return (
     <Box
       sx={{
         display: "grid",
-        gridTemplateColumns: { xs: "repeat(2, 1fr)", sm: "repeat(4, 1fr)" },
+        gridTemplateColumns: {
+          xs: "repeat(2, 1fr)",
+          sm: "repeat(3, 1fr)",
+          lg: "repeat(6, 1fr)",
+        },
         gap: 1.5,
       }}
     >

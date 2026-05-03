@@ -10,6 +10,7 @@ import {
   listRows,
   lookupBind,
 } from "@/lib/dataverse/client";
+import { listVisiblePrograms } from "@/lib/dataverse/programs";
 
 interface DataverseApprovalRow extends Record<string, unknown> {
   drg_approvalid: string;
@@ -98,7 +99,11 @@ export async function listVisibleApprovals(user: {
     `$select=drg_approvalid,drg_name,_drg_program_value,_drg_deliverable_value,_drg_document_value,drg_submissionnumber,_drg_revieweruser_value,drg_revieweremail,drg_comments,_drg_responsedocument_value,drg_duedate,drg_decisiondate,drg_iscurrent,drg_decision&$filter=${filter}&$orderby=drg_duedate asc`
   );
 
-  return rows.map(mapApprovalRow);
+  const approvals = rows.map(mapApprovalRow);
+  const programs = await listVisiblePrograms(user);
+  const visibleProgramIds = new Set(programs.map((program) => program.id));
+
+  return approvals.filter((approval) => visibleProgramIds.has(approval.programId));
 }
 
 async function patchApprovalDecision(input: SubmitApprovalDecisionInput) {

@@ -5,13 +5,25 @@ import Typography from "@mui/material/Typography";
 import CircularProgress from "@mui/material/CircularProgress";
 import DashboardProgramsView from "@/components/DashboardProgramsView";
 import { requireUser } from "@/lib/auth/guards";
+import { listVisibleApprovals } from "@/lib/dataverse/approvals";
 import { listVisibleDeliverables } from "@/lib/dataverse/deliverables";
+import { listVisibleDocuments } from "@/lib/dataverse/documents";
 
 async function DashboardContent() {
   const user = await requireUser();
-  const deliverables = await listVisibleDeliverables(user);
+  const [deliverables, documents, approvals] = await Promise.all([
+    listVisibleDeliverables(user),
+    listVisibleDocuments(user, { currentOnly: true }),
+    listVisibleApprovals(user),
+  ]);
 
-  return <DashboardProgramsView deliverables={deliverables} />;
+  return (
+    <DashboardProgramsView
+      deliverables={deliverables}
+      documents={documents}
+      approvals={approvals}
+    />
+  );
 }
 
 export default function Home() {
