@@ -66,7 +66,7 @@ export function canManageProgramAccess(
 ) {
   if (user.internalRoles.includes("drg-admin")) return true;
 
-  if (!user.internalRoles.includes("drg-staff")) {
+  if (!user.internalRoles.includes("drg-program-owner")) {
     return false;
   }
 

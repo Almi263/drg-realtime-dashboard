@@ -6,7 +6,7 @@ import { notFound, redirect } from "next/navigation";
 import BackButton from "@/components/BackButton";
 import ProgramAccessPageView from "@/components/ProgramAccessPageView";
 import { canManageProgramAccess, requireUser } from "@/lib/auth/guards";
-import { MockProgramConnector } from "@/lib/connectors/mock-programs";
+import { getProgramById } from "@/lib/dataverse/programs";
 
 function ProgramAccessContent({ id }: { id: string }) {
   return <ProgramAccessPageView programId={id} />;
@@ -19,7 +19,7 @@ export default async function ProgramAccessPage({
 }) {
   const user = await requireUser();
   const { id } = await params;
-  const program = await new MockProgramConnector().getProgramById(id);
+  const program = await getProgramById(id, user);
 
   if (!program) {
     notFound();

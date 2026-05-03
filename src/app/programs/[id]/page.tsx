@@ -3,16 +3,16 @@ import Box from "@mui/material/Box";
 import Container from "@mui/material/Container";
 import CircularProgress from "@mui/material/CircularProgress";
 import BackButton from "@/components/BackButton";
-import { MockDeliverableConnector } from "@/lib/connectors/mock-deliverables";
-import { MockDocumentConnector } from "@/lib/connectors/mock-documents";
 import ProgramDetailView from "@/components/ProgramDetailView";
 import { assertCanViewProgram, requireUser } from "@/lib/auth/guards";
-import { MockProgramConnector } from "@/lib/connectors/mock-programs";
+import { listVisibleDeliverables } from "@/lib/dataverse/deliverables";
+import { listVisibleDocuments } from "@/lib/dataverse/documents";
+import { getProgramById } from "@/lib/dataverse/programs";
 
-async function ProgramDetailContent({ id }: { id: string }) {
+async function ProgramDetailContent({ id, user }: { id: string; user: Awaited<ReturnType<typeof requireUser>> }) {
   const [deliverables, documents] = await Promise.all([
-    new MockDeliverableConnector().getDeliverables(),
-    new MockDocumentConnector().getDocuments(),
+    listVisibleDeliverables(user),
+    listVisibleDocuments(user),
   ]);
 
   const programDeliverables = deliverables.filter((d) => d.programId === id);
@@ -27,7 +27,7 @@ export default async function ProgramPage({
 }) {
   const user = await requireUser();
   const { id } = await params;
-  const program = await new MockProgramConnector().getProgramById(id);
+  const program = await getProgramById(id, user);
 
   assertCanViewProgram(user, program);
 
@@ -41,7 +41,7 @@ export default async function ProgramPage({
           </Box>
         }
       >
-        <ProgramDetailContent id={id} />
+        <ProgramDetailContent id={id} user={user} />
       </Suspense>
     </Container>
   );

@@ -235,11 +235,13 @@ function UploadStep({
   program,
   onSubmit,
   onBack,
+  isSubmitting,
 }: {
   deliverable: Deliverable;
   program: Program;
   onSubmit: (file: File) => void;
   onBack: () => void;
+  isSubmitting: boolean;
 }) {
   const [file, setFile] = useState<File | null>(null);
   const [dragging, setDragging] = useState(false);
@@ -291,7 +293,7 @@ function UploadStep({
         <input
           ref={inputRef}
           type="file"
-          accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx"
+          accept=".pdf,application/pdf"
           style={{ display: "none" }}
           onChange={(e) => { const f = e.target.files?.[0]; if (f) handleFile(f); }}
         />
@@ -308,7 +310,7 @@ function UploadStep({
             <UploadFileIcon sx={{ fontSize: 36, color: "text.disabled", mb: 1 }} />
             <Typography variant="body1" sx={{ fontWeight: 500 }}>Click or drag to attach a file</Typography>
             <Typography variant="caption" sx={{ color: "text.secondary" }}>
-              PDF, Word, Excel, or PowerPoint
+              PDF
             </Typography>
           </Box>
         )}
@@ -320,8 +322,8 @@ function UploadStep({
       </Alert>
 
       <Box sx={{ display: "flex", gap: 2 }}>
-        <Button variant="contained" disabled={!file} onClick={() => file && onSubmit(file)}>
-          Submit Document
+        <Button variant="contained" disabled={!file || isSubmitting} onClick={() => file && onSubmit(file)}>
+          {isSubmitting ? "Submitting..." : "Submit Document"}
         </Button>
         <Button component={Link} href="/documents" color="inherit">
           Cancel
@@ -433,6 +435,8 @@ export default function SubmitReportWizard({
   const [file, setFile] = useState<File | null>(null);
   const [submissionRef, setSubmissionRef] = useState("");
   const [submissionTime, setSubmissionTime] = useState("");
+  const [submissionError, setSubmissionError] = useState<string | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const program = visiblePrograms.find((p) => p.id === programId) ?? null;
   const deliverable = visibleDeliverables.find((d) => d.id === deliverableId) ?? null;
@@ -461,11 +465,37 @@ export default function SubmitReportWizard({
     setStep(2);
   };
 
-  const handleSubmit = (f: File) => {
-    setFile(f);
-    setSubmissionRef(genSubmissionRef());
-    setSubmissionTime(new Date().toISOString());
-    setStep(3);
+  const handleSubmit = async (f: File) => {
+    if (!program || !deliverable) return;
+
+    setIsSubmitting(true);
+    setSubmissionError(null);
+
+    try {
+      const formData = new FormData();
+      formData.set("programId", program.id);
+      formData.set("deliverableId", deliverable.id);
+      formData.set("file", f);
+
+      const res = await fetch("/api/documents/submit", {
+        method: "POST",
+        body: formData,
+      });
+
+      const json = await res.json().catch(() => null);
+      if (!res.ok) {
+        throw new Error(json?.error ?? "Failed to submit document.");
+      }
+
+      setFile(f);
+      setSubmissionRef(json?.submissionRef ?? genSubmissionRef());
+      setSubmissionTime(new Date().toISOString());
+      setStep(3);
+    } catch (error) {
+      setSubmissionError(error instanceof Error ? error.message : "Failed to submit document.");
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const handleReset = () => {
@@ -491,12 +521,16 @@ export default function SubmitReportWizard({
         />
       )}
       {step === 2 && program && deliverable && (
-        <UploadStep
-          deliverable={deliverable}
-          program={program}
-          onSubmit={handleSubmit}
-          onBack={() => setStep(1)}
-        />
+        <>
+          {submissionError && <Alert severity="error" sx={{ mb: 2 }}>{submissionError}</Alert>}
+          <UploadStep
+            deliverable={deliverable}
+            program={program}
+            onSubmit={handleSubmit}
+            onBack={() => setStep(1)}
+            isSubmitting={isSubmitting}
+          />
+        </>
       )}
       {step === 3 && program && deliverable && file && (
         <ConfirmationStep

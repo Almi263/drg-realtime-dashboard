@@ -3,7 +3,7 @@ import Box from "@mui/material/Box";
 import Container from "@mui/material/Container";
 import Typography from "@mui/material/Typography";
 import CircularProgress from "@mui/material/CircularProgress";
-import { MockDeliverableConnector } from "@/lib/connectors/mock-deliverables";
+import { listVisibleDeliverables } from "@/lib/dataverse/deliverables";
 import SubmitReportWizard from "@/components/SubmitReportWizard";
 import BackButton from "@/components/BackButton";
 import { requireInternalRole } from "@/lib/auth/guards";
@@ -15,7 +15,12 @@ async function SubmitContent({
   initialProgramId?: string;
   initialDeliverableId?: string;
 }) {
-  const deliverables = await new MockDeliverableConnector().getDeliverables();
+  const user = await requireInternalRole([
+    "drg-admin",
+    "drg-program-owner",
+    "drg-staff",
+  ]);
+  const deliverables = await listVisibleDeliverables(user);
 
   return (
     <SubmitReportWizard
@@ -31,8 +36,6 @@ export default async function SubmitPage({
 }: {
   searchParams: Promise<{ programId?: string; deliverableId?: string }>;
 }) {
-  await requireInternalRole(["drg-admin", "drg-staff"]);
-
   const { programId, deliverableId } = await searchParams;
 
   return (

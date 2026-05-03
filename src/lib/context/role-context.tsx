@@ -1,8 +1,7 @@
 "use client";
 
-import { createContext, useContext, useMemo, useState } from "react";
+import { createContext, useContext, useEffect, useMemo, useState } from "react";
 import { useSession } from "next-auth/react";
-import { MOCK_PROGRAMS } from "@/lib/connectors/mock-programs";
 import {
   EFFECTIVE_ROLES,
   ROLE_LABELS,
@@ -17,12 +16,6 @@ export type Role = EffectiveRole;
 export { ROLE_LABELS };
 
 type ProgramAccessMap = Record<string, ProgramAccessGrant[]>;
-
-function buildInitialAccessMap(): ProgramAccessMap {
-  return Object.fromEntries(
-    MOCK_PROGRAMS.map((program) => [program.id, program.accessList])
-  );
-}
 
 function getEffectiveRoles(
   email: string,
@@ -79,7 +72,7 @@ const RoleContext = createContext<RoleContextValue>({
   roles: [],
   currentUser: null,
   isLoading: true,
-  programs: MOCK_PROGRAMS,
+  programs: [],
   getProgramById: () => undefined,
   getProgramAccessList: () => [],
   canViewProgram: () => false,
@@ -94,8 +87,9 @@ const RoleContext = createContext<RoleContextValue>({
 
 export function RoleProvider({ children }: { children: React.ReactNode }) {
   const { data: session, status } = useSession();
-  const [programs, setPrograms] = useState<Program[]>(MOCK_PROGRAMS);
-  const [programAccessMap, setProgramAccessMap] = useState<ProgramAccessMap>(buildInitialAccessMap);
+  const [programs, setPrograms] = useState<Program[]>([]);
+  const [programAccessMap, setProgramAccessMap] = useState<ProgramAccessMap>({});
+  const [isLoadingPrograms, setIsLoadingPrograms] = useState(true);
 
   const internalRoles = (session?.user.internalRoles ?? []) as InternalRole[];
   const currentUserEmail = normalizeEmail(session?.user.email);
@@ -104,6 +98,49 @@ export function RoleProvider({ children }: { children: React.ReactNode }) {
     [currentUserEmail, internalRoles, programAccessMap]
   );
   const role = roles[0] ?? null;
+
+  useEffect(() => {
+    if (status === "loading") return;
+
+    if (!session?.user) {
+      setPrograms([]);
+      setProgramAccessMap({});
+      setIsLoadingPrograms(false);
+      return;
+    }
+
+    let cancelled = false;
+    setIsLoadingPrograms(true);
+
+    fetch("/api/programs")
+      .then(async (response) => {
+        if (!response.ok) {
+          throw new Error("Failed to load programs.");
+        }
+        return (await response.json()) as { programs: Program[] };
+      })
+      .then(({ programs }) => {
+        if (cancelled) return;
+        setPrograms(programs);
+        setProgramAccessMap(
+          Object.fromEntries(
+            programs.map((program) => [program.id, program.accessList])
+          )
+        );
+      })
+      .catch(() => {
+        if (cancelled) return;
+        setPrograms([]);
+        setProgramAccessMap({});
+      })
+      .finally(() => {
+        if (!cancelled) setIsLoadingPrograms(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [session?.user, status]);
 
   const mergedPrograms = useMemo(
     () =>
@@ -140,7 +177,7 @@ export function RoleProvider({ children }: { children: React.ReactNode }) {
 
   const canManageProgramAccess = (programId: string) => {
     if (internalRoles.includes("drg-admin")) return true;
-    if (!internalRoles.includes("drg-staff")) return false;
+    if (!internalRoles.includes("drg-program-owner")) return false;
     return canViewProgram(programId);
   };
 
@@ -239,7 +276,7 @@ export function RoleProvider({ children }: { children: React.ReactNode }) {
         role,
         roles,
         currentUser,
-        isLoading: status === "loading",
+        isLoading: status === "loading" || isLoadingPrograms,
         programs: mergedPrograms,
         getProgramById,
         getProgramAccessList,

@@ -3,16 +3,18 @@ import Box from "@mui/material/Box";
 import Container from "@mui/material/Container";
 import Typography from "@mui/material/Typography";
 import CircularProgress from "@mui/material/CircularProgress";
-import { MockDocumentConnector } from "@/lib/connectors/mock-documents";
-import { MockDeliverableConnector } from "@/lib/connectors/mock-deliverables";
-import { MockProgramConnector } from "@/lib/connectors/mock-programs";
 import FilteredDocumentsView from "@/components/FilteredDocumentsView";
+import { requireUser } from "@/lib/auth/guards";
+import { listVisibleDeliverables } from "@/lib/dataverse/deliverables";
+import { listVisibleDocuments } from "@/lib/dataverse/documents";
+import { listVisiblePrograms } from "@/lib/dataverse/programs";
 
 async function DocumentsContent() {
+  const user = await requireUser();
   const [documents, deliverables, programs] = await Promise.all([
-    new MockDocumentConnector().getDocuments(),
-    new MockDeliverableConnector().getDeliverables(),
-    new MockProgramConnector().getPrograms(),
+    listVisibleDocuments(user),
+    listVisibleDeliverables(user),
+    listVisiblePrograms(user),
   ]);
   return <FilteredDocumentsView documents={documents} deliverables={deliverables} programs={programs} />;
 }

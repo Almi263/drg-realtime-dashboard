@@ -3,11 +3,13 @@ import Box from "@mui/material/Box";
 import Container from "@mui/material/Container";
 import Typography from "@mui/material/Typography";
 import CircularProgress from "@mui/material/CircularProgress";
-import { MockDeliverableConnector } from "@/lib/connectors/mock-deliverables";
 import DashboardProgramsView from "@/components/DashboardProgramsView";
+import { requireUser } from "@/lib/auth/guards";
+import { listVisibleDeliverables } from "@/lib/dataverse/deliverables";
 
 async function DashboardContent() {
-  const deliverables = await new MockDeliverableConnector().getDeliverables();
+  const user = await requireUser();
+  const deliverables = await listVisibleDeliverables(user);
 
   return <DashboardProgramsView deliverables={deliverables} />;
 }

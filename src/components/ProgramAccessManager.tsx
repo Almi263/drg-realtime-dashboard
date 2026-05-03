@@ -51,6 +51,7 @@ export default function ProgramAccessManager({ program }: { program: Program }) 
   } = useRole();
   const [selectedEmail, setSelectedEmail] = useState("");
   const [isSavingAccess, setIsSavingAccess] = useState(false);
+  const [isRevokingAccess, setIsRevokingAccess] = useState(false);
   const [accessError, setAccessError] = useState<string | null>(null);
   const [pendingRevokeEmail, setPendingRevokeEmail] = useState<string | null>(null);
 
@@ -84,6 +85,35 @@ export default function ProgramAccessManager({ program }: { program: Program }) 
       setAccessError(error instanceof Error ? error.message : "Failed to grant access.");
     } finally {
       setIsSavingAccess(false);
+    }
+  }
+
+  async function handleRevokeAccess() {
+    if (!pendingRevokeEmail) return;
+
+    setIsRevokingAccess(true);
+    setAccessError(null);
+
+    try {
+      const res = await fetch(`/api/programs/${program.id}/access`, {
+        method: "DELETE",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ email: pendingRevokeEmail }),
+      });
+
+      if (!res.ok) {
+        const json = await res.json().catch(() => null);
+        throw new Error(json?.error ?? "Failed to revoke access.");
+      }
+
+      revokeProgramAccess(program.id, pendingRevokeEmail);
+      setPendingRevokeEmail(null);
+    } catch (error) {
+      setAccessError(error instanceof Error ? error.message : "Failed to revoke access.");
+    } finally {
+      setIsRevokingAccess(false);
     }
   }
 
@@ -210,14 +240,10 @@ export default function ProgramAccessManager({ program }: { program: Program }) 
             <Button
               color="error"
               variant="contained"
-              onClick={() => {
-                if (pendingRevokeEmail) {
-                  revokeProgramAccess(program.id, pendingRevokeEmail);
-                }
-                setPendingRevokeEmail(null);
-              }}
+              disabled={isRevokingAccess}
+              onClick={handleRevokeAccess}
             >
-              Revoke Access
+              {isRevokingAccess ? "Revoking..." : "Revoke Access"}
             </Button>
           </DialogActions>
         </Dialog>

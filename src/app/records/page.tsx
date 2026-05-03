@@ -3,14 +3,16 @@ import Box from "@mui/material/Box";
 import Container from "@mui/material/Container";
 import Typography from "@mui/material/Typography";
 import CircularProgress from "@mui/material/CircularProgress";
-import { MockDeliverableConnector } from "@/lib/connectors/mock-deliverables";
-import { MockProgramConnector } from "@/lib/connectors/mock-programs";
 import FilteredRecordsView from "@/components/FilteredRecordsView";
+import { requireUser } from "@/lib/auth/guards";
+import { listVisibleDeliverables } from "@/lib/dataverse/deliverables";
+import { listVisiblePrograms } from "@/lib/dataverse/programs";
 
 async function RecordsContent() {
+  const user = await requireUser();
   const [deliverables, programs] = await Promise.all([
-    new MockDeliverableConnector().getDeliverables(),
-    new MockProgramConnector().getPrograms(),
+    listVisibleDeliverables(user),
+    listVisiblePrograms(user),
   ]);
   return <FilteredRecordsView deliverables={deliverables} programs={programs} />;
 }

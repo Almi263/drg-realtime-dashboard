@@ -6,15 +6,15 @@ import CircularProgress from "@mui/material/CircularProgress";
 import BackButton from "@/components/BackButton";
 import DocumentDetail from "@/components/DocumentDetail";
 import { assertCanViewProgram, requireUser } from "@/lib/auth/guards";
-import { MockDocumentConnector } from "@/lib/connectors/mock-documents";
-import { MockDeliverableConnector } from "@/lib/connectors/mock-deliverables";
-import { MockProgramConnector } from "@/lib/connectors/mock-programs";
+import { listVisibleDeliverables } from "@/lib/dataverse/deliverables";
+import { getVisibleDocumentById, listVisibleDocuments } from "@/lib/dataverse/documents";
+import { getProgramById, listVisiblePrograms } from "@/lib/dataverse/programs";
 
-async function DocumentDetailContent({ id }: { id: string }) {
+async function DocumentDetailContent({ id, user }: { id: string; user: Awaited<ReturnType<typeof requireUser>> }) {
   const [documents, deliverables, programs] = await Promise.all([
-    new MockDocumentConnector().getDocuments(),
-    new MockDeliverableConnector().getDeliverables(),
-    new MockProgramConnector().getPrograms(),
+    listVisibleDocuments(user),
+    listVisibleDeliverables(user),
+    listVisiblePrograms(user),
   ]);
 
   const doc = documents.find((d) => d.id === id);
@@ -36,7 +36,11 @@ function getFirstValue(value: string | string[] | undefined) {
   return Array.isArray(value) ? value[0] : value;
 }
 
-async function getDocumentBackConfig(id: string, from: string | string[] | undefined) {
+async function getDocumentBackConfig(
+  id: string,
+  from: string | string[] | undefined,
+  user: Awaited<ReturnType<typeof requireUser>>
+) {
   if (getFirstValue(from) === "documents") {
     return {
       href: "/documents",
@@ -44,8 +48,7 @@ async function getDocumentBackConfig(id: string, from: string | string[] | undef
     };
   }
 
-  const documents = await new MockDocumentConnector().getDocuments();
-  const doc = documents.find((d) => d.id === id);
+  const doc = await getVisibleDocumentById(id, user);
   if (!doc) notFound();
   return {
     href: `/records/${doc.deliverableId}`,
@@ -62,14 +65,12 @@ export default async function DocumentPage({
 }) {
   const user = await requireUser();
   const [{ id }, { from }] = await Promise.all([params, searchParams]);
-  const programs = await new MockProgramConnector().getPrograms();
-  const documents = await new MockDocumentConnector().getDocuments();
-  const doc = documents.find((document) => document.id === id);
-  const program = programs.find((currentProgram) => currentProgram.id === doc?.programId);
+  const doc = await getVisibleDocumentById(id, user);
+  const program = doc ? await getProgramById(doc.programId, user) : undefined;
 
   assertCanViewProgram(user, program);
 
-  const backConfig = await getDocumentBackConfig(id, from);
+  const backConfig = await getDocumentBackConfig(id, from, user);
 
   return (
     <Container maxWidth="md" sx={{ py: { xs: 3, sm: 4 } }}>
@@ -81,7 +82,7 @@ export default async function DocumentPage({
           </Box>
         }
       >
-        <DocumentDetailContent id={id} />
+        <DocumentDetailContent id={id} user={user} />
       </Suspense>
     </Container>
   );
