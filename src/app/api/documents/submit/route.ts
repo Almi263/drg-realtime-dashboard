@@ -1,7 +1,9 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/auth";
+import { canUploadToProgram } from "@/lib/auth/guards";
 import { getVisibleDeliverableById } from "@/lib/dataverse/deliverables";
 import { createDocumentMetadata } from "@/lib/dataverse/documents";
+import { getProgramById } from "@/lib/dataverse/programs";
 import { uploadPdfToSharePoint } from "@/lib/sharepoint/files";
 import { triggerFlow } from "@/lib/power-automate/flows";
 
@@ -10,14 +12,6 @@ export async function POST(request: Request) {
 
   if (!session?.user) {
     return NextResponse.json({ error: "Authentication required." }, { status: 401 });
-  }
-
-  if (
-    !session.user.internalRoles.some((role) =>
-      ["drg-admin", "drg-program-owner", "drg-staff"].includes(role)
-    )
-  ) {
-    return NextResponse.json({ error: "Forbidden." }, { status: 403 });
   }
 
   const formData = await request.formData().catch(() => null);
@@ -37,10 +31,23 @@ export async function POST(request: Request) {
   }
 
   const deliverable = await getVisibleDeliverableById(deliverableId, session.user);
+  const program = await getProgramById(programId, session.user);
   if (!deliverable || deliverable.programId !== programId) {
     return NextResponse.json(
       { error: "Deliverable not found or not accessible." },
       { status: 404 }
+    );
+  }
+
+  if (!program || !canUploadToProgram(session.user, program)) {
+    return NextResponse.json(
+      {
+        error:
+          program?.status === "Archived"
+            ? "This program is archived. Downloads remain available, but new uploads are blocked."
+            : "You do not have access to upload documents for this program.",
+      },
+      { status: 403 }
     );
   }
 

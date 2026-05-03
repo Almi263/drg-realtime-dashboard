@@ -19,6 +19,7 @@ async function SubmitContent({
     "drg-admin",
     "drg-program-owner",
     "drg-staff",
+    "external-reviewer",
   ]);
   const deliverables = await listVisibleDeliverables(user);
 

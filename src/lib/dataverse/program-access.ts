@@ -5,12 +5,13 @@ import {
   dataverseFetch,
   DataverseError,
   escapeODataString,
+  getFormattedValue,
   isDataverseConfigured,
   listRows,
   lookupBind,
 } from "@/lib/dataverse/client";
 
-interface DataverseProgramAccessRow {
+interface DataverseProgramAccessRow extends Record<string, unknown> {
   drg_programaccessid: string;
   drg_email?: string;
   drg_grantedon?: string;
@@ -25,13 +26,25 @@ interface DataverseProgramAccessRow {
 
 export type ProgramAccessRecord = ProgramAccess;
 
+function toProgramAccessRole(value: string | undefined): ProgramAccessRole {
+  switch (value) {
+    case "Program Owner":
+    case "DRG Staff":
+    case "External Reviewer":
+    case "Read Only":
+      return value;
+    default:
+      return "External Reviewer";
+  }
+}
+
 function mapAccessRow(row: DataverseProgramAccessRow): ProgramAccessRecord {
   return {
     id: row.drg_programaccessid,
     programId: row._drg_program_value ?? "",
     userId: row._drg_user_value,
     email: normalizeEmail(row.drg_email),
-    accessRole: "External Reviewer",
+    accessRole: toProgramAccessRole(getFormattedValue(row, "drg_accessrole")),
     grantedAt: row.drg_grantedon ?? new Date().toISOString(),
     grantedByEmail: normalizeEmail(row.drg_grantedbyemail),
     isActive: row.drg_isactive !== false,
@@ -60,7 +73,7 @@ export async function listActiveProgramAccess(): Promise<ProgramAccessRecord[]> 
 
   const rows = await listRows<DataverseProgramAccessRow>(
     "drg_programaccesses",
-    "$select=drg_programaccessid,drg_email,drg_grantedon,drg_grantedbyemail,drg_isactive,_drg_program_value,_drg_user_value,drg_revokedon,drg_revokedbyemail,drg_entraobjectid&$filter=statecode eq 0 and drg_isactive eq true"
+    "$select=drg_programaccessid,drg_email,drg_grantedon,drg_grantedbyemail,drg_isactive,_drg_program_value,_drg_user_value,drg_revokedon,drg_revokedbyemail,drg_entraobjectid,drg_accessrole&$filter=statecode eq 0 and drg_isactive eq true"
   );
 
   return rows.map(mapAccessRow);
@@ -85,7 +98,7 @@ export async function listProgramAccess(
 
   const rows = await listRows<DataverseProgramAccessRow>(
     "drg_programaccesses",
-    `$select=drg_programaccessid,drg_email,drg_grantedon,drg_grantedbyemail,drg_isactive,_drg_program_value,_drg_user_value,drg_revokedon,drg_revokedbyemail,drg_entraobjectid&$filter=statecode eq 0 and drg_isactive eq true and _drg_program_value eq ${programId}`
+    `$select=drg_programaccessid,drg_email,drg_grantedon,drg_grantedbyemail,drg_isactive,_drg_program_value,_drg_user_value,drg_revokedon,drg_revokedbyemail,drg_entraobjectid,drg_accessrole&$filter=statecode eq 0 and drg_isactive eq true and _drg_program_value eq ${programId}`
   );
 
   return rows.map(mapAccessRow);

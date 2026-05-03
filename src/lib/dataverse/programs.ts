@@ -140,7 +140,7 @@ function groupAccessByProgramId(
   return grouped;
 }
 
-async function listActiveProgramsFromDataverse() {
+async function listProgramsFromDataverse() {
   const [programRows, siteRows, access] = await Promise.all([
     listRows<DataverseProgramRow>(
       "drg_programs",
@@ -155,9 +155,7 @@ async function listActiveProgramsFromDataverse() {
 
   const accessByProgramId = groupAccessByProgramId(access);
 
-  return programRows
-    .filter((row) => getFormattedValue(row, "drg_status") !== "Archived")
-    .map((row) => mapProgramRow(row, siteRows, accessByProgramId));
+  return programRows.map((row) => mapProgramRow(row, siteRows, accessByProgramId));
 }
 
 export async function listPrograms(): Promise<Program[]> {
@@ -166,7 +164,7 @@ export async function listPrograms(): Promise<Program[]> {
     return programs.map(normalizeMockProgram);
   }
 
-  return listActiveProgramsFromDataverse();
+  return listProgramsFromDataverse();
 }
 
 export async function listVisiblePrograms(user: DataverseUser): Promise<Program[]> {

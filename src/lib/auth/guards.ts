@@ -1,6 +1,7 @@
 import { notFound, redirect } from "next/navigation";
 import { auth } from "@/auth";
-import type { Program } from "@/lib/models/program";
+import type { Approval } from "@/lib/models/approval";
+import type { Program, ProgramAccess, ProgramAccessRole } from "@/lib/models/program";
 import type { EffectiveRole, InternalRole } from "@/lib/auth/roles";
 import { hasAnyRole, normalizeEmail } from "@/lib/auth/roles";
 
@@ -35,16 +36,39 @@ export function getEffectiveRolesForProgram(
   }
 
   const userEmail = normalizeEmail(user.email);
+  const activeAccess = getActiveProgramAccess(program, userEmail);
 
-  if (
-    program?.access?.some(
-      (entry) => normalizeEmail(entry.email) === userEmail
-    )
-  ) {
+  if (activeAccess) {
     roles.add("gov-reviewer");
   }
 
   return [...roles];
+}
+
+export function isProgramArchived(program: Program) {
+  return program.status === "Archived";
+}
+
+export function getActiveProgramAccess(
+  program: Program | undefined,
+  email: string | null | undefined
+): ProgramAccess | undefined {
+  const userEmail = normalizeEmail(email);
+  if (!program || !userEmail) return undefined;
+
+  return program.access.find(
+    (entry) => entry.isActive && normalizeEmail(entry.email) === userEmail
+  );
+}
+
+function hasActiveProgramAccessWithRole(
+  program: Program,
+  email: string | null | undefined,
+  allowedRoles?: readonly ProgramAccessRole[]
+) {
+  const access = getActiveProgramAccess(program, email);
+  if (!access) return false;
+  return allowedRoles ? allowedRoles.includes(access.accessRole) : true;
 }
 
 export function canViewProgram(
@@ -53,11 +77,11 @@ export function canViewProgram(
 ) {
   if (user.internalRoles.includes("drg-admin")) return true;
 
-  const userEmail = normalizeEmail(user.email);
+  return Boolean(getActiveProgramAccess(program, user.email));
+}
 
-  return program.access.some(
-    (entry) => normalizeEmail(entry.email) === userEmail
-  );
+export function canCreateProgram(user: { internalRoles: InternalRole[] }) {
+  return user.internalRoles.includes("drg-admin");
 }
 
 export function canManageProgramAccess(
@@ -70,7 +94,69 @@ export function canManageProgramAccess(
     return false;
   }
 
+  return hasActiveProgramAccessWithRole(program, user.email, ["Program Owner"]);
+}
+
+export function canWorkProgram(
+  user: { email?: string | null; internalRoles: InternalRole[] },
+  program: Program
+) {
+  if (isProgramArchived(program)) return false;
+  if (user.internalRoles.includes("drg-admin")) return true;
+
+  if (user.internalRoles.includes("drg-program-owner")) {
+    return hasActiveProgramAccessWithRole(program, user.email, ["Program Owner"]);
+  }
+
+  if (user.internalRoles.includes("drg-staff")) {
+    return hasActiveProgramAccessWithRole(program, user.email, [
+      "DRG Staff",
+      "Program Owner",
+    ]);
+  }
+
+  return false;
+}
+
+export function canUploadToProgram(
+  user: { email?: string | null; internalRoles: InternalRole[] },
+  program: Program
+) {
+  if (isProgramArchived(program)) return false;
+  if (user.internalRoles.includes("drg-admin")) return true;
+
+  if (user.internalRoles.includes("external-reviewer")) {
+    return hasActiveProgramAccessWithRole(program, user.email, [
+      "External Reviewer",
+    ]);
+  }
+
+  return canWorkProgram(user, program);
+}
+
+export function canDownloadFromProgram(
+  user: { email?: string | null; internalRoles: InternalRole[] },
+  program: Program
+) {
   return canViewProgram(user, program);
+}
+
+export function canSubmitApprovalDecision(
+  user: { email?: string | null; internalRoles: InternalRole[] },
+  program: Program,
+  approval: Approval | undefined
+) {
+  if (!approval?.isCurrent) return false;
+  if (approval.programId !== program.id) return false;
+  if (isProgramArchived(program)) return false;
+  if (!user.internalRoles.includes("external-reviewer")) return false;
+  if (normalizeEmail(approval.reviewerEmail) !== normalizeEmail(user.email)) {
+    return false;
+  }
+
+  return hasActiveProgramAccessWithRole(program, user.email, [
+    "External Reviewer",
+  ]);
 }
 
 export function assertCanViewProgram(
@@ -80,6 +166,17 @@ export function assertCanViewProgram(
   if (!program) notFound();
 
   if (!canViewProgram(user, program)) {
+    redirect("/unauthorized");
+  }
+}
+
+export function assertCanUploadToProgram(
+  user: { email?: string | null; internalRoles: InternalRole[] },
+  program: Program | undefined
+) {
+  if (!program) notFound();
+
+  if (!canUploadToProgram(user, program)) {
     redirect("/unauthorized");
   }
 }

@@ -14,14 +14,16 @@ interface ProgramsOverviewProps {
 export default function ProgramsOverview({
   deliverables,
 }: ProgramsOverviewProps) {
-  const { programs, canViewProgram } = useRole();
+  const { programs, canViewProgram, role } = useRole();
   const visiblePrograms = programs.filter((program) => canViewProgram(program.id));
 
   return (
     <Box sx={{ display: "flex", flexDirection: "column", gap: 2 }}>
-      <Box sx={{ display: "flex", justifyContent: "flex-end" }}>
-        <CreateProgramDialog />
-      </Box>
+      {role === "drg-admin" && (
+        <Box sx={{ display: "flex", justifyContent: "flex-end" }}>
+          <CreateProgramDialog />
+        </Box>
+      )}
 
       {visiblePrograms.length === 0 ? (
         <Typography variant="body2" sx={{ color: "text.secondary" }}>

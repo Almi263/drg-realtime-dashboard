@@ -131,10 +131,15 @@ export default function DocumentsTable({ documents, deliverableMap, programs, de
   const [programFilter, setProgramFilter] = useState<string>("All");
 
   const showProgramFilter = programs.length > 1;
-  const canUpload = role === "drg-admin" || role === "drg-staff";
+  const canUpload =
+    role === "drg-admin" ||
+    role === "drg-program-owner" ||
+    role === "drg-staff" ||
+    role === "external-reviewer";
   const canDelete = role === "drg-admin";
   // Access log only visible to internal roles
-  const canSeeAccessLog = role === "drg-admin" || role === "drg-staff";
+  const canSeeAccessLog =
+    role === "drg-admin" || role === "drg-program-owner" || role === "drg-staff";
 
   const filtered = programFilter === "All"
     ? documents

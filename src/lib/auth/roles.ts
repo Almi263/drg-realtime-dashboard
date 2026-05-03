@@ -25,10 +25,21 @@ export const ROLE_LABELS: Record<EffectiveRole, string> = {
 
 const ENTRA_APP_ROLE_TO_INTERNAL_ROLE: Record<string, InternalRole> = {
   "drg-admin": "drg-admin",
+  drg_admin: "drg-admin",
+  drg_admins: "drg-admin",
+  "DRG Admin": "drg-admin",
   "drg_program_owner": "drg-program-owner",
   "drg-program-owner": "drg-program-owner",
+  drg_program_owners: "drg-program-owner",
+  "DRG Program Owner": "drg-program-owner",
   "drg-staff": "drg-staff",
+  drg_staff: "drg-staff",
+  "DRG Staff": "drg-staff",
   "external-reviewer": "external-reviewer",
+  external_reviewer: "external-reviewer",
+  external_reviewers: "external-reviewer",
+  external_user: "external-reviewer",
+  "DRG External Reviewer": "external-reviewer",
 };
 
 const ENTRA_GROUP_TO_INTERNAL_ROLE: Record<string, InternalRole> = {

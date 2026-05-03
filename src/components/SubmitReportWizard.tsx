@@ -423,8 +423,8 @@ export default function SubmitReportWizard({
   initialProgramId,
   initialDeliverableId,
 }: SubmitReportWizardProps) {
-  const { programs: allPrograms, canViewProgram } = useRole();
-  const visiblePrograms = allPrograms.filter((program) => canViewProgram(program.id));
+  const { programs: allPrograms, canUploadToProgram } = useRole();
+  const visiblePrograms = allPrograms.filter((program) => canUploadToProgram(program.id));
   const visibleProgramIds = new Set(visiblePrograms.map((program) => program.id));
   const visibleDeliverables = deliverables.filter((deliverable) =>
     visibleProgramIds.has(deliverable.programId)

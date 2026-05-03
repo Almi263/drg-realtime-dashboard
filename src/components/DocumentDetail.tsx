@@ -165,7 +165,8 @@ interface DocumentDetailProps {
 
 export default function DocumentDetail({ doc, deliverableTitle, program }: DocumentDetailProps) {
   const { role } = useRole();
-  const canSeeAccessLog = role === "drg-admin" || role === "drg-staff";
+  const canSeeAccessLog =
+    role === "drg-admin" || role === "drg-program-owner" || role === "drg-staff";
 
   return (
     <Box sx={{ display: "flex", flexDirection: "column", gap: 3 }}>

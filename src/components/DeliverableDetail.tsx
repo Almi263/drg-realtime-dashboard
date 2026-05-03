@@ -73,8 +73,14 @@ export default function DeliverableDetail({
   program,
 }: DeliverableDetailProps) {
   const { role } = useRole();
-  const canSubmit = role === "drg-admin" || role === "drg-staff";
-  const canSeeAccessLog = role === "drg-admin" || role === "drg-staff";
+  const canSubmit =
+    Boolean(program && program.status !== "Archived") &&
+    Boolean(
+      role &&
+        ["drg-admin", "drg-program-owner", "drg-staff", "external-reviewer"].includes(role)
+    );
+  const canSeeAccessLog =
+    role === "drg-admin" || role === "drg-program-owner" || role === "drg-staff";
 
   const statusColors = STATUS_COLORS[d.status];
 
