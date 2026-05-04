@@ -10,7 +10,7 @@ Our client is DRG, a defense contractor. They handle monthly deliverable submiss
 
 ## Who did what
 
-Franco developed the application. Allison handled deployment and the cross-language test files. Joshua put together the project documentation. Charlie and Ruby contributed to the notification module and domain model documentation.
+Franco developed the application's UI. Allison handled deployment, integration with the backend, and test files. Joshua put together the project documentation. Charlie and Ruby contributed to the notification module and domain model documentation.
 
 ## Setup
 
@@ -24,12 +24,15 @@ pnpm dev
 # http://localhost:3000
 ```
 
-To connect Microsoft Entra ID and reviewer invitations, copy `.env.example` to `.env.local` and fill in:
+To connect Microsoft Entra ID and the production Microsoft integrations, copy `.env.example` to `.env.local` and fill in:
 
 - `AUTH_SECRET` and `AUTH_URL`
 - `AUTH_MICROSOFT_ENTRA_ID_ID`, `AUTH_MICROSOFT_ENTRA_ID_SECRET`, and `AUTH_MICROSOFT_ENTRA_ID_ISSUER`
-- `ENTRA_DRG_ADMIN_GROUP_ID` and `ENTRA_DRG_STAFF_GROUP_ID`
-- `AZURE_TENANT_ID`, `AZURE_GRAPH_CLIENT_ID`, `AZURE_GRAPH_CLIENT_SECRET`, and `APP_URL`
+- `ENTRA_DRG_ADMIN_GROUP_ID`, `ENTRA_DRG_PROGRAM_OWNER_GROUP_ID`, `ENTRA_DRG_STAFF_GROUP_ID`, and `ENTRA_EXTERNAL_REVIEWER_GROUP_ID`
+- `DATAVERSE_ENVIRONMENT_URL`, `DATAVERSE_TENANT_ID`, `DATAVERSE_CLIENT_ID`, and either `DATAVERSE_CLIENT_SECRET` or the Dataverse certificate credential variables
+- `SHAREPOINT_TENANT_ID`, `SHAREPOINT_CLIENT_ID`, `SHAREPOINT_CLIENT_SECRET`, `SHAREPOINT_SITE_ID`, `SHAREPOINT_SITE_URL`, and `SHAREPOINT_DRIVE_ID`
+- the `POWER_AUTOMATE_*_URL` variables for each instant cloud flow HTTP trigger
+- `AZURE_TENANT_ID`, `AZURE_GRAPH_CLIENT_ID`, `AZURE_GRAPH_CLIENT_SECRET`, and `APP_URL` if this app owns guest invitations or external reviewer group checks
 
 Only the connector implementations in `src/lib/connectors/` change when switching from mock to real, the pages and components stay the same.
 
@@ -83,6 +86,17 @@ Live at https://drg-ims.vercel.app, hosted on Vercel for prototype iteration spe
 ```bash
 vercel --prod    # from the project root, after `vercel link`
 ```
+
+Production deployment checklist:
+
+- Set `AUTH_URL` and `APP_URL` to the final public app origin, for example `https://drg-ims.vercel.app` or the Azure App Service custom domain. These URLs are used by Auth.js redirects, notification links, and guest invitation redirects.
+- In the Microsoft Entra app registration for sign-in, add redirect URI `<APP_URL>/api/auth/callback/microsoft-entra-id`. Keep `AUTH_MICROSOFT_ENTRA_ID_ISSUER` on the same tenant as the app registration.
+- Configure Entra app roles or group claims for the four app roles: DRG admin, program owner, DRG staff, and external reviewer. Store the group object IDs in the matching `ENTRA_*_GROUP_ID` variables.
+- Configure the Dataverse server-to-server app registration with permission to read/write the target environment tables. Set `DATAVERSE_ENVIRONMENT_URL` to the environment URL and use either client secret or certificate credentials.
+- Configure the SharePoint app registration/client credential with Microsoft Graph access to the target site and document library. Set `SHAREPOINT_SITE_ID`, `SHAREPOINT_SITE_URL`, and `SHAREPOINT_DRIVE_ID` for the final library.
+- Configure each Power Automate instant cloud flow with an HTTP trigger, or leave the corresponding `POWER_AUTOMATE_*_URL` empty when intentionally disabled. Flow trigger payload shapes are documented in `docs/power-automate-cloud-flows.md`.
+- If the app continues to own guest invitations, grant the Graph invitation app registration the required Microsoft Graph application permissions and admin consent. It needs to invite external users and read group membership for `ENTRA_EXTERNAL_REVIEWER_GROUP_ID`.
+- Rebuild the Teams package with the final host and upload the new zip to Teams admin center: `cd teams-app && ./build.sh <deployed-host>`.
 
 The legacy Azure GitHub Actions workflow in `.github/workflows/franco-teams-update-feed-prototype_drg-ims.yml` is retained for reference but is not the deploy path of record.
 

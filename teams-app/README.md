@@ -14,6 +14,19 @@ This produces `drg-ims-teams.zip` in this directory. The app ID is generated
 once and stored in `.app-id` so re-builds are treated as updates of the same
 app rather than new apps.
 
+Use the bare host name only, without `https://` or a trailing slash. The build
+script injects it into `contentUrl`, `websiteUrl`, `configurationUrl`, developer
+URLs, and `validDomains`.
+
+Before uploading a production package, confirm the generated manifest points to
+the same host as the deployed app:
+
+```bash
+unzip -p drg-ims-teams.zip manifest.json | grep -E "contentUrl|configurationUrl|validDomains"
+```
+
+The current checked-in package was verified to point to `drg-ims.vercel.app`.
+
 ## Install
 
 ### Option A: client admin uploads to the org catalog (recommended for demo)
@@ -42,6 +55,21 @@ disabled, fall back to Option A.
 - **valid domain**: just the deploy host. No third-party iframes.
 - **permissions**: `identity` (read who's signed in) + `messageTeamMembers`
   (future use — none of the prototype features exercise this yet).
+
+## Auth and tenant checklist
+
+The Teams app host, Auth.js URL, guest invitation URL, and Entra redirect URL
+must all describe the same deployed app:
+
+- `AUTH_URL=https://<deployed-host>`
+- `APP_URL=https://<deployed-host>`
+- Teams package built with `./build.sh <deployed-host>`
+- Entra sign-in app registration redirect URI:
+  `https://<deployed-host>/api/auth/callback/microsoft-entra-id`
+
+If the app is moved from Vercel to Azure App Service or to a custom domain,
+rebuild and re-upload the Teams zip, update `AUTH_URL` and `APP_URL`, and update
+the Entra redirect URI before testing sign-in inside Teams.
 
 ## Iframe headers
 

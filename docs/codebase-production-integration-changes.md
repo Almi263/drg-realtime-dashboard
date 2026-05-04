@@ -288,7 +288,9 @@ Use mocked fetch responses for Dataverse, SharePoint, and Power Automate clients
 
 ## 14. Environment and Deployment Changes
 
-Update configuration and deployment docs for:
+Status: Implemented in `.env.example`, `README.md`, and `teams-app/README.md`.
+
+Updated configuration and deployment docs for:
 
 - Dataverse environment URL.
 - Dataverse app registration credentials.
@@ -299,6 +301,12 @@ Update configuration and deployment docs for:
 - App URL used in notifications and guest invitations.
 
 Also confirm the Teams app manifest under `teams-app/` points to the deployed app URL and that authentication redirect URLs match the final tenant/app registration.
+
+Confirmation notes:
+
+- The checked-in `teams-app/drg-ims-teams.zip` manifest currently points to `https://drg-ims.vercel.app`.
+- For any final production host, rebuild with `cd teams-app && ./build.sh <deployed-host>` and verify `manifest.json` inside the zip before upload.
+- The Entra sign-in app registration must include `https://<deployed-host>/api/auth/callback/microsoft-entra-id`, and `AUTH_URL` plus `APP_URL` must use the same deployed origin.
 
 ## Recommended Implementation Order
 
@@ -314,7 +322,7 @@ Also confirm the Teams app manifest under `teams-app/` points to the deployed ap
 10. Add Power Automate instant-flow call for acknowledgment.
 11. Add archived-program handling and active/archive filters.
 12. Add production integration tests.
-13. Update environment/deployment documentation.
+13. Update environment/deployment documentation. Complete.
 
 ## Definition of Done
 
