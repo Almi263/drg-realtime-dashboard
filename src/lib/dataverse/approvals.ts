@@ -10,6 +10,7 @@ import {
   listRows,
   lookupBind,
 } from "@/lib/dataverse/client";
+import { businessRuleError } from "@/lib/errors/business-rules";
 import { listVisiblePrograms } from "@/lib/dataverse/programs";
 
 interface DataverseApprovalRow extends Record<string, unknown> {
@@ -132,7 +133,13 @@ async function patchApprovalDecision(input: SubmitApprovalDecisionInput) {
 
 export async function submitApprovalDecision(input: SubmitApprovalDecisionForUserInput) {
   if (!canSubmitApprovalDecision(input.user, input.program, input.approval)) {
-    throw new Error("You are not authorized to submit this approval decision.");
+    throw businessRuleError("reviewerAccessRequired");
+  }
+  if (input.decision === "Rejected" && !input.comments?.trim()) {
+    throw businessRuleError("rejectionCommentsRequired");
+  }
+  if (input.decision === "Approved" && !input.responseDocumentId) {
+    throw businessRuleError("signedApprovalPdfRequired");
   }
 
   await patchApprovalDecision(input);

@@ -3,6 +3,7 @@ import { auth } from "@/auth";
 import { acknowledgeApproval, getApprovalById } from "@/lib/dataverse/approvals";
 import { createDocumentAccessLog } from "@/lib/dataverse/document-access-logs";
 import { getProgramById } from "@/lib/dataverse/programs";
+import { businessRuleResponse, errorResponse } from "@/lib/errors/business-rules";
 import { acknowledgeSignedApprovalFlow } from "@/lib/power-automate/flows";
 
 function requiredString(value: unknown) {
@@ -37,11 +38,12 @@ export async function POST(
     requiredString(body?.acceptedSubmissionDocumentId) || approval.documentId;
   const signedApprovalDocumentId = requiredString(body?.signedApprovalDocumentId);
 
+  if (!acceptedSubmissionDocumentId) {
+    return businessRuleResponse("reviewedDocumentRequired");
+  }
+
   if (!signedApprovalDocumentId) {
-    return NextResponse.json(
-      { error: "Signed approval document ID is required." },
-      { status: 400 }
-    );
+    return businessRuleResponse("signedApprovalPdfRequired");
   }
 
   try {
@@ -78,14 +80,8 @@ export async function POST(
       flowSkipped: result.skipped,
     });
   } catch (error) {
-    return NextResponse.json(
-      {
-        error:
-          error instanceof Error
-            ? error.message
-            : "Failed to acknowledge signed approval.",
-      },
-      { status: 500 }
-    );
+    return errorResponse(error, {
+      fallback: "Failed to acknowledge signed approval.",
+    });
   }
 }

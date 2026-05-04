@@ -1,4 +1,5 @@
 import "server-only";
+import { businessRuleError } from "@/lib/errors/business-rules";
 
 export type FlowName =
   | "submissionCreated"
@@ -15,6 +16,25 @@ const FLOW_URLS: Record<FlowName, string | undefined> = {
   approvalAcknowledged: process.env.POWER_AUTOMATE_APPROVAL_ACKNOWLEDGED_URL,
   programAccessChanged: process.env.POWER_AUTOMATE_PROGRAM_ACCESS_CHANGED_URL,
 };
+
+export class PowerAutomateFlowError extends Error {
+  readonly flowName: FlowName;
+  readonly status: number;
+  readonly details?: string;
+
+  constructor(input: {
+    flowName: FlowName;
+    status: number;
+    message: string;
+    details?: string;
+  }) {
+    super(input.message);
+    this.name = "PowerAutomateFlowError";
+    this.flowName = input.flowName;
+    this.status = input.status;
+    this.details = input.details;
+  }
+}
 
 export async function triggerFlow(
   flowName: FlowName,
@@ -34,9 +54,12 @@ export async function triggerFlow(
 
   if (!response.ok) {
     const details = await response.text().catch(() => "");
-    throw new Error(
-      `Power Automate flow failed: ${response.status}${details ? ` - ${details}` : ""}`
-    );
+    throw new PowerAutomateFlowError({
+      flowName,
+      status: response.status,
+      message: `Power Automate flow failed: ${response.status}`,
+      details,
+    });
   }
 
   return { skipped: false };
@@ -59,10 +82,10 @@ export async function acknowledgeSignedApprovalFlow(
     throw new Error("Deliverable ID is required for acknowledgment.");
   }
   if (!input.acceptedSubmissionDocumentId) {
-    throw new Error("Accepted submission document ID is required for acknowledgment.");
+    throw businessRuleError("reviewedDocumentRequired");
   }
   if (!input.signedApprovalDocumentId) {
-    throw new Error("Signed approval document ID is required for acknowledgment.");
+    throw businessRuleError("signedApprovalPdfRequired");
   }
 
   return triggerFlow("approvalAcknowledged", {

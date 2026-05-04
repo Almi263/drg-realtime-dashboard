@@ -238,6 +238,7 @@ Avoid calculating authoritative workflow state in the browser. The browser can g
 
 ## 11. Persist Audit History as `drg_documentaccesslog`
 
+
 The current mock document model nests `accessLog` inside each document. Production requires a separate `drg_documentaccesslog` table.
 
 Required changes:

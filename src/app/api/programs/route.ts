@@ -2,7 +2,8 @@ import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { canCreateProgram } from "@/lib/auth/guards";
 import { normalizeEmail } from "@/lib/auth/roles";
-import { createProgram, listVisiblePrograms } from "@/lib/dataverse/programs";
+import { createProgram, listPrograms, listVisiblePrograms } from "@/lib/dataverse/programs";
+import { businessRuleResponse, errorResponse } from "@/lib/errors/business-rules";
 import { triggerFlow } from "@/lib/power-automate/flows";
 
 export async function GET() {
@@ -55,6 +56,17 @@ export async function POST(request: Request) {
   }
 
   try {
+    const existingPrograms = await listPrograms();
+    if (
+      existingPrograms.some(
+        (program) =>
+          program.programNumber.trim().toLowerCase() ===
+          programNumber.toLowerCase()
+      )
+    ) {
+      return businessRuleResponse("duplicateProgramNumber");
+    }
+
     const programId = await createProgram({
       name,
       programNumber,
@@ -76,11 +88,9 @@ export async function POST(request: Request) {
 
     return NextResponse.json({ programId, created: true }, { status: 201 });
   } catch (error) {
-    return NextResponse.json(
-      {
-        error: error instanceof Error ? error.message : "Failed to create program.",
-      },
-      { status: 500 }
-    );
+    return errorResponse(error, {
+      fallback: "Failed to create program.",
+      duplicateConflict: "duplicateProgramNumber",
+    });
   }
 }

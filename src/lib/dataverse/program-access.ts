@@ -10,6 +10,7 @@ import {
   listRows,
   lookupBind,
 } from "@/lib/dataverse/client";
+import { businessRuleError } from "@/lib/errors/business-rules";
 
 interface DataverseProgramAccessRow extends Record<string, unknown> {
   drg_programaccessid: string;
@@ -129,11 +130,8 @@ export async function createProgramAccess(input: {
   if (!isDataverseConfigured()) {
     const existing = await listProgramAccess(input.programId);
     const matching = existing.find((entry) => entry.email === email);
-    if (matching?.isActive) return matching;
-    if (matching && !matching.isActive) {
-      throw new Error(
-        "This user has inactive access for the program. Reactivate the existing Dataverse access row instead of creating a duplicate."
-      );
+    if (matching) {
+      throw businessRuleError("duplicateProgramAccess");
     }
 
     return {
@@ -149,11 +147,8 @@ export async function createProgramAccess(input: {
 
   const existing = await listProgramAccess(input.programId);
   const matching = existing.find((entry) => entry.email === email);
-  if (matching?.isActive) return matching;
-  if (matching && !matching.isActive) {
-    throw new Error(
-      "This user has inactive access for the program. Reactivate the existing Dataverse access row instead of creating a duplicate."
-    );
+  if (matching) {
+    throw businessRuleError("duplicateProgramAccess");
   }
 
   const payload: Record<string, unknown> = {
@@ -177,9 +172,7 @@ export async function createProgramAccess(input: {
     });
   } catch (error) {
     if (error instanceof DataverseError && error.isAlternateKeyConflict) {
-      const existing = await listProgramAccess(input.programId);
-      const matching = existing.find((entry) => entry.email === email);
-      if (matching) return matching;
+      throw businessRuleError("duplicateProgramAccess");
     }
 
     throw error;

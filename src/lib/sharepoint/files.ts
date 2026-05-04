@@ -1,6 +1,7 @@
 import "server-only";
 
 import { cache } from "react";
+import { businessRuleError } from "@/lib/errors/business-rules";
 
 export interface SharePointFileResult {
   siteUrl: string;
@@ -88,7 +89,7 @@ export async function uploadPdfToSharePoint(input: {
   content: Blob | ArrayBuffer;
 }): Promise<SharePointFileResult> {
   if (!input.fileName.toLowerCase().endsWith(".pdf")) {
-    throw new Error("Only PDF files can be uploaded.");
+    throw businessRuleError("pdfRequired");
   }
 
   const token = await getGraphToken();

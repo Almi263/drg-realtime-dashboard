@@ -25,6 +25,7 @@ import type { Deliverable, DeliverableStatus } from "@/lib/models/deliverable";
 /* ------------------------------------------------------------------ */
 
 const STEPS = ["Select Program", "Select Deliverable", "Attach Document", "Submitted"];
+const PDF_REQUIRED_MESSAGE = "Only PDF files can be uploaded.";
 
 const STATUS_CHIP_STYLE: Partial<Record<DeliverableStatus, object>> = {
   "In Review": { bgcolor: "#0078d4", color: "#fff" },
@@ -248,11 +249,19 @@ function UploadStep({
   isSubmitting: boolean;
 }) {
   const [file, setFile] = useState<File | null>(null);
+  const [fileError, setFileError] = useState<string | null>(null);
   const [reviewDueDate, setReviewDueDate] = useState("");
   const [dragging, setDragging] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
 
   const handleFile = (f: File) => {
+    if (f.type !== "application/pdf" || !f.name.toLowerCase().endsWith(".pdf")) {
+      setFile(null);
+      setFileError(PDF_REQUIRED_MESSAGE);
+      return;
+    }
+
+    setFileError(null);
     setFile(f);
   };
 
@@ -325,6 +334,7 @@ function UploadStep({
         Once submitted, this document becomes part of the permanent record. Government reviewers will be
         notified and can view and download it, but cannot edit or delete it.
       </Alert>
+      {fileError && <Alert severity="error" sx={{ mb: 3 }}>{fileError}</Alert>}
 
       <TextField
         label="Review due date"
@@ -482,6 +492,10 @@ export default function SubmitReportWizard({
 
   const handleSubmit = async (f: File, reviewDueDate: string) => {
     if (!program || !deliverable) return;
+    if (f.type !== "application/pdf" || !f.name.toLowerCase().endsWith(".pdf")) {
+      setSubmissionError(PDF_REQUIRED_MESSAGE);
+      return;
+    }
 
     setIsSubmitting(true);
     setSubmissionError(null);

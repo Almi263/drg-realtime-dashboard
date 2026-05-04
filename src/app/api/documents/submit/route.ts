@@ -5,6 +5,7 @@ import { createDocumentAccessLog } from "@/lib/dataverse/document-access-logs";
 import { getVisibleDeliverableById } from "@/lib/dataverse/deliverables";
 import { createDocumentMetadata } from "@/lib/dataverse/documents";
 import { getProgramById } from "@/lib/dataverse/programs";
+import { businessRuleResponse, errorResponse } from "@/lib/errors/business-rules";
 import { uploadPdfToSharePoint } from "@/lib/sharepoint/files";
 import { triggerFlow } from "@/lib/power-automate/flows";
 
@@ -22,14 +23,14 @@ export async function POST(request: Request) {
   const reviewDueDate = String(formData?.get("reviewDueDate") ?? "");
 
   if (!(file instanceof File)) {
-    return NextResponse.json({ error: "PDF file is required." }, { status: 400 });
+    return businessRuleResponse("pdfRequired");
   }
 
   if (
     file.type !== "application/pdf" ||
     !file.name.toLowerCase().endsWith(".pdf")
   ) {
-    return NextResponse.json({ error: "Only PDF files can be uploaded." }, { status: 400 });
+    return businessRuleResponse("pdfRequired");
   }
 
   const deliverable = await getVisibleDeliverableById(deliverableId, session.user);
@@ -42,13 +43,12 @@ export async function POST(request: Request) {
   }
 
   if (!program || !canUploadToProgram(session.user, program)) {
+    if (program?.status === "Archived") {
+      return businessRuleResponse("archivedProgramUploadBlocked");
+    }
+
     return NextResponse.json(
-      {
-        error:
-          program?.status === "Archived"
-            ? "This program is archived. Downloads remain available, but new uploads are blocked."
-            : "You do not have access to upload documents for this program.",
-      },
+      { error: "You do not have access to upload documents for this program." },
       { status: 403 }
     );
   }
@@ -102,14 +102,8 @@ export async function POST(request: Request) {
       sharePointUrl: sharePointFile.webUrl,
     });
   } catch (error) {
-    return NextResponse.json(
-      {
-        error:
-          error instanceof Error
-            ? error.message
-            : "Failed to submit document.",
-      },
-      { status: 500 }
-    );
+    return errorResponse(error, {
+      fallback: "Failed to submit document.",
+    });
   }
 }

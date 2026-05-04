@@ -4,6 +4,7 @@ import { canManageProgramAccess, canViewProgram } from "@/lib/auth/guards";
 import { normalizeEmail } from "@/lib/auth/roles";
 import { createProgramAccess, listProgramAccess, revokeProgramAccess } from "@/lib/dataverse/program-access";
 import { getProgramById } from "@/lib/dataverse/programs";
+import { businessRuleResponse, errorResponse } from "@/lib/errors/business-rules";
 import { getExternalReviewerPrincipal } from "@/lib/graph/invitations";
 import { triggerFlow } from "@/lib/power-automate/flows";
 
@@ -68,13 +69,7 @@ export async function POST(
     const reviewer = await getExternalReviewerPrincipal(email);
 
     if (!reviewer) {
-      return NextResponse.json(
-        {
-          error:
-            "External reviewer must already exist as an Entra guest and be a member of the external reviewer group before program access can be granted.",
-        },
-        { status: 400 }
-      );
+      return businessRuleResponse("externalUserNotReady");
     }
 
     const access = await createProgramAccess({
@@ -97,12 +92,10 @@ export async function POST(
       granted: true,
     });
   } catch (error) {
-    return NextResponse.json(
-      {
-        error: error instanceof Error ? error.message : "Failed to grant access.",
-      },
-      { status: 500 }
-    );
+    return errorResponse(error, {
+      fallback: "Failed to grant access.",
+      duplicateConflict: "duplicateProgramAccess",
+    });
   }
 }
 
@@ -155,11 +148,8 @@ export async function DELETE(
 
     return NextResponse.json({ email, revoked: true });
   } catch (error) {
-    return NextResponse.json(
-      {
-        error: error instanceof Error ? error.message : "Failed to revoke access.",
-      },
-      { status: 500 }
-    );
+    return errorResponse(error, {
+      fallback: "Failed to revoke access.",
+    });
   }
 }
