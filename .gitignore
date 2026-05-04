@@ -44,4 +44,14 @@ next-env.d.ts
 **/target/
 **/bin/
 *.class
+
+# claude code / personal dev tooling — kept locally, not for repo
 .claude/
+CLAUDE.md
+MEMORY.md
+docs/chat-history.md
+docs/claude-handoff.md
+docs/meeting-transcript-*.md
+meeting_transcript*.json
+transcribe.py
+transcribe.log
