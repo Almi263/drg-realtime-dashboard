@@ -12,30 +12,30 @@ import {
 import { listActiveProgramAccess } from "@/lib/dataverse/program-access";
 
 interface DataverseProgramRow extends Record<string, unknown> {
-  drg_programid: string;
-  drg_name?: string;
-  drg_programnumber?: string;
-  drg_contractref?: string;
-  drg_description?: string;
-  drg_startdate?: string;
-  drg_enddate?: string;
-  drg_creatorupn?: string;
-  _drg_creatoruser_value?: string;
-  drg_ownerupn?: string;
-  _drg_owneruser_value?: string;
-  drg_primarysitecount?: number;
-  _drg_archivedby_value?: string;
-  drg_archivedon?: string;
+  drg_drg_programid: string;
+  drg_drg_name?: string;
+  drg_drg_programnumber?: string;
+  drg_drg_contractref?: string;
+  drg_drg_description?: string;
+  drg_drg_startdate?: string;
+  drg_drg_enddate?: string;
+  drg_drg_creatorupn?: string;
+  _drg_drg_creatoruser_value?: string;
+  drg_drg_ownerupn?: string;
+  _drg_drg_owneruser_value?: string;
+  drg_drg_primarysitecount?: number;
+  _drg_drg_archivedby_value?: string;
+  drg_drg_archivedon?: string;
   createdon?: string;
 }
 
 interface DataverseProgramSiteRow {
-  drg_programsiteid?: string;
-  drg_name?: string;
-  drg_sitecode?: string;
-  drg_region?: string;
-  drg_isprimary?: boolean;
-  _drg_program_value?: string;
+  drg_drg_programsiteid?: string;
+  drg_drg_name?: string;
+  drg_drg_sitecode?: string;
+  drg_drg_region?: string;
+  drg_drg_isprimary?: boolean;
+  _drg_drg_program_value?: string;
 }
 
 interface DataverseSystemUserRow {
@@ -114,35 +114,35 @@ function mapProgramRow(
   sites: DataverseProgramSiteRow[],
   accessByProgramId: Map<string, Awaited<ReturnType<typeof listActiveProgramAccess>>>
 ): Program {
-  const id = row.drg_programid;
+  const id = row.drg_drg_programid;
 
   return {
     id,
-    name: row.drg_name ?? row.drg_programnumber ?? id,
-    programNumber: row.drg_programnumber ?? id,
-    contractRef: row.drg_contractref ?? row.drg_programnumber ?? id,
-    description: row.drg_description ?? "",
+    name: row.drg_drg_name ?? row.drg_drg_programnumber ?? id,
+    programNumber: row.drg_drg_programnumber ?? id,
+    contractRef: row.drg_drg_contractref ?? row.drg_drg_programnumber ?? id,
+    description: row.drg_drg_description ?? "",
     sites: sites
-      .filter((site) => site._drg_program_value === id)
+      .filter((site) => site._drg_drg_program_value === id)
       .map((site, index) => ({
-        id: site.drg_programsiteid ?? `${id}-site-${index}`,
+        id: site.drg_drg_programsiteid ?? `${id}-site-${index}`,
         programId: id,
-        name: site.drg_name ?? "",
-        siteCode: site.drg_sitecode,
-        region: site.drg_region,
-        isPrimary: site.drg_isprimary ?? false,
+        name: site.drg_drg_name ?? "",
+        siteCode: site.drg_drg_sitecode,
+        region: site.drg_drg_region,
+        isPrimary: site.drg_drg_isprimary ?? false,
       }))
       .filter((site) => site.name),
-    status: toProgramStatus(getFormattedValue(row, "drg_status")),
-    startDate: row.drg_startdate ?? "",
-    endDate: row.drg_enddate ?? "",
-    creatorUserId: row._drg_creatoruser_value,
-    creatorUpn: normalizeEmail(row.drg_creatorupn),
-    ownerUserId: row._drg_owneruser_value,
-    ownerUpn: normalizeEmail(row.drg_ownerupn),
-    primarySiteCount: row.drg_primarysitecount ?? 0,
-    archivedByUserId: row._drg_archivedby_value,
-    archivedOn: row.drg_archivedon,
+    status: toProgramStatus(getFormattedValue(row, "drg_drg_status")),
+    startDate: row.drg_drg_startdate ?? "",
+    endDate: row.drg_drg_enddate ?? "",
+    creatorUserId: row._drg_drg_creatoruser_value,
+    creatorUpn: normalizeEmail(row.drg_drg_creatorupn),
+    ownerUserId: row._drg_drg_owneruser_value,
+    ownerUpn: normalizeEmail(row.drg_drg_ownerupn),
+    primarySiteCount: row.drg_drg_primarysitecount ?? 0,
+    archivedByUserId: row._drg_drg_archivedby_value,
+    archivedOn: row.drg_drg_archivedon,
     createdAt: row.createdon ?? "",
     access: accessByProgramId.get(id) ?? [],
   };
@@ -161,12 +161,12 @@ function groupAccessByProgramId(
 async function listProgramsFromDataverse() {
   const [programRows, siteRows, access] = await Promise.all([
     listRows<DataverseProgramRow>(
-      "drg_programs",
-      "$select=drg_programid,drg_name,drg_programnumber,drg_contractref,drg_description,drg_startdate,drg_enddate,drg_creatorupn,_drg_creatoruser_value,drg_ownerupn,_drg_owneruser_value,drg_primarysitecount,_drg_archivedby_value,drg_archivedon,createdon,drg_status&$filter=statecode eq 0"
+      "drg_drg_programs",
+      "$select=drg_drg_programid,drg_drg_name,drg_drg_programnumber,drg_drg_contractref,drg_drg_description,drg_drg_startdate,drg_drg_enddate,drg_drg_creatorupn,_drg_drg_creatoruser_value,drg_drg_ownerupn,_drg_drg_owneruser_value,drg_drg_primarysitecount,_drg_drg_archivedby_value,drg_drg_archivedon,createdon,drg_drg_status&$filter=statecode eq 0"
     ),
     listRows<DataverseProgramSiteRow>(
-      "drg_programsites",
-      "$select=drg_programsiteid,drg_name,drg_sitecode,drg_region,drg_isprimary,_drg_program_value&$filter=statecode eq 0"
+      "drg_drg_programsites",
+      "$select=drg_drg_programsiteid,drg_drg_name,drg_drg_sitecode,drg_drg_region,drg_drg_isprimary,_drg_drg_program_value&$filter=statecode eq 0"
     ),
     listActiveProgramAccess(),
   ]);
@@ -255,27 +255,27 @@ export async function createProgram(input: CreateProgramInput) {
   ]);
 
   const payload: Record<string, unknown> = {
-    drg_name: input.name,
-    drg_programnumber: input.programNumber,
-    drg_contractref: input.contractRef,
-    drg_description: input.description ?? "",
-    drg_startdate: input.startDate,
-    drg_enddate: input.endDate,
-    drg_creatorupn: input.creatorUpn,
-    drg_ownerupn: input.ownerUpn,
-    drg_primarysitecount: input.sites.length,
+    drg_drg_name: input.name,
+    drg_drg_programnumber: input.programNumber,
+    drg_drg_contractref: input.contractRef,
+    drg_drg_description: input.description ?? "",
+    drg_drg_startdate: input.startDate,
+    drg_drg_enddate: input.endDate,
+    drg_drg_creatorupn: input.creatorUpn,
+    drg_drg_ownerupn: input.ownerUpn,
+    drg_drg_primarysitecount: input.sites.length,
   };
 
   if (creatorUserId) {
-    payload["drg_creatoruser@odata.bind"] = lookupBind("systemusers", creatorUserId);
+    payload["drg_drg_creatoruser@odata.bind"] = lookupBind("systemusers", creatorUserId);
   }
 
   if (ownerUserId) {
-    payload["drg_owneruser@odata.bind"] = lookupBind("systemusers", ownerUserId);
+    payload["drg_drg_owneruser@odata.bind"] = lookupBind("systemusers", ownerUserId);
   }
 
-  const response = await dataverseFetch<{ drg_programid?: string }>(
-    "/drg_programs",
+  const response = await dataverseFetch<{ drg_drg_programid?: string }>(
+    "/drg_drg_programs",
     {
       method: "POST",
       headers: {
@@ -285,19 +285,19 @@ export async function createProgram(input: CreateProgramInput) {
     }
   );
 
-  const programId = response.drg_programid;
+  const programId = response.drg_drg_programid;
   if (!programId) {
     throw new Error("Dataverse did not return the created program ID.");
   }
 
   await Promise.all(
     input.sites.map((site, index) =>
-      dataverseFetch<void>("/drg_programsites", {
+      dataverseFetch<void>("/drg_drg_programsites", {
         method: "POST",
         body: JSON.stringify({
-          drg_name: site,
-          "drg_program@odata.bind": lookupBind("drg_programs", programId),
-          drg_isprimary: index === 0,
+          drg_drg_name: site,
+          "drg_drg_program@odata.bind": lookupBind("drg_drg_programs", programId),
+          drg_drg_isprimary: index === 0,
         }),
       })
     )

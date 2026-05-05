@@ -14,24 +14,24 @@ import { toDeliverableTypeName } from "@/lib/dataverse/deliverable-types";
 import { normalizeEmail } from "@/lib/auth/roles";
 
 interface DataverseDeliverableRow extends Record<string, unknown> {
-  drg_deliverableid: string;
-  drg_title?: string;
-  drg_deliverablenumber?: string;
-  drg_contractref?: string;
-  drg_description?: string;
-  drg_duedate?: string;
-  drg_assignedtoemail?: string;
-  _drg_assignedtouser_value?: string;
-  drg_lastsubmittedon?: string;
-  drg_lastapprovedon?: string;
-  _drg_acknowledgedby_value?: string;
-  drg_acknowledgedbyemail?: string;
-  drg_acknowledgedon?: string;
-  drg_currentsubmissionnumber?: number;
-  drg_isclosed?: boolean;
+  drg_drg_deliverableid: string;
+  drg_drg_title?: string;
+  drg_drg_deliverablenumber?: string;
+  drg_drg_contractref?: string;
+  drg_drg_description?: string;
+  drg_drg_duedate?: string;
+  drg_drg_assignedtoemail?: string;
+  _drg_drg_assignedtouser_value?: string;
+  drg_drg_lastsubmittedon?: string;
+  drg_drg_lastapprovedon?: string;
+  _drg_drg_acknowledgedby_value?: string;
+  drg_drg_acknowledgedbyemail?: string;
+  drg_drg_acknowledgedon?: string;
+  drg_drg_currentsubmissionnumber?: number;
+  drg_drg_isclosed?: boolean;
   modifiedon?: string;
-  _drg_program_value?: string;
-  _drg_type_value?: string;
+  _drg_drg_program_value?: string;
+  _drg_drg_type_value?: string;
 }
 
 interface DataverseSystemUserRow {
@@ -87,28 +87,28 @@ function normalizeMockDeliverable(deliverable: Deliverable): Deliverable {
 
 function mapDeliverableRow(row: DataverseDeliverableRow): Deliverable {
   return {
-    id: row.drg_deliverableid,
-    title: row.drg_title ?? row.drg_deliverablenumber ?? row.drg_deliverableid,
-    deliverableNumber: row.drg_deliverablenumber ?? row.drg_deliverableid,
-    typeId: row._drg_type_value ?? "",
+    id: row.drg_drg_deliverableid,
+    title: row.drg_drg_title ?? row.drg_drg_deliverablenumber ?? row.drg_drg_deliverableid,
+    deliverableNumber: row.drg_drg_deliverablenumber ?? row.drg_drg_deliverableid,
+    typeId: row._drg_drg_type_value ?? "",
     type: toDeliverableTypeName(
-      getFormattedValue(row, "_drg_type_value") ?? getFormattedValue(row, "drg_type")
+      getFormattedValue(row, "_drg_drg_type_value") ?? getFormattedValue(row, "drg_drg_type")
     ),
-    status: toUiStatus(getFormattedValue(row, "drg_status")),
-    dueDate: row.drg_duedate ?? "",
-    assignedToUserId: row._drg_assignedtouser_value,
-    assignedToEmail: row.drg_assignedtoemail,
-    assignedTo: row.drg_assignedtoemail ?? "",
-    programId: row._drg_program_value ?? "",
-    contractRef: row.drg_contractref ?? "",
-    description: row.drg_description ?? "",
-    lastSubmittedOn: row.drg_lastsubmittedon,
-    lastApprovedOn: row.drg_lastapprovedon,
-    acknowledgedByUserId: row._drg_acknowledgedby_value,
-    acknowledgedByEmail: row.drg_acknowledgedbyemail,
-    acknowledgedOn: row.drg_acknowledgedon,
-    currentSubmissionNumber: row.drg_currentsubmissionnumber,
-    isClosed: row.drg_isclosed ?? false,
+    status: toUiStatus(getFormattedValue(row, "drg_drg_status")),
+    dueDate: row.drg_drg_duedate ?? "",
+    assignedToUserId: row._drg_drg_assignedtouser_value,
+    assignedToEmail: row.drg_drg_assignedtoemail,
+    assignedTo: row.drg_drg_assignedtoemail ?? "",
+    programId: row._drg_drg_program_value ?? "",
+    contractRef: row.drg_drg_contractref ?? "",
+    description: row.drg_drg_description ?? "",
+    lastSubmittedOn: row.drg_drg_lastsubmittedon,
+    lastApprovedOn: row.drg_drg_lastapprovedon,
+    acknowledgedByUserId: row._drg_drg_acknowledgedby_value,
+    acknowledgedByEmail: row.drg_drg_acknowledgedbyemail,
+    acknowledgedOn: row.drg_drg_acknowledgedon,
+    currentSubmissionNumber: row.drg_drg_currentsubmissionnumber,
+    isClosed: row.drg_drg_isclosed ?? false,
     lastUpdated: row.modifiedon ?? "",
   };
 }
@@ -120,8 +120,8 @@ export async function listDeliverables(): Promise<Deliverable[]> {
   }
 
   const rows = await listRows<DataverseDeliverableRow>(
-    "drg_deliverables",
-    "$select=drg_deliverableid,drg_title,drg_deliverablenumber,drg_contractref,drg_description,drg_duedate,drg_assignedtoemail,_drg_assignedtouser_value,drg_lastsubmittedon,drg_lastapprovedon,_drg_acknowledgedby_value,drg_acknowledgedbyemail,drg_acknowledgedon,drg_currentsubmissionnumber,drg_isclosed,modifiedon,_drg_program_value,_drg_type_value,drg_status&$filter=statecode eq 0 and drg_isclosed ne true"
+    "drg_drg_deliverables",
+    "$select=drg_drg_deliverableid,drg_drg_title,drg_drg_deliverablenumber,drg_drg_contractref,drg_drg_description,drg_drg_duedate,drg_drg_assignedtoemail,_drg_drg_assignedtouser_value,drg_drg_lastsubmittedon,drg_drg_lastapprovedon,_drg_drg_acknowledgedby_value,drg_drg_acknowledgedbyemail,drg_drg_acknowledgedon,drg_drg_currentsubmissionnumber,drg_drg_isclosed,modifiedon,_drg_drg_program_value,_drg_drg_type_value,drg_drg_status&$filter=statecode eq 0 and drg_drg_isclosed ne true"
   );
 
   return rows.map(mapDeliverableRow);
@@ -176,26 +176,26 @@ export async function createDeliverable(input: CreateDeliverableInput) {
     : undefined;
 
   const payload: Record<string, unknown> = {
-    drg_title: input.title,
-    drg_deliverablenumber: input.deliverableNumber,
-    "drg_program@odata.bind": lookupBind("drg_programs", input.programId),
-    drg_contractref: input.contractRef,
-    "drg_type@odata.bind": lookupBind("drg_deliverabletypes", input.typeId),
-    drg_description: input.description ?? "",
-    drg_duedate: input.dueDate,
-    drg_assignedtoemail: assignedToEmail,
-    drg_isclosed: false,
+    drg_drg_title: input.title,
+    drg_drg_deliverablenumber: input.deliverableNumber,
+    "drg_drg_program@odata.bind": lookupBind("drg_drg_programs", input.programId),
+    drg_drg_contractref: input.contractRef,
+    "drg_drg_type@odata.bind": lookupBind("drg_drg_deliverabletypes", input.typeId),
+    drg_drg_description: input.description ?? "",
+    drg_drg_duedate: input.dueDate,
+    drg_drg_assignedtoemail: assignedToEmail,
+    drg_drg_isclosed: false,
   };
 
   if (assignedToUserId) {
-    payload["drg_assignedtouser@odata.bind"] = lookupBind(
+    payload["drg_drg_assignedtouser@odata.bind"] = lookupBind(
       "systemusers",
       assignedToUserId
     );
   }
 
-  const response = await dataverseFetch<{ drg_deliverableid?: string }>(
-    "/drg_deliverables",
+  const response = await dataverseFetch<{ drg_drg_deliverableid?: string }>(
+    "/drg_drg_deliverables",
     {
       method: "POST",
       headers: {
@@ -205,7 +205,7 @@ export async function createDeliverable(input: CreateDeliverableInput) {
     }
   );
 
-  const deliverableId = response.drg_deliverableid;
+  const deliverableId = response.drg_drg_deliverableid;
   if (!deliverableId) {
     throw new Error("Dataverse did not return the created deliverable ID.");
   }

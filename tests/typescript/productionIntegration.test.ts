@@ -90,40 +90,81 @@ describe("production integration layer", () => {
     vi.unstubAllEnvs();
   });
 
+  it("treats blank Dataverse env aliases as unset", async () => {
+    vi.resetModules();
+    vi.stubEnv("DATAVERSE_URL", "");
+    vi.stubEnv("DATAVERSE_ENVIRONMENT_URL", DATAVERSE_URL);
+    vi.stubEnv("DATAVERSE_TENANT_ID", "tenant-id");
+    vi.stubEnv("DATAVERSE_CLIENT_ID", "client-id");
+    vi.stubEnv("DATAVERSE_CLIENT_SECRET", "client-secret");
+    vi.stubEnv("DATAVERSE_SCOPE", "");
+    vi.stubEnv("DATAVERSE_RESOURCE", "");
+
+    let tokenRequestBody = "";
+    global.fetch = createDataverseFetchMock({
+      "/WhoAmI": () => jsonResponse({ UserId: "user-1" }),
+    });
+    vi.mocked(global.fetch).mockImplementation(
+      async (input: RequestInfo | URL, init?: RequestInit) => {
+        const request = new Request(input, init);
+        if (request.url.includes("login.microsoftonline.com")) {
+          tokenRequestBody = await request.text();
+          return jsonResponse({ access_token: "dataverse-token" });
+        }
+
+        return jsonResponse({ UserId: "user-1" });
+      }
+    );
+
+    const { dataverseFetch, getDataverseApiUrl, isDataverseConfigured } =
+      await import("@/lib/dataverse/client");
+
+    expect(isDataverseConfigured()).toBe(true);
+    expect(getDataverseApiUrl("/WhoAmI")).toBe(
+      `${DATAVERSE_URL}/api/data/v9.2/WhoAmI`
+    );
+
+    await dataverseFetch("/WhoAmI");
+
+    expect(new URLSearchParams(tokenRequestBody).get("scope")).toBe(
+      `${DATAVERSE_URL}/.default`
+    );
+  });
+
   it("maps Dataverse choice labels and lookup IDs for documents", async () => {
     vi.resetModules();
     configureDataverseEnv();
     global.fetch = createDataverseFetchMock({
-      "/drg_documents?": () =>
+      "/drg_drg_documents?": () =>
         jsonResponse({
           value: [
             {
-              drg_documentid: "document-1",
-              drg_name: "Reviewed response",
-              drg_filename: "response.docx",
-              drg_filesizekb: 42,
-              drg_submissionnumber: 2,
-              drg_uploadedbyemail: "reviewer@gov.test",
-              drg_uploadedon: "2026-04-01T12:00:00Z",
-              _drg_uploadedby_value: "user-1",
-              _drg_deliverable_value: "deliverable-1",
-              _drg_program_value: "program-1",
-              _drg_parentdocument_value: "submission-1",
-              _drg_approval_value: "approval-1",
-              drg_sharepointsiteurl: "https://sharepoint.test/sites/drg",
-              drg_sharepointdriveid: "drive-1",
-              drg_sharepointitemid: "item-1",
-              drg_sharepointurl: "https://sharepoint.test/file",
-              drg_versionlabel: "v2",
-              drg_reviewduedate: "2026-04-15",
-              _drg_viewedby_value: "viewer-1",
-              drg_viewedbyemail: "staff@drg.test",
-              drg_viewedon: "2026-04-02T12:00:00Z",
-              drg_checksum: "abc123",
-              drg_iscurrentversion: true,
-              [`drg_documentrole@${FORMATTED_VALUE_ANNOTATION}`]:
+              drg_drg_documentid: "document-1",
+              drg_drg_name: "Reviewed response",
+              drg_drg_filename: "response.docx",
+              drg_drg_filesizekb: 42,
+              drg_drg_submissionnumber: 2,
+              drg_drg_uploadedbyemail: "reviewer@gov.test",
+              drg_drg_uploadedon: "2026-04-01T12:00:00Z",
+              _drg_drg_uploadedby_value: "user-1",
+              _drg_drg_deliverable_value: "deliverable-1",
+              _drg_drg_program_value: "program-1",
+              _drg_drg_parentdocument_value: "submission-1",
+              _drg_drg_approval_value: "approval-1",
+              drg_drg_sharepointsiteurl: "https://sharepoint.test/sites/drg",
+              drg_drg_sharepointdriveid: "drive-1",
+              drg_drg_sharepointitemid: "item-1",
+              drg_drg_sharepointurl: "https://sharepoint.test/file",
+              drg_drg_versionlabel: "v2",
+              drg_drg_reviewduedate: "2026-04-15",
+              _drg_drg_viewedby_value: "viewer-1",
+              drg_drg_viewedbyemail: "staff@drg.test",
+              drg_drg_viewedon: "2026-04-02T12:00:00Z",
+              drg_drg_checksum: "abc123",
+              drg_drg_iscurrentversion: true,
+              [`drg_drg_documentrole@${FORMATTED_VALUE_ANNOTATION}`]:
                 "Reviewer Response",
-              [`drg_status@${FORMATTED_VALUE_ANNOTATION}`]: "Reviewed",
+              [`drg_drg_status@${FORMATTED_VALUE_ANNOTATION}`]: "Reviewed",
             },
           ],
         }),
@@ -149,58 +190,58 @@ describe("production integration layer", () => {
     vi.resetModules();
     configureDataverseEnv();
     global.fetch = createDataverseFetchMock({
-      "/drg_programs?": () =>
+      "/drg_drg_programs?": () =>
         jsonResponse({
           value: [
             {
-              drg_programid: "program-1",
-              drg_name: "Visible Program",
-              drg_programnumber: "PRG-001",
-              drg_contractref: "W912-001",
-              [`drg_status@${FORMATTED_VALUE_ANNOTATION}`]: "Active",
+              drg_drg_programid: "program-1",
+              drg_drg_name: "Visible Program",
+              drg_drg_programnumber: "PRG-001",
+              drg_drg_contractref: "W912-001",
+              [`drg_drg_status@${FORMATTED_VALUE_ANNOTATION}`]: "Active",
             },
             {
-              drg_programid: "program-2",
-              drg_name: "Hidden Program",
-              drg_programnumber: "PRG-002",
-              drg_contractref: "W912-002",
-              [`drg_status@${FORMATTED_VALUE_ANNOTATION}`]: "Active",
+              drg_drg_programid: "program-2",
+              drg_drg_name: "Hidden Program",
+              drg_drg_programnumber: "PRG-002",
+              drg_drg_contractref: "W912-002",
+              [`drg_drg_status@${FORMATTED_VALUE_ANNOTATION}`]: "Active",
             },
             {
-              drg_programid: "program-3",
-              drg_name: "Archived Program",
-              drg_programnumber: "PRG-003",
-              drg_contractref: "W912-003",
-              [`drg_status@${FORMATTED_VALUE_ANNOTATION}`]: "Archived",
+              drg_drg_programid: "program-3",
+              drg_drg_name: "Archived Program",
+              drg_drg_programnumber: "PRG-003",
+              drg_drg_contractref: "W912-003",
+              [`drg_drg_status@${FORMATTED_VALUE_ANNOTATION}`]: "Archived",
             },
           ],
         }),
-      "/drg_programsites?": () => jsonResponse({ value: [] }),
-      "/drg_programaccesses?": () =>
+      "/drg_drg_programsites?": () => jsonResponse({ value: [] }),
+      "/drg_drg_programaccesses?": () =>
         jsonResponse({
           value: [
             {
-              drg_programaccessid: "access-1",
-              drg_email: "reviewer@gov.test",
-              drg_isactive: true,
-              _drg_program_value: "program-1",
-              [`drg_accessrole@${FORMATTED_VALUE_ANNOTATION}`]:
+              drg_drg_programaccessid: "access-1",
+              drg_drg_email: "reviewer@gov.test",
+              drg_drg_isactive: true,
+              _drg_drg_program_value: "program-1",
+              [`drg_drg_accessrole@${FORMATTED_VALUE_ANNOTATION}`]:
                 "External Reviewer",
             },
             {
-              drg_programaccessid: "access-2",
-              drg_email: "reviewer@gov.test",
-              drg_isactive: false,
-              _drg_program_value: "program-2",
-              [`drg_accessrole@${FORMATTED_VALUE_ANNOTATION}`]:
+              drg_drg_programaccessid: "access-2",
+              drg_drg_email: "reviewer@gov.test",
+              drg_drg_isactive: false,
+              _drg_drg_program_value: "program-2",
+              [`drg_drg_accessrole@${FORMATTED_VALUE_ANNOTATION}`]:
                 "External Reviewer",
             },
             {
-              drg_programaccessid: "access-3",
-              drg_email: "reviewer@gov.test",
-              drg_isactive: true,
-              _drg_program_value: "program-3",
-              [`drg_accessrole@${FORMATTED_VALUE_ANNOTATION}`]:
+              drg_drg_programaccessid: "access-3",
+              drg_drg_email: "reviewer@gov.test",
+              drg_drg_isactive: true,
+              _drg_drg_program_value: "program-3",
+              [`drg_drg_accessrole@${FORMATTED_VALUE_ANNOTATION}`]:
                 "External Reviewer",
             },
           ],
@@ -420,7 +461,7 @@ describe("production integration layer", () => {
     configureDataverseEnv();
     let accessLogPayload: Record<string, unknown> | undefined;
     global.fetch = createDataverseFetchMock({
-      "/drg_documentaccesslogs": async (request) => {
+      "/drg_drg_documentaccesslogs": async (request) => {
         accessLogPayload = await request.json();
         return new Response(null, { status: 204 });
       },
@@ -440,16 +481,16 @@ describe("production integration layer", () => {
     });
 
     expect(accessLogPayload).toMatchObject({
-      drg_name: expect.stringContaining("Download | staff@drg.test |"),
-      "drg_document@odata.bind": "/drg_documents(document-1)",
-      "drg_program@odata.bind": "/drg_programs(program-1)",
-      "drg_actoruser@odata.bind": "/systemusers(user-1)",
-      drg_actorname: "DRG Staff",
-      drg_actoremail: "staff@drg.test",
-      drg_action: "Download",
-      drg_source: "Web App",
+      drg_drg_name: expect.stringContaining("Download | staff@drg.test |"),
+      "drg_drg_document@odata.bind": "/drg_drg_documents(document-1)",
+      "drg_drg_program@odata.bind": "/drg_drg_programs(program-1)",
+      "drg_drg_actoruser@odata.bind": "/systemusers(user-1)",
+      drg_drg_actorname: "DRG Staff",
+      drg_drg_actoremail: "staff@drg.test",
+      drg_drg_action: "Download",
+      drg_drg_source: "Web App",
     });
-    expect(accessLogPayload?.drg_occurredon).toEqual(expect.any(String));
+    expect(accessLogPayload?.drg_drg_occurredon).toEqual(expect.any(String));
   });
 
   it("sends the expected Power Automate acknowledgment payload", async () => {

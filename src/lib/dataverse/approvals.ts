@@ -14,19 +14,19 @@ import { businessRuleError } from "@/lib/errors/business-rules";
 import { listVisiblePrograms } from "@/lib/dataverse/programs";
 
 interface DataverseApprovalRow extends Record<string, unknown> {
-  drg_approvalid: string;
-  drg_name?: string;
-  _drg_program_value?: string;
-  _drg_deliverable_value?: string;
-  _drg_document_value?: string;
-  drg_submissionnumber?: number;
-  _drg_revieweruser_value?: string;
-  drg_revieweremail?: string;
-  drg_comments?: string;
-  _drg_responsedocument_value?: string;
-  drg_duedate?: string;
-  drg_decisiondate?: string;
-  drg_iscurrent?: boolean;
+  drg_drg_approvalid: string;
+  drg_drg_name?: string;
+  _drg_drg_program_value?: string;
+  _drg_drg_deliverable_value?: string;
+  _drg_drg_document_value?: string;
+  drg_drg_submissionnumber?: number;
+  _drg_drg_revieweruser_value?: string;
+  drg_drg_revieweremail?: string;
+  drg_drg_comments?: string;
+  _drg_drg_responsedocument_value?: string;
+  drg_drg_duedate?: string;
+  drg_drg_decisiondate?: string;
+  drg_drg_iscurrent?: boolean;
 }
 
 export interface SubmitApprovalDecisionInput {
@@ -56,20 +56,20 @@ function toApprovalDecision(value: string | undefined): ApprovalDecision {
 
 function mapApprovalRow(row: DataverseApprovalRow): Approval {
   return {
-    id: row.drg_approvalid,
-    name: row.drg_name ?? row.drg_approvalid,
-    programId: row._drg_program_value ?? "",
-    deliverableId: row._drg_deliverable_value ?? "",
-    documentId: row._drg_document_value ?? "",
-    submissionNumber: row.drg_submissionnumber ?? 0,
-    reviewerUserId: row._drg_revieweruser_value,
-    reviewerEmail: row.drg_revieweremail ?? "",
-    decision: toApprovalDecision(getFormattedValue(row, "drg_decision")),
-    comments: row.drg_comments,
-    responseDocumentId: row._drg_responsedocument_value,
-    dueDate: row.drg_duedate,
-    decisionDate: row.drg_decisiondate,
-    isCurrent: row.drg_iscurrent ?? false,
+    id: row.drg_drg_approvalid,
+    name: row.drg_drg_name ?? row.drg_drg_approvalid,
+    programId: row._drg_drg_program_value ?? "",
+    deliverableId: row._drg_drg_deliverable_value ?? "",
+    documentId: row._drg_drg_document_value ?? "",
+    submissionNumber: row.drg_drg_submissionnumber ?? 0,
+    reviewerUserId: row._drg_drg_revieweruser_value,
+    reviewerEmail: row.drg_drg_revieweremail ?? "",
+    decision: toApprovalDecision(getFormattedValue(row, "drg_drg_decision")),
+    comments: row.drg_drg_comments,
+    responseDocumentId: row._drg_drg_responsedocument_value,
+    dueDate: row.drg_drg_duedate,
+    decisionDate: row.drg_drg_decisiondate,
+    isCurrent: row.drg_drg_iscurrent ?? false,
   };
 }
 
@@ -77,8 +77,8 @@ export async function getApprovalById(id: string): Promise<Approval | undefined>
   if (!isDataverseConfigured()) return undefined;
 
   const rows = await listRows<DataverseApprovalRow>(
-    "drg_approvals",
-    `$select=drg_approvalid,drg_name,_drg_program_value,_drg_deliverable_value,_drg_document_value,drg_submissionnumber,_drg_revieweruser_value,drg_revieweremail,drg_comments,_drg_responsedocument_value,drg_duedate,drg_decisiondate,drg_iscurrent,drg_decision&$filter=statecode eq 0 and drg_approvalid eq ${id}&$top=1`
+    "drg_drg_approvals",
+    `$select=drg_drg_approvalid,drg_drg_name,_drg_drg_program_value,_drg_drg_deliverable_value,_drg_drg_document_value,drg_drg_submissionnumber,_drg_drg_revieweruser_value,drg_drg_revieweremail,drg_drg_comments,_drg_drg_responsedocument_value,drg_drg_duedate,drg_drg_decisiondate,drg_drg_iscurrent,drg_drg_decision&$filter=statecode eq 0 and drg_drg_approvalid eq ${id}&$top=1`
   );
 
   return rows[0] ? mapApprovalRow(rows[0]) : undefined;
@@ -92,12 +92,12 @@ export async function listVisibleApprovals(user: {
 
   const reviewerEmail = escapeODataString(String(user.email ?? "").trim().toLowerCase());
   const filter = user.internalRoles.includes("external-reviewer")
-    ? `statecode eq 0 and drg_iscurrent eq true and drg_revieweremail eq '${reviewerEmail}'`
-    : "statecode eq 0 and drg_iscurrent eq true";
+    ? `statecode eq 0 and drg_drg_iscurrent eq true and drg_drg_revieweremail eq '${reviewerEmail}'`
+    : "statecode eq 0 and drg_drg_iscurrent eq true";
 
   const rows = await listRows<DataverseApprovalRow>(
-    "drg_approvals",
-    `$select=drg_approvalid,drg_name,_drg_program_value,_drg_deliverable_value,_drg_document_value,drg_submissionnumber,_drg_revieweruser_value,drg_revieweremail,drg_comments,_drg_responsedocument_value,drg_duedate,drg_decisiondate,drg_iscurrent,drg_decision&$filter=${filter}&$orderby=drg_duedate asc`
+    "drg_drg_approvals",
+    `$select=drg_drg_approvalid,drg_drg_name,_drg_drg_program_value,_drg_drg_deliverable_value,_drg_drg_document_value,drg_drg_submissionnumber,_drg_drg_revieweruser_value,drg_drg_revieweremail,drg_drg_comments,_drg_drg_responsedocument_value,drg_drg_duedate,drg_drg_decisiondate,drg_drg_iscurrent,drg_drg_decision&$filter=${filter}&$orderby=drg_drg_duedate asc`
   );
 
   const approvals = rows.map(mapApprovalRow);
@@ -113,19 +113,19 @@ async function patchApprovalDecision(input: SubmitApprovalDecisionInput) {
   }
 
   const payload: Record<string, unknown> = {
-    drg_decision: input.decision,
-    drg_comments: input.comments,
-    drg_decisiondate: new Date().toISOString(),
+    drg_drg_decision: input.decision,
+    drg_drg_comments: input.comments,
+    drg_drg_decisiondate: new Date().toISOString(),
   };
 
   if (input.responseDocumentId) {
-    payload["drg_responsedocument@odata.bind"] = lookupBind(
-      "drg_documents",
+    payload["drg_drg_responsedocument@odata.bind"] = lookupBind(
+      "drg_drg_documents",
       input.responseDocumentId
     );
   }
 
-  await dataverseFetch<void>(`/drg_approvals(${input.approvalId})`, {
+  await dataverseFetch<void>(`/drg_drg_approvals(${input.approvalId})`, {
     method: "PATCH",
     body: JSON.stringify(payload),
   });

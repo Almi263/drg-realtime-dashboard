@@ -290,6 +290,12 @@ Columns:
 - `drg_action`: Choice with values View, Download, Upload, Delete, Acknowledge, required
 - `drg_occurredon`: Date and time, required
 - `drg_source`: Choice with values Web App, SharePoint, Teams, API
+- `drg_result`: Choice with values Success, Denied, Failed
+- `drg_requestid`: Text
+
+Business rules:
+
+- `Successful access events`: Status rollup flows should only treat `drg_action = View` or `Download` as a real view/download when `drg_source = Web App` and, if `drg_result` is used, `drg_result = Success`. Denied or failed access attempts may be retained for audit history but must not move documents or deliverables into review states.
 
 ## Relationships
 

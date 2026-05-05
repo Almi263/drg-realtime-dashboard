@@ -4,6 +4,8 @@ This document lists the cloud flows needed to support the Dataverse workflow in 
 
 Use Dataverse trigger filters wherever possible so flows only run for relevant rows. Use the app for immediate user-facing validation when the user needs a friendly error before save.
 
+This file describes what each flow action does at an implementation level. Use `power-automate-cloud-flows-detailed.md` for exact Power Automate action names and expressions.
+
 Power Automate usually shows Dataverse table names as plural display names. The schema names in this document are singular, so select the matching plural table in Power Automate, for example:
 
 - `drg_program` -> `drg_programs`
@@ -32,50 +34,36 @@ Trigger:
 - Select columns: `drg_owneruser`
 - Filter rows: `statecode eq 0 and _drg_owneruser_value ne null`
 - Trigger condition:
-  - `@not(empty(triggerOutputs()?['body/_drg_owneruser_value']))`
+  - Owner user lookup is populated.
 
 Actions:
 
 - Get the program row:
   - Action: Dataverse `Get a row by ID`
   - Table name: `drg_programs`
-  - Row ID: `drg_program` from the trigger, or expression `triggerOutputs()?['body/drg_programid']`
+  - Row ID: program row from the trigger.
 - Get owner user details:
   - Action: Dataverse `Get a row by ID`
   - Table name: `Users`
   - Row ID: `_drg_owneruser_value` from the program row
 - Compose owner email:
   - Action: Data Operations `Compose`
-  - Inputs: `toLower(trim(outputs('Get_owner_user_details')?['body/internalemailaddress']))`
+  - Inputs: normalized owner email from the owner user row.
   - If `internalemailaddress` is blank in your environment, use `domainname` instead.
 - List existing owner access rows:
   - Action: Dataverse `List rows`
   - Table name: `drg_programaccesses`
-  - Filter rows: `_drg_program_value eq @{outputs('Get_the_program_row')?['body/drg_programid']} and drg_email eq '@{outputs('Compose_owner_email')}'`
+  - Filter to the current program and normalized owner email.
   - Row count: `1`
-- Check whether an access row exists:
+- Condition: check whether an access row exists:
   - Action: Control `Condition`
-  - Left value: choose the `Expression` tab and enter `length(outputs('List_existing_owner_access_rows')?['body/value'])`
-  - Operator: is equal to
-  - Right value: `0`
-- If yes, create the access row:
-  - Action: Dataverse `Add a new row`
-  - Table name: `drg_programaccesses`
-  - `drg_name` expression: `concat(outputs('Get_the_program_row')?['body/drg_programnumber'], ' | ', outputs('Compose_owner_email'))`
-  - `drg_program` lookup value: dynamic content `drg_program` from `Get the program row`, or expression `outputs('Get_the_program_row')?['body/drg_programid']`
-  - `drg_user` lookup value: dynamic content `User` from `Get owner user details`, or expression `outputs('Get_owner_user_details')?['body/systemuserid']`
-  - `drg_email` expression: `outputs('Compose_owner_email')`
-  - `drg_accessrole`: Program Owner
-  - `drg_isactive`: Yes
-  - `drg_grantedon` expression: `utcNow()`
-  - `drg_grantedby`: triggering user if available
-  - `drg_grantedbyemail`: triggering user email if available
-- If no, update the existing access row:
-  - Action: Dataverse `Update a row`
-  - Table name: `drg_programaccesses`
-  - Row ID expression: `first(outputs('List_existing_owner_access_rows')?['body/value'])?['drg_programaccessid']`
-  - `drg_accessrole`: Program Owner
-  - `drg_isactive`: Yes
+  - Condition: existing owner access row count is zero.
+  - If yes:
+    - Create a `drg_programaccess` row for the owner.
+    - Set the program lookup, owner user lookup, normalized owner email, Program Owner role, active flag, grant timestamp, and grant actor fields.
+  - If no:
+    - Update the existing access row.
+    - Set the Program Owner role and reactivate the row.
 
 Notes:
 
@@ -94,32 +82,30 @@ Trigger:
 - Select columns: `drg_status`
 - Filter rows: `statecode eq 0 and drg_status eq <Archived choice value>`
 - Trigger condition:
-  - `@equals(triggerOutputs()?['body/drg_status'], <Archived choice value>)`
+  - Program status is Archived.
 
 Actions:
 
 - Get the program row:
   - Action: Dataverse `Get a row by ID`
   - Table name: `drg_programs`
-  - Row ID: `drg_program` from the trigger, or expression `triggerOutputs()?['body/drg_programid']`
-- Check whether `drg_archivedon` is blank:
+  - Row ID: program row from the trigger.
+- Condition: check whether `drg_archivedon` is blank:
   - Action: Control `Condition`
   - Condition: `drg_archivedon` is equal to null
-- If yes, update the program row:
-  - Action: Dataverse `Update a row`
-  - Table name: `drg_programs`
-  - Row ID: `drg_program` from the trigger, or expression `triggerOutputs()?['body/drg_programid']`
-  - `drg_archivedon`: current date/time
-  - `drg_archivedby`: triggering user if available
+  - If yes:
+    - Update the program row with archive timestamp and archive actor.
+  - If no:
+    - Do nothing; the archive stamp already exists.
 - List active deliverables for the program:
   - Action: Dataverse `List rows`
   - Table name: `drg_deliverables`
-  - Filter rows expression: `concat('_drg_program_value eq ', triggerOutputs()?['body/drg_programid'], ' and statecode eq 0')`
+  - Filter to active deliverables for the archived program.
 - Optional: for each open deliverable, update the deliverable if the app needs a separate archived/hidden view state.
 - List current documents for the program:
   - Action: Dataverse `List rows`
   - Table name: `drg_documents`
-  - Filter rows expression: `concat('_drg_program_value eq ', triggerOutputs()?['body/drg_programid'], ' and drg_iscurrentversion eq true')`
+  - Filter to current documents for the archived program.
 - Optional: for each visible document, update `drg_status` to Archived if the app should hide documents by document status.
 
 Notes:
@@ -140,21 +126,20 @@ Trigger:
 - Select columns: `drg_name`
 - Filter rows: `statecode eq 0 and drg_name ne null`
 - Trigger condition:
-  - `@not(empty(triggerOutputs()?['body/drg_name']))`
+  - Deliverable type name is populated.
 
 Actions:
 
 - Compose normalized name:
   - Action: Data Operations `Compose`
-  - Inputs: `toLower(trim(triggerOutputs()?['body/drg_name']))`
-- Check whether `drg_normalizedname` already matches:
+  - Inputs: lower-cased, trimmed deliverable type name.
+- Condition: check whether `drg_normalizedname` already matches:
   - Action: Control `Condition`
   - Condition: `drg_normalizedname` is not equal to the compose output
-- If yes, update the deliverable type:
-  - Action: Dataverse `Update a row`
-  - Table name: `drg_deliverabletypes`
-  - Row ID: `drg_deliverabletype` from the trigger
-  - `drg_normalizedname`: output from `Compose normalized name`
+  - If yes:
+    - Update the deliverable type with the normalized name.
+  - If no:
+    - Do nothing.
 
 Notes:
 
@@ -174,21 +159,20 @@ Trigger:
 - Select columns: `drg_email`
 - Filter rows: `statecode eq 0 and drg_email ne null`
 - Trigger condition:
-  - `@not(empty(triggerOutputs()?['body/drg_email']))`
+  - Program access email is populated.
 
 Actions:
 
 - Compose normalized email:
   - Action: Data Operations `Compose`
-  - Inputs: `toLower(trim(triggerOutputs()?['body/drg_email']))`
-- Check whether `drg_email` already matches:
+  - Inputs: lower-cased, trimmed program access email.
+- Condition: check whether `drg_email` already matches:
   - Action: Control `Condition`
   - Condition: `drg_email` is not equal to the compose output
-- If yes, update the program access row:
-  - Action: Dataverse `Update a row`
-  - Table name: `drg_programaccesses`
-  - Row ID: `drg_programaccess` from the trigger
-  - `drg_email`: output from `Compose normalized email`
+  - If yes:
+    - Update the program access row with the normalized email.
+  - If no:
+    - Do nothing.
 
 Notes:
 
@@ -207,7 +191,7 @@ Trigger:
 - Scope: Organization
 - Filter rows: `statecode eq 0`
 - Trigger condition:
-  - `@equals(triggerOutputs()?['body/drg_documentrole@OData.Community.Display.V1.FormattedValue'], 'DRG Submission')`
+  - Document role is DRG Submission.
 
 Actions:
 
@@ -223,16 +207,16 @@ Actions:
   - Action: Dataverse `Get a row by ID`
   - Table name: `drg_programs`
   - Row ID: `_drg_program_value` from the document row
-- Validate parent program is not archived:
+- Condition: validate parent program is not archived:
   - Action: Control `Condition`
-  - Condition: `@not(equals(outputs('Get_parent_program')?['body/drg_status@OData.Community.Display.V1.FormattedValue'], 'Archived'))`
+  - Condition: parent program status is not Archived.
   - If no:
     - Terminate the flow as Failed or Cancelled.
   - If yes:
     - List previous current DRG submission documents:
       - Action: Dataverse `List rows`
       - Table name: `drg_documents`
-      - Filter rows: `_drg_deliverable_value eq @{outputs('Get_parent_deliverable')?['body/drg_deliverableid']} and drg_iscurrentversion eq true and drg_documentid ne @{outputs('Get_the_new_document_row')?['body/drg_documentid']}`
+      - Filter to current submission documents for the same deliverable, excluding the new document.
     - For each previous current submission, update the document:
       - Action: Dataverse `Update a row`
       - Table name: `drg_documents`
@@ -263,7 +247,7 @@ Actions:
     - List active external reviewer access rows:
       - Action: Dataverse `List rows`
       - Table name: `drg_programaccesses`
-      - Filter rows: `_drg_program_value eq @{outputs('Get_parent_program')?['body/drg_programid']} and drg_isactive eq true and drg_accessrole eq <External Reviewer choice value>`
+      - Filter to active External Reviewer access rows for the parent program.
     - For each external reviewer, create an approval:
       - Action: Dataverse `Add a new row`
       - Table name: `drg_approvals`
@@ -280,7 +264,7 @@ Actions:
     - List older current approvals for the deliverable:
       - Action: Dataverse `List rows`
       - Table name: `drg_approvals`
-      - Filter rows: `_drg_deliverable_value eq @{outputs('Get_parent_deliverable')?['body/drg_deliverableid']} and drg_iscurrent eq true`
+      - Filter to current approvals for the same deliverable.
     - For each older approval that is not one of the approvals just created, update the approval:
       - Action: Dataverse `Update a row`
       - Table name: `drg_approvals`
@@ -290,7 +274,7 @@ Actions:
       - Action: Office 365 Outlook `Send an email (V2)`, Teams `Post message`, or your selected notification connector
       - include program name/number
       - deliverable title/number
-      - document link
+      - app document link, for example `{APP_URL}/documents/{drg_documentid}`
       - review due date if provided
 
 Notes:
@@ -311,6 +295,8 @@ Trigger:
 - Filter rows: `statecode eq 0`
 - Trigger condition:
   - `drg_action = Download` or `drg_action = View`
+  - `drg_source = Web App`
+  - `drg_result = Success`, if the optional result column is implemented
   - actor has `External Reviewer` access
 
 Actions:
@@ -330,37 +316,23 @@ Actions:
 - List active external reviewer access for the actor:
   - Action: Dataverse `List rows`
   - Table name: `drg_programaccesses`
-  - Filter rows: `_drg_program_value eq @{outputs('Get_related_document')?['body/_drg_program_value']} and drg_email eq '@{toLower(outputs('Get_the_access_log_row')?['body/drg_actoremail'])}' and drg_isactive eq true`
+  - Filter to active access rows for the related document's program and the access log actor email.
   - Row count: `1`
-- Continue only if:
+- Condition: continue only if this is a valid external reviewer access event:
   - Action: Control `Condition`
   - `drg_documentrole = DRG Submission`
   - `drg_iscurrentversion = Yes`
   - `drg_status = Submitted`
+  - `drg_source = Web App`
+  - `drg_result = Success`, if the optional result column is implemented
   - the active external reviewer access list contains one row
-- Update the document:
-  - Action: Dataverse `Update a row`
-  - Table name: `drg_documents`
-  - Row ID: related document row ID
-  - `drg_status`: Under Review
-  - `drg_viewedby`: actor user if available
-  - `drg_viewedbyemail`: actor email
-  - `drg_viewedon`: access log occurred date/time
-- Update related deliverable:
-  - Action: Dataverse `Update a row`
-  - Table name: `drg_deliverables`
-  - Row ID: related deliverable row ID
-  - `drg_status`: In Review
-- List the current approval row:
-  - Action: Dataverse `List rows`
-  - Table name: `drg_approvals`
-  - Filter rows: `_drg_document_value eq @{outputs('Get_related_document')?['body/drg_documentid']} and drg_revieweremail eq '@{toLower(outputs('Get_the_access_log_row')?['body/drg_actoremail'])}' and drg_iscurrent eq true`
-  - Row count: `1`
-- If an approval row is found and decision is blank, update the approval:
-  - Action: Dataverse `Update a row`
-  - Table name: `drg_approvals`
-  - Row ID: first row ID from `List the current approval row`
-  - `drg_decision`: Pending
+  - If yes:
+    - Update the document to Under Review and stamp viewed-by fields from the access log.
+    - Update the related deliverable to In Review.
+    - List the current approval row for this document and reviewer.
+    - If an approval row is found and decision is blank, set the decision to Pending.
+  - If no:
+    - Do not update document, deliverable, or approval status.
 
 Notes:
 
@@ -386,10 +358,13 @@ Actions:
   - Action: Dataverse `Get a row by ID`
   - Table name: `drg_documents`
   - Row ID: `drg_document` from the trigger
-- Validate parent document exists:
+- Condition: validate parent document exists:
   - Action: Control `Condition`
   - Condition: `_drg_parentdocument_value` is not empty
-  - If blank, terminate the flow as Failed or Cancelled.
+  - If yes:
+    - Continue with the next action below.
+  - If no:
+    - Terminate the flow as Failed or Cancelled.
 - Get parent DRG submission document:
   - Action: Dataverse `Get a row by ID`
   - Table name: `drg_documents`
@@ -397,7 +372,7 @@ Actions:
 - List the related current approval:
   - Action: Dataverse `List rows`
   - Table name: `drg_approvals`
-  - Filter rows: `_drg_document_value eq @{outputs('Get_parent_DRG_submission_document')?['body/drg_documentid']} and drg_revieweremail eq '@{toLower(outputs('Get_the_reviewer_document_row')?['body/drg_uploadedbyemail'])}' and drg_iscurrent eq true`
+  - Filter to the parent DRG submission document, the reviewer document uploader email, and current approvals.
   - Row count: `1`
 - Update reviewer document:
   - Action: Dataverse `Update a row`
@@ -407,16 +382,18 @@ Actions:
   - `drg_deliverable`: parent document deliverable if blank
   - `drg_submissionnumber`: parent document submission number
   - `drg_approval`: current approval row
-- If document role is `Signed Approval`, update current approval:
-  - Action: Dataverse `Update a row`
-  - Table name: `drg_approvals`
-  - Row ID: current approval row ID
-  - `drg_responsedocument`: signed approval document
-- If document role is `Reviewer Response`, update current approval:
-  - Action: Dataverse `Update a row`
-  - Table name: `drg_approvals`
-  - Row ID: current approval row ID
-  - `drg_responsedocument`: reviewer response document
+- Condition: if document role is `Signed Approval`:
+  - Action: Control `Condition`
+  - If yes:
+    - Update the current approval so `drg_responsedocument` points to the signed approval document.
+  - If no:
+    - Continue to the Reviewer Response condition.
+- Condition: if document role is `Reviewer Response`:
+  - Action: Control `Condition`
+  - If yes:
+    - Update the current approval so `drg_responsedocument` points to the reviewer response document.
+  - If no:
+    - Do nothing.
 
 Notes:
 
@@ -452,53 +429,27 @@ Actions:
   - Action: Dataverse `Get a row by ID`
   - Table name: `drg_deliverables`
   - Row ID: `_drg_deliverable_value` from the approval row
-- If `drg_decision = Rejected`:
+- Condition branch: if `drg_decision = Rejected`:
   - Action: Control `Condition`
-  - Verify `drg_comments` contains data. If blank, terminate the flow as Failed or Cancelled.
-  - Update approval:
-    - Action: Dataverse `Update a row`
-    - Table name: `drg_approvals`
-    - Row ID: approval row ID
-    - `drg_decisiondate`: current date/time if blank
-  - Update DRG submission document:
-    - Action: Dataverse `Update a row`
-    - Table name: `drg_documents`
-    - Row ID: related document row ID
-    - `drg_status`: Returned
-  - Update deliverable:
-    - Action: Dataverse `Update a row`
-    - Table name: `drg_deliverables`
-    - Row ID: related deliverable row ID
-    - `drg_status`: Returned
-  - Notify DRG staff/program owner:
-    - Action: Office 365 Outlook `Send an email (V2)`, Teams `Post message`, or your selected notification connector
-    - include reviewer comments
-    - include reviewer response PDF link if provided
-- If `drg_decision = Approved`:
-  - Get response document:
-    - Action: Dataverse `Get a row by ID`
-    - Table name: `drg_documents`
-    - Row ID: `_drg_responsedocument_value` from the approval row
-  - Verify response document `drg_documentrole` is `Signed Approval`. If not, terminate the flow as Failed or Cancelled.
-  - Update approval:
-    - Action: Dataverse `Update a row`
-    - Table name: `drg_approvals`
-    - Row ID: approval row ID
-    - `drg_decisiondate`: current date/time if blank
-  - Update DRG submission document:
-    - Action: Dataverse `Update a row`
-    - Table name: `drg_documents`
-    - Row ID: related document row ID
-    - `drg_status`: Reviewed
-  - Update deliverable:
-    - Action: Dataverse `Update a row`
-    - Table name: `drg_deliverables`
-    - Row ID: related deliverable row ID
-    - `drg_status`: Pending Acknowledgment
-    - `drg_lastapprovedon`: current date/time
-  - Notify DRG staff/program owner:
-    - Action: Office 365 Outlook `Send an email (V2)`, Teams `Post message`, or your selected notification connector
-    - signed approval is ready for acknowledgment
+  - If yes:
+    - Verify rejection comments contain data. If comments are blank, terminate the flow as Failed or Cancelled.
+    - Update approval decision date if blank.
+    - Update the DRG submission document to Returned.
+    - Update the deliverable to Returned.
+    - Notify DRG staff/program owner with reviewer comments and an app link to the reviewer response document if provided.
+  - If no:
+    - Continue to the Approved decision branch.
+- Condition branch: if `drg_decision = Approved`:
+  - Action: Control `Condition`
+  - If yes:
+    - Get the response document.
+    - Verify response document role is Signed Approval. If not, terminate the flow as Failed or Cancelled.
+    - Update approval decision date if blank.
+    - Update the DRG submission document to Reviewed.
+    - Update the deliverable to Pending Acknowledgment and stamp `drg_lastapprovedon`.
+    - Notify DRG staff/program owner that signed approval is ready for acknowledgment, using an app link to the signed approval document.
+  - If no:
+    - Do nothing.
 
 Notes:
 
@@ -531,45 +482,19 @@ Actions:
   - Action: Dataverse `Get a row by ID`
   - Table name: `drg_documents`
   - Row ID: manual trigger input signed approval document row ID
-- Validate:
+- Condition: validate acknowledgment is allowed:
   - Action: Control `Condition`
   - deliverable status is `Pending Acknowledgment`
   - signed approval document role is `Signed Approval`
   - user is DRG staff, program owner, or DRG admin
-  - If any validation fails, terminate the flow as Failed or Cancelled.
-- Update accepted DRG submission document:
-  - Action: Dataverse `Update a row`
-  - Table name: `drg_documents`
-  - Row ID: accepted DRG submission document row ID
-  - `drg_status`: Final
-- Update signed approval document:
-  - Action: Dataverse `Update a row`
-  - Table name: `drg_documents`
-  - Row ID: signed approval document row ID
-  - `drg_status`: Final or Reviewed
-- Update deliverable:
-  - Action: Dataverse `Update a row`
-  - Table name: `drg_deliverables`
-  - Row ID: deliverable row ID
-  - `drg_status`: Complete
-  - `drg_isclosed`: Yes
-  - `drg_acknowledgedby`: triggering user
-  - `drg_acknowledgedbyemail`: triggering user email
-  - `drg_acknowledgedon`: current date/time
-- Create document access log row:
-  - Action: Dataverse `Add a new row`
-  - Table name: `drg_documentaccesslogs`
-  - `drg_name`: `{deliverable number} acknowledged`
-  - `drg_document`: signed approval document
-  - `drg_program`: deliverable program
-  - `drg_actoruser`: triggering user if available
-  - `drg_actorname`: triggering user name
-  - `drg_actoremail`: triggering user email
-  - `drg_action`: Acknowledge
-  - `drg_occurredon`: current date/time
-  - `drg_source`: Web App
-- Notify external reviewer(s) and DRG staff that the deliverable is complete:
-  - Action: Office 365 Outlook `Send an email (V2)`, Teams `Post message`, or your selected notification connector
+  - If yes:
+    - Update accepted DRG submission document to Final.
+    - Update signed approval document to Final or Reviewed.
+    - Update deliverable to Complete, close it, and stamp acknowledgment fields.
+    - Create a document access log row with action Acknowledge.
+    - Notify external reviewer(s) and DRG staff that the deliverable is complete, using app links.
+  - If no:
+    - Terminate the flow as Failed or Cancelled.
 
 Notes:
 
@@ -588,6 +513,8 @@ Trigger:
 - Filter rows: `statecode eq 0`
 - Trigger condition:
   - `drg_action = Download` or `drg_action = View`
+  - `drg_source = Web App`
+  - `drg_result = Success`, if the optional result column is implemented
   - actor is DRG staff/program owner/admin
 
 Actions:
@@ -600,17 +527,13 @@ Actions:
   - Action: Dataverse `Get a row by ID`
   - Table name: `drg_documents`
   - Row ID: `_drg_document_value` from the access log row
-- Continue only if the document role is Reviewer Response:
+- Condition: continue only if the document role is Reviewer Response:
   - Action: Control `Condition`
   - Condition: related document `drg_documentrole` is equal to Reviewer Response
-- Update reviewer response document:
-  - Action: Dataverse `Update a row`
-  - Table name: `drg_documents`
-  - Row ID: related document row ID
-  - `drg_status`: Viewed
-  - `drg_viewedby`: actor user if available
-  - `drg_viewedbyemail`: actor email
-  - `drg_viewedon`: access log occurred date/time
+  - If yes:
+    - Update reviewer response document to Viewed and stamp viewed-by fields from the access log.
+  - If no:
+    - Do nothing.
 
 ## 11. Review Due Date Overdue Check
 
@@ -626,7 +549,7 @@ Actions:
 - List overdue approvals:
   - Action: Dataverse `List rows`
   - Table name: `drg_approvals`
-  - Filter rows: `drg_iscurrent eq true and drg_decision eq <Pending choice value> and drg_duedate lt @{utcNow()}`
+  - Filter to current pending approvals whose due date is earlier than now.
 - For each approval:
   - Get related document:
     - Action: Dataverse `Get a row by ID`
@@ -667,7 +590,7 @@ Actions:
 - List overdue deliverables:
   - Action: Dataverse `List rows`
   - Table name: `drg_deliverables`
-  - Filter rows: `drg_duedate lt @{utcNow()} and statecode eq 0`
+  - Filter to active deliverables whose due date is earlier than now.
 - For each deliverable:
   - Skip if `drg_status` is Complete.
   - Determine blocking party:
@@ -707,16 +630,13 @@ Actions:
   - Action: Dataverse `Get a row by ID`
   - Table name: `drg_programaccesses`
   - Row ID: `drg_programaccess` from the trigger
-- Check whether `drg_revokedon` is blank:
+- Condition: check whether `drg_revokedon` is blank:
   - Action: Control `Condition`
   - Condition: `drg_revokedon` is equal to null
-- If yes, update access row:
-  - Action: Dataverse `Update a row`
-  - Table name: `drg_programaccesses`
-  - Row ID: access row ID
-  - `drg_revokedon`: current date/time
-  - `drg_revokedby`: triggering user if available
-  - `drg_revokedbyemail`: triggering user email if available
+  - If yes:
+    - Update access row with revoke timestamp and revoke actor fields.
+  - If no:
+    - Do nothing.
 - Optional: notify program owner that access was revoked:
   - Action: Office 365 Outlook `Send an email (V2)`, Teams `Post message`, or your selected notification connector
 
@@ -746,11 +666,13 @@ Actions:
   - Action: Dataverse `Get a row by ID`
   - Table name: `drg_programs`
   - Row ID: `_drg_program_value` from the access log row if present, otherwise `_drg_program_value` from the document row
-- If the access log is missing `drg_program`, update log from document:
-  - Action: Dataverse `Update a row`
-  - Table name: `drg_documentaccesslogs`
-  - Row ID: access log row ID
-  - `drg_program`: related document program
+- Condition: if the access log is missing `drg_program`:
+  - Action: Control `Condition`
+  - Condition: access log program lookup is empty.
+  - If yes:
+    - Update the access log program lookup from the related document.
+  - If no:
+    - Do nothing.
 - Optional: forward event to reporting/analytics destination:
   - Action: HTTP, Power BI, or your selected reporting connector
 
@@ -778,7 +700,9 @@ Notes:
 ## Implementation Notes
 
 - Prefer Dataverse trigger conditions so flows do not run on unrelated updates.
-- Use environment variables for app URLs, SharePoint site/library IDs, and notification sender details.
+- Use environment variables for app URLs, storage IDs, and notification sender details. Notifications must link to the app, not directly to SharePoint files.
+- Any Power Automate connection that touches SharePoint must use a service account or application-owned connection with access to the controlled library. It must not rely on the end user's SharePoint permissions.
+- Do not include `drg_sharepointurl`, SharePoint `webUrl`, or direct document-library links in user-facing emails, Teams posts, or approval notifications.
 - Use connection references owned by a service account, not an individual student/user account.
 - Use concurrency control carefully on document submission flows so two uploads do not assign the same submission number.
 - Keep user-facing validation in the app where possible, and keep Power Automate as backup enforcement for cross-table updates.

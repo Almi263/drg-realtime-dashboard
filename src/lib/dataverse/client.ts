@@ -48,18 +48,25 @@ export class DataverseError extends Error {
   }
 }
 
+function firstConfiguredEnv(...names: string[]) {
+  for (const name of names) {
+    const value = process.env[name]?.trim();
+    if (value) return value;
+  }
+
+  return "";
+}
+
 function getDataverseUrl() {
-  return (
-    process.env.DATAVERSE_URL ??
-    process.env.DATAVERSE_ENVIRONMENT_URL ??
-    ""
+  return firstConfiguredEnv(
+    "DATAVERSE_URL",
+    "DATAVERSE_ENVIRONMENT_URL"
   ).replace(/\/$/, "");
 }
 
 function getDataverseScope() {
   return (
-    process.env.DATAVERSE_SCOPE ??
-    process.env.DATAVERSE_RESOURCE ??
+    firstConfiguredEnv("DATAVERSE_SCOPE", "DATAVERSE_RESOURCE") ||
     `${getDataverseUrl()}/.default`
   );
 }

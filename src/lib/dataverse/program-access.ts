@@ -13,16 +13,16 @@ import {
 import { businessRuleError } from "@/lib/errors/business-rules";
 
 interface DataverseProgramAccessRow extends Record<string, unknown> {
-  drg_programaccessid: string;
-  drg_email?: string;
-  drg_grantedon?: string;
-  drg_grantedbyemail?: string;
-  drg_isactive?: boolean;
-  _drg_program_value?: string;
-  _drg_user_value?: string;
-  drg_revokedon?: string;
-  drg_revokedbyemail?: string;
-  drg_entraobjectid?: string;
+  drg_drg_programaccessid: string;
+  drg_drg_email?: string;
+  drg_drg_grantedon?: string;
+  drg_drg_grantedbyemail?: string;
+  drg_drg_isactive?: boolean;
+  _drg_drg_program_value?: string;
+  _drg_drg_user_value?: string;
+  drg_drg_revokedon?: string;
+  drg_drg_revokedbyemail?: string;
+  drg_drg_entraobjectid?: string;
 }
 
 export type ProgramAccessRecord = ProgramAccess;
@@ -41,17 +41,17 @@ function toProgramAccessRole(value: string | undefined): ProgramAccessRole {
 
 function mapAccessRow(row: DataverseProgramAccessRow): ProgramAccessRecord {
   return {
-    id: row.drg_programaccessid,
-    programId: row._drg_program_value ?? "",
-    userId: row._drg_user_value,
-    email: normalizeEmail(row.drg_email),
-    accessRole: toProgramAccessRole(getFormattedValue(row, "drg_accessrole")),
-    grantedAt: row.drg_grantedon ?? new Date().toISOString(),
-    grantedByEmail: normalizeEmail(row.drg_grantedbyemail),
-    isActive: row.drg_isactive !== false,
-    revokedAt: row.drg_revokedon,
-    revokedByEmail: normalizeEmail(row.drg_revokedbyemail),
-    entraObjectId: row.drg_entraobjectid,
+    id: row.drg_drg_programaccessid,
+    programId: row._drg_drg_program_value ?? "",
+    userId: row._drg_drg_user_value,
+    email: normalizeEmail(row.drg_drg_email),
+    accessRole: toProgramAccessRole(getFormattedValue(row, "drg_drg_accessrole")),
+    grantedAt: row.drg_drg_grantedon ?? new Date().toISOString(),
+    grantedByEmail: normalizeEmail(row.drg_drg_grantedbyemail),
+    isActive: row.drg_drg_isactive !== false,
+    revokedAt: row.drg_drg_revokedon,
+    revokedByEmail: normalizeEmail(row.drg_drg_revokedbyemail),
+    entraObjectId: row.drg_drg_entraobjectid,
   };
 }
 
@@ -73,8 +73,8 @@ export async function listActiveProgramAccess(): Promise<ProgramAccessRecord[]> 
   }
 
   const rows = await listRows<DataverseProgramAccessRow>(
-    "drg_programaccesses",
-    "$select=drg_programaccessid,drg_email,drg_grantedon,drg_grantedbyemail,drg_isactive,_drg_program_value,_drg_user_value,drg_revokedon,drg_revokedbyemail,drg_entraobjectid,drg_accessrole&$filter=statecode eq 0 and drg_isactive eq true"
+    "drg_drg_programaccesses",
+    "$select=drg_drg_programaccessid,drg_drg_email,drg_drg_grantedon,drg_drg_grantedbyemail,drg_drg_isactive,_drg_drg_program_value,_drg_drg_user_value,drg_drg_revokedon,drg_drg_revokedbyemail,drg_drg_entraobjectid,drg_drg_accessrole&$filter=statecode eq 0 and drg_drg_isactive eq true"
   );
 
   return rows.map(mapAccessRow);
@@ -98,8 +98,8 @@ export async function listProgramAccess(
   }
 
   const rows = await listRows<DataverseProgramAccessRow>(
-    "drg_programaccesses",
-    `$select=drg_programaccessid,drg_email,drg_grantedon,drg_grantedbyemail,drg_isactive,_drg_program_value,_drg_user_value,drg_revokedon,drg_revokedbyemail,drg_entraobjectid,drg_accessrole&$filter=statecode eq 0 and _drg_program_value eq ${programId}`
+    "drg_drg_programaccesses",
+    `$select=drg_drg_programaccessid,drg_drg_email,drg_drg_grantedon,drg_drg_grantedbyemail,drg_drg_isactive,_drg_drg_program_value,_drg_drg_user_value,drg_drg_revokedon,drg_drg_revokedbyemail,drg_drg_entraobjectid,drg_drg_accessrole&$filter=statecode eq 0 and _drg_drg_program_value eq ${programId}`
   );
 
   return rows.map(mapAccessRow);
@@ -152,21 +152,21 @@ export async function createProgramAccess(input: {
   }
 
   const payload: Record<string, unknown> = {
-    drg_name: `${input.programNumber ?? input.programId} | ${email}`,
-    "drg_program@odata.bind": lookupBind("drg_programs", input.programId),
-    drg_email: email,
-    drg_accessrole: input.accessRole ?? "External Reviewer",
-    drg_isactive: true,
-    drg_grantedon: new Date().toISOString(),
-    drg_grantedbyemail: grantedByEmail,
+    drg_drg_name: `${input.programNumber ?? input.programId} | ${email}`,
+    "drg_drg_program@odata.bind": lookupBind("drg_drg_programs", input.programId),
+    drg_drg_email: email,
+    drg_drg_accessrole: input.accessRole ?? "External Reviewer",
+    drg_drg_isactive: true,
+    drg_drg_grantedon: new Date().toISOString(),
+    drg_drg_grantedbyemail: grantedByEmail,
   };
 
   if (input.entraObjectId) {
-    payload.drg_entraobjectid = input.entraObjectId;
+    payload.drg_drg_entraobjectid = input.entraObjectId;
   }
 
   try {
-    await dataverseFetch<void>("/drg_programaccesses", {
+    await dataverseFetch<void>("/drg_drg_programaccesses", {
       method: "POST",
       body: JSON.stringify(payload),
     });
@@ -197,17 +197,17 @@ export async function revokeProgramAccess(input: {
 
   const email = normalizeEmail(input.email);
   const rows = await listRows<DataverseProgramAccessRow>(
-    "drg_programaccesses",
-    `$select=drg_programaccessid&$top=1&$filter=statecode eq 0 and _drg_program_value eq ${input.programId} and drg_email eq '${escapeODataString(email)}'`
+    "drg_drg_programaccesses",
+    `$select=drg_drg_programaccessid&$top=1&$filter=statecode eq 0 and _drg_drg_program_value eq ${input.programId} and drg_drg_email eq '${escapeODataString(email)}'`
   );
 
-  const accessId = rows[0]?.drg_programaccessid;
+  const accessId = rows[0]?.drg_drg_programaccessid;
   if (!accessId) return;
 
-  await dataverseFetch<void>(`/drg_programaccesses(${accessId})`, {
+  await dataverseFetch<void>(`/drg_drg_programaccesses(${accessId})`, {
     method: "PATCH",
     body: JSON.stringify({
-      drg_isactive: false,
+      drg_drg_isactive: false,
     }),
   });
 }
