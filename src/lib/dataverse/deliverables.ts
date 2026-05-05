@@ -1,13 +1,17 @@
 import { MockDeliverableConnector } from "@/lib/connectors/mock-deliverables";
 import type { Deliverable, DeliverableStatus } from "@/lib/models/deliverable";
 import {
+  dataverseFetch,
+  escapeODataString,
   getFormattedValue,
   isDataverseConfigured,
   listRows,
+  lookupBind,
   type DataverseUser,
 } from "@/lib/dataverse/client";
 import { listVisiblePrograms } from "@/lib/dataverse/programs";
 import { toDeliverableTypeName } from "@/lib/dataverse/deliverable-types";
+import { normalizeEmail } from "@/lib/auth/roles";
 
 interface DataverseDeliverableRow extends Record<string, unknown> {
   drg_deliverableid: string;
@@ -28,6 +32,21 @@ interface DataverseDeliverableRow extends Record<string, unknown> {
   modifiedon?: string;
   _drg_program_value?: string;
   _drg_type_value?: string;
+}
+
+interface DataverseSystemUserRow {
+  systemuserid: string;
+}
+
+export interface CreateDeliverableInput {
+  title: string;
+  deliverableNumber: string;
+  programId: string;
+  contractRef: string;
+  typeId: string;
+  description?: string;
+  dueDate: string;
+  assignedToEmail?: string;
 }
 
 function toUiStatus(value: string | undefined): DeliverableStatus {
@@ -131,4 +150,65 @@ export async function getVisibleDeliverableById(
 ) {
   const deliverables = await listVisibleDeliverables(user);
   return deliverables.find((deliverable) => deliverable.id === id);
+}
+
+async function findSystemUserIdByEmail(email: string) {
+  const normalizedEmail = normalizeEmail(email);
+  if (!normalizedEmail) return undefined;
+
+  const escapedEmail = escapeODataString(normalizedEmail);
+  const rows = await listRows<DataverseSystemUserRow>(
+    "systemusers",
+    `$select=systemuserid&$top=1&$filter=internalemailaddress eq '${escapedEmail}' or domainname eq '${escapedEmail}'`
+  );
+
+  return rows[0]?.systemuserid;
+}
+
+export async function createDeliverable(input: CreateDeliverableInput) {
+  if (!isDataverseConfigured()) {
+    throw new Error("Dataverse is not configured for deliverable creation.");
+  }
+
+  const assignedToEmail = normalizeEmail(input.assignedToEmail);
+  const assignedToUserId = assignedToEmail
+    ? await findSystemUserIdByEmail(assignedToEmail)
+    : undefined;
+
+  const payload: Record<string, unknown> = {
+    drg_title: input.title,
+    drg_deliverablenumber: input.deliverableNumber,
+    "drg_program@odata.bind": lookupBind("drg_programs", input.programId),
+    drg_contractref: input.contractRef,
+    "drg_type@odata.bind": lookupBind("drg_deliverabletypes", input.typeId),
+    drg_description: input.description ?? "",
+    drg_duedate: input.dueDate,
+    drg_assignedtoemail: assignedToEmail,
+    drg_isclosed: false,
+  };
+
+  if (assignedToUserId) {
+    payload["drg_assignedtouser@odata.bind"] = lookupBind(
+      "systemusers",
+      assignedToUserId
+    );
+  }
+
+  const response = await dataverseFetch<{ drg_deliverableid?: string }>(
+    "/drg_deliverables",
+    {
+      method: "POST",
+      headers: {
+        Prefer: "return=representation",
+      },
+      body: JSON.stringify(payload),
+    }
+  );
+
+  const deliverableId = response.drg_deliverableid;
+  if (!deliverableId) {
+    throw new Error("Dataverse did not return the created deliverable ID.");
+  }
+
+  return deliverableId;
 }

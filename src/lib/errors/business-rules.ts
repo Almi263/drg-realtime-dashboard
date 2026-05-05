@@ -4,6 +4,8 @@ import { DataverseError } from "@/lib/dataverse/client";
 export const BUSINESS_RULE_MESSAGES = {
   duplicateProgramNumber:
     "A program with this program number already exists.",
+  duplicateDeliverableNumber:
+    "A deliverable with this deliverable number already exists for this program.",
   duplicateDeliverableType:
     "A deliverable type with this name already exists.",
   duplicateProgramAccess:
@@ -27,6 +29,7 @@ export type BusinessRuleCode = keyof typeof BUSINESS_RULE_MESSAGES;
 
 const BUSINESS_RULE_STATUS: Record<BusinessRuleCode, number> = {
   duplicateProgramNumber: 409,
+  duplicateDeliverableNumber: 409,
   duplicateDeliverableType: 409,
   duplicateProgramAccess: 409,
   externalUserNotReady: 400,
@@ -45,6 +48,14 @@ const BUSINESS_RULE_PATTERNS: Array<{
   {
     code: "duplicateProgramNumber",
     patterns: [/duplicate program/i, /program number.*already exists/i],
+  },
+  {
+    code: "duplicateDeliverableNumber",
+    patterns: [
+      /duplicate deliverable/i,
+      /deliverable number.*already exists/i,
+      /deliverable.*already exists.*program/i,
+    ],
   },
   {
     code: "duplicateDeliverableType",
@@ -131,10 +142,13 @@ export function businessRuleResponse(
 
 export function getBusinessRuleCodeFromError(
   error: unknown,
-  duplicateConflict?: Extract<
-    BusinessRuleCode,
-    "duplicateProgramNumber" | "duplicateDeliverableType" | "duplicateProgramAccess"
-  >
+    duplicateConflict?: Extract<
+      BusinessRuleCode,
+      | "duplicateProgramNumber"
+      | "duplicateDeliverableNumber"
+      | "duplicateDeliverableType"
+      | "duplicateProgramAccess"
+    >
 ): BusinessRuleCode | undefined {
   if (error instanceof BusinessRuleError) return error.code;
 
@@ -159,7 +173,10 @@ export function errorResponse(
     status?: number;
     duplicateConflict?: Extract<
       BusinessRuleCode,
-      "duplicateProgramNumber" | "duplicateDeliverableType" | "duplicateProgramAccess"
+      | "duplicateProgramNumber"
+      | "duplicateDeliverableNumber"
+      | "duplicateDeliverableType"
+      | "duplicateProgramAccess"
     >;
   }
 ) {
