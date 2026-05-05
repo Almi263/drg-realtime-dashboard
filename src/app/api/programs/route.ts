@@ -5,6 +5,10 @@ import { normalizeEmail } from "@/lib/auth/roles";
 import { createProgram, listPrograms, listVisiblePrograms } from "@/lib/dataverse/programs";
 import { businessRuleResponse, errorResponse } from "@/lib/errors/business-rules";
 import { triggerFlow } from "@/lib/power-automate/flows";
+import {
+  ensureProgramFolder,
+  isSharePointUploadConfigured,
+} from "@/lib/sharepoint/files";
 
 export async function GET() {
   const session = await auth();
@@ -78,6 +82,13 @@ export async function POST(request: Request) {
       ownerUpn,
       creatorUpn,
     });
+
+    if (isSharePointUploadConfigured()) {
+      await ensureProgramFolder({
+        programId,
+        programName: name,
+      });
+    }
 
     await triggerFlow("programAccessChanged", {
       action: "program-created",

@@ -247,6 +247,86 @@ describe("production integration layer", () => {
     expect(global.fetch).not.toHaveBeenCalled();
   });
 
+  it("creates readable SharePoint folders before uploading PDFs", async () => {
+    vi.resetModules();
+    vi.stubEnv("SHAREPOINT_TENANT_ID", "tenant-id");
+    vi.stubEnv("SHAREPOINT_CLIENT_ID", "client-id");
+    vi.stubEnv("SHAREPOINT_CLIENT_SECRET", "client-secret");
+    vi.stubEnv("SHAREPOINT_SITE_ID", "site-id");
+    vi.stubEnv("SHAREPOINT_SITE_URL", "https://sharepoint.test/sites/drg");
+    vi.stubEnv("SHAREPOINT_DRIVE_ID", "drive-id");
+    vi.stubEnv("SHAREPOINT_DOCUMENT_FOLDER", "DRG Submissions");
+    vi.stubEnv("SHAREPOINT_FOLDER_STRATEGY", "program-deliverable");
+
+    const folderLookups = new Set<string>();
+    global.fetch = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const request = new Request(input, init);
+      const url = request.url;
+
+      if (url.includes("login.microsoftonline.com")) {
+        return jsonResponse({ access_token: "graph-token" });
+      }
+
+      if (request.method === "GET" && url.includes("/root:/")) {
+        folderLookups.add(decodeURIComponent(url.split("/root:/")[1] ?? ""));
+        return new Response(null, { status: 404 });
+      }
+
+      if (request.method === "POST" && url.includes("/children")) {
+        return jsonResponse({ id: "folder-id" }, { status: 201 });
+      }
+
+      if (request.method === "PUT" && url.includes(":/content")) {
+        return jsonResponse(
+          {
+            id: "item-id",
+            webUrl:
+              "https://sharepoint.test/sites/drg/DRG%20Submissions/program/deliverable/file.pdf",
+            size: 2048,
+            parentReference: {
+              driveId: "drive-id",
+              siteId: "site-id",
+            },
+          },
+          { status: 201 }
+        );
+      }
+
+      throw new Error(`Unhandled fetch URL: ${url}`);
+    });
+
+    const { uploadPdfToSharePoint } = await import("@/lib/sharepoint/files");
+
+    await expect(
+      uploadPdfToSharePoint({
+        programId: "PRG-001",
+        programName: "Surface Comms",
+        deliverableId: "CDRL-005",
+        deliverableName: "Monthly Report",
+        fileName: "submission.pdf",
+        content: new ArrayBuffer(1),
+      })
+    ).resolves.toMatchObject({
+      driveId: "drive-id",
+      itemId: "item-id",
+      sizeKb: 2,
+    });
+
+    expect(folderLookups).toEqual(
+      new Set([
+        "DRG Submissions",
+        "DRG Submissions/PRG-001 - Surface Comms",
+        "DRG Submissions/PRG-001 - Surface Comms/CDRL-005 - Monthly Report",
+      ])
+    );
+    expect(global.fetch).toHaveBeenCalledWith(
+      expect.stringContaining(
+        "/root:/DRG%20Submissions/PRG-001%20-%20Surface%20Comms/CDRL-005%20-%20Monthly%20Report/"
+      ),
+      expect.objectContaining({ method: "PUT" })
+    );
+  });
+
   it("blocks upload actions for archived programs", async () => {
     const { canUploadToProgram } = await import("@/lib/auth/guards");
     const program = createProgram({

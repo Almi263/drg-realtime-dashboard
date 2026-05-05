@@ -58,6 +58,8 @@ export async function POST(request: Request) {
     const sharePointFile = await uploadPdfToSharePoint({
       programId,
       deliverableId,
+      programName: program.name,
+      deliverableName: deliverable.title,
       fileName: file.name,
       content,
     });

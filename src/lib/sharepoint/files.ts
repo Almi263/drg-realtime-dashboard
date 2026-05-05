@@ -21,6 +21,10 @@ function isSharePointConfigured() {
   );
 }
 
+export function isSharePointUploadConfigured() {
+  return isSharePointConfigured();
+}
+
 const getGraphToken = cache(async () => {
   if (!isSharePointConfigured()) {
     throw new Error("SharePoint is not configured.");
@@ -61,7 +65,22 @@ function encodePathSegment(segment: string) {
   return segment.replace(/[\\/:*?"<>|]/g, "-");
 }
 
-function getSharePointFolderPath(programId: string, deliverableId: string) {
+function getReadableFolderName(id: string, name?: string) {
+  const readableName = name?.trim();
+  return encodePathSegment(readableName ? `${id} - ${readableName}` : id);
+}
+
+function getProgramFolderPath(programId: string, programName?: string) {
+  const baseFolder = process.env.SHAREPOINT_DOCUMENT_FOLDER ?? "DRG Submissions";
+  return [baseFolder, getReadableFolderName(programId, programName)].join("/");
+}
+
+function getSharePointFolderPath(input: {
+  programId: string;
+  deliverableId: string;
+  programName?: string;
+  deliverableName?: string;
+}) {
   const baseFolder = process.env.SHAREPOINT_DOCUMENT_FOLDER ?? "DRG Submissions";
   const folderStrategy =
     process.env.SHAREPOINT_FOLDER_STRATEGY ?? "program-deliverable";
@@ -72,8 +91,8 @@ function getSharePointFolderPath(programId: string, deliverableId: string) {
 
   return [
     baseFolder,
-    encodePathSegment(programId),
-    encodePathSegment(deliverableId),
+    getReadableFolderName(input.programId, input.programName),
+    getReadableFolderName(input.deliverableId, input.deliverableName),
   ].join("/");
 }
 
@@ -82,9 +101,114 @@ function getStoredFileName(fileName: string) {
   return `${timestamp}-${encodePathSegment(fileName)}`;
 }
 
+function toGraphPath(path: string) {
+  return path.split("/").map(encodeURIComponent).join("/");
+}
+
+async function getDriveItemByPath(token: string, driveId: string, path: string) {
+  return fetch(
+    `https://graph.microsoft.com/v1.0/drives/${driveId}/root:/${toGraphPath(
+      path
+    )}`,
+    {
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+      cache: "no-store",
+    }
+  );
+}
+
+async function createFolder(
+  token: string,
+  driveId: string,
+  parentPath: string,
+  name: string
+) {
+  const parentSelector = parentPath
+    ? `root:/${toGraphPath(parentPath)}:/children`
+    : "root/children";
+  const response = await fetch(
+    `https://graph.microsoft.com/v1.0/drives/${driveId}/${parentSelector}`,
+    {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        name,
+        folder: {},
+        "@microsoft.graph.conflictBehavior": "fail",
+      }),
+      cache: "no-store",
+    }
+  );
+
+  if (response.ok || response.status === 409) {
+    return;
+  }
+
+  const details = await response.text().catch(() => "");
+  throw new Error(
+    `SharePoint folder creation failed: ${response.status}${
+      details ? ` - ${details}` : ""
+    }`
+  );
+}
+
+export async function ensureSharePointFolderPath(path: string) {
+  const token = await getGraphToken();
+  const driveId = process.env.SHAREPOINT_DRIVE_ID ?? "";
+  const segments = path.split("/").map(encodePathSegment).filter(Boolean);
+  let currentPath = "";
+
+  for (const segment of segments) {
+    const nextPath = currentPath ? `${currentPath}/${segment}` : segment;
+    const response = await getDriveItemByPath(token, driveId, nextPath);
+
+    if (response.ok) {
+      currentPath = nextPath;
+      continue;
+    }
+
+    if (response.status !== 404) {
+      const details = await response.text().catch(() => "");
+      throw new Error(
+        `SharePoint folder lookup failed: ${response.status}${
+          details ? ` - ${details}` : ""
+        }`
+      );
+    }
+
+    await createFolder(token, driveId, currentPath, segment);
+    currentPath = nextPath;
+  }
+}
+
+export async function ensureProgramFolder(input: {
+  programId: string;
+  programName: string;
+}) {
+  await ensureSharePointFolderPath(
+    getProgramFolderPath(input.programId, input.programName)
+  );
+}
+
+export async function ensureDeliverableFolder(input: {
+  programId: string;
+  deliverableId: string;
+  programName: string;
+  deliverableName: string;
+}) {
+  await ensureSharePointFolderPath(getSharePointFolderPath(input));
+}
+
 export async function uploadPdfToSharePoint(input: {
   programId: string;
   deliverableId: string;
+  programName?: string;
+  deliverableName?: string;
   fileName: string;
   content: Blob | ArrayBuffer;
 }): Promise<SharePointFileResult> {
@@ -95,13 +219,14 @@ export async function uploadPdfToSharePoint(input: {
   const token = await getGraphToken();
   const siteId = process.env.SHAREPOINT_SITE_ID ?? "";
   const driveId = process.env.SHAREPOINT_DRIVE_ID ?? "";
-  const path = `${getSharePointFolderPath(
-    input.programId,
-    input.deliverableId
-  )}/${getStoredFileName(input.fileName)}`;
+  const folderPath = getSharePointFolderPath(input);
+  await ensureSharePointFolderPath(folderPath);
+  const path = `${folderPath}/${getStoredFileName(input.fileName)}`;
 
   const response = await fetch(
-    `https://graph.microsoft.com/v1.0/sites/${siteId}/drives/${driveId}/root:/${path}:/content`,
+    `https://graph.microsoft.com/v1.0/sites/${siteId}/drives/${driveId}/root:/${toGraphPath(
+      path
+    )}:/content`,
     {
       method: "PUT",
       headers: {
