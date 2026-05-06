@@ -700,7 +700,7 @@ Notes:
 ## Implementation Notes
 
 - Prefer Dataverse trigger conditions so flows do not run on unrelated updates.
-- Use environment variables for app URLs, storage IDs, and notification sender details. Notifications must link to the app, not directly to SharePoint files.
+- Use environment variables for app URLs, SharePoint IDs, and notification sender details. Notifications must link to the app, not directly to SharePoint files.
 - Any Power Automate connection that touches SharePoint must use a service account or application-owned connection with access to the controlled library. It must not rely on the end user's SharePoint permissions.
 - Do not include `drg_sharepointurl`, SharePoint `webUrl`, or direct document-library links in user-facing emails, Teams posts, or approval notifications.
 - Use connection references owned by a service account, not an individual student/user account.

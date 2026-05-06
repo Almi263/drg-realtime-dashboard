@@ -149,16 +149,15 @@ Find the drive whose `name` matches the document library, then use its `id` as `
 
 ## Dataverse Requirements
 
-Before production uploads, the `drg_document` table must include these required SharePoint columns:
+Before production uploads, the `drg_document` table must include these SharePoint columns:
 
-- `drg_sharepointsiteurl`: URL
-- `drg_sharepointdriveid`: Text
-- `drg_sharepointitemid`: Text
-- `drg_sharepointurl`: URL
+- `drg_sharepointsiteurl`: URL, optional/admin metadata
+- `drg_sharepointdriveid`: Text, required
+- `drg_sharepointitemid`: Text, required
+- `drg_sharepointurl`: URL, optional/admin metadata. User downloads must not redirect to this URL.
 
 Create an alternate key across:
 
-- `drg_sharepointsiteurl`
 - `drg_sharepointdriveid`
 - `drg_sharepointitemid`
 
@@ -293,6 +292,8 @@ For each document:
    drg_sharepointitemid = newItemId
    drg_sharepointurl = newWebUrl
    ```
+
+   The URL fields are retained for admin troubleshooting and migration traceability. The app should use `drg_sharepointdriveid` and `drg_sharepointitemid` to fetch files with Microsoft Graph and stream them through the download API.
 
 This approach is clear and auditable, but it does not automatically preserve all SharePoint-native history. Treat version history, sharing links, created/modified metadata, and item-level permissions as separate requirements if DRG needs them preserved.
 

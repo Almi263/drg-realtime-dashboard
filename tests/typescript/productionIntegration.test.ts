@@ -288,6 +288,44 @@ describe("production integration layer", () => {
     expect(global.fetch).not.toHaveBeenCalled();
   });
 
+  it("fetches SharePoint files through Graph app credentials", async () => {
+    vi.resetModules();
+    vi.stubEnv("SHAREPOINT_TENANT_ID", "tenant-id");
+    vi.stubEnv("SHAREPOINT_CLIENT_ID", "client-id");
+    vi.stubEnv("SHAREPOINT_CLIENT_SECRET", "client-secret");
+    vi.stubEnv("SHAREPOINT_SITE_ID", "site-id");
+    vi.stubEnv("SHAREPOINT_DRIVE_ID", "drive-id");
+
+    global.fetch = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const request = new Request(input, init);
+
+      if (request.url.includes("login.microsoftonline.com")) {
+        return jsonResponse({ access_token: "graph-token" });
+      }
+
+      if (request.url.includes("/drives/drive-id/items/item-id/content")) {
+        expect(request.headers.get("authorization")).toBe("Bearer graph-token");
+        return new Response("pdf-bytes", {
+          headers: {
+            "content-type": "application/pdf",
+            "content-length": "9",
+          },
+        });
+      }
+
+      throw new Error(`Unhandled fetch URL: ${request.url}`);
+    });
+
+    const { fetchSharePointFile } = await import("@/lib/sharepoint/files");
+    const response = await fetchSharePointFile({
+      driveId: "drive-id",
+      itemId: "item-id",
+    });
+
+    await expect(response.text()).resolves.toBe("pdf-bytes");
+    expect(response.headers.get("content-type")).toBe("application/pdf");
+  });
+
   it("creates readable SharePoint folders before uploading PDFs", async () => {
     vi.resetModules();
     vi.stubEnv("SHAREPOINT_TENANT_ID", "tenant-id");

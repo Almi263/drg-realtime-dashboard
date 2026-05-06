@@ -11,6 +11,11 @@ export interface SharePointFileResult {
   sizeKb: number;
 }
 
+export interface SharePointDownloadInput {
+  driveId: string;
+  itemId: string;
+}
+
 function isSharePointConfigured() {
   return Boolean(
     process.env.SHAREPOINT_TENANT_ID &&
@@ -202,6 +207,37 @@ export async function ensureDeliverableFolder(input: {
   deliverableName: string;
 }) {
   await ensureSharePointFolderPath(getSharePointFolderPath(input));
+}
+
+export async function fetchSharePointFile(input: SharePointDownloadInput) {
+  const token = await getGraphToken();
+
+  if (!input.driveId || !input.itemId) {
+    throw new Error("Missing SharePoint drive ID or item ID.");
+  }
+
+  const response = await fetch(
+    `https://graph.microsoft.com/v1.0/drives/${encodeURIComponent(
+      input.driveId
+    )}/items/${encodeURIComponent(input.itemId)}/content`,
+    {
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+      cache: "no-store",
+    }
+  );
+
+  if (!response.ok || !response.body) {
+    const details = await response.text().catch(() => "");
+    throw new Error(
+      `SharePoint download failed: ${response.status}${
+        details ? ` - ${details}` : ""
+      }`
+    );
+  }
+
+  return response;
 }
 
 export async function uploadPdfToSharePoint(input: {

@@ -182,10 +182,10 @@ Columns:
 - `drg_approval`: Lookup to `drg_approval`
 - `drg_filename`: Text, required
 - `drg_filesizekb`: Whole number
-- `drg_sharepointsiteurl`: URL, required
+- `drg_sharepointsiteurl`: URL, optional/admin metadata
 - `drg_sharepointdriveid`: Text, required
 - `drg_sharepointitemid`: Text, required
-- `drg_sharepointurl`: URL, required
+- `drg_sharepointurl`: URL, optional/admin metadata. User downloads must not redirect to this URL.
 - `drg_versionlabel`: Text
 - `drg_status`: Choice `drg_documentstatus`, required, default Submitted
 - `drg_reviewduedate`: Date and time
@@ -202,7 +202,7 @@ Columns:
 
 Create alternate keys:
 
-- `drg_sharepointsiteurl`, `drg_sharepointdriveid`, and `drg_sharepointitemid`
+- `drg_sharepointdriveid` and `drg_sharepointitemid`
 
 Business rules:
 
@@ -222,7 +222,8 @@ Business rules:
 - `Mark reviewed`: When related current approval `drg_decision = Approved` and a signed approval PDF exists, set the DRG submission document status to `Reviewed`. Power Automate.
 - `Mark final`: When DRG staff acknowledge the signed approval PDF, set the accepted DRG submission document status to `Final`. Power Automate.
 - `Document overdue`: If current date/time is after `drg_reviewduedate` and the related approval is still `Pending`, set current DRG submission status to `Overdue - Waiting on Reviewer`. Scheduled Power Automate.
-- `SharePoint uniqueness`: If another row has the same `drg_sharepointsiteurl`, `drg_sharepointdriveid`, and `drg_sharepointitemid`, block save through the alternate key. Dataverse alternate key. Error display name: `Duplicate SharePoint Document`. Error message: `This SharePoint file is already linked to a document record.`
+- `Controlled file access`: End users must not be redirected to `drg_sharepointurl`. All user downloads must go through the web app download API. The app checks Entra role and active `drg_programaccess`, creates a `drg_documentaccesslog` row, retrieves the file from SharePoint using Microsoft Graph app credentials, and streams the file response to the user.
+- `SharePoint uniqueness`: If another row has the same `drg_sharepointdriveid` and `drg_sharepointitemid`, block save through the alternate key. Dataverse alternate key. Error display name: `Duplicate SharePoint Document`. Error message: `This SharePoint file is already linked to a document record.`
 
 ## 6. `drg_approval`
 
