@@ -295,7 +295,6 @@ Trigger:
 - Filter rows: `statecode eq 0`
 - Trigger condition:
   - `drg_action = Download` or `drg_action = View`
-  - `drg_source = Web App`
   - `drg_result = Success`, if the optional result column is implemented
   - actor has `External Reviewer` access
 
@@ -323,7 +322,6 @@ Actions:
   - `drg_documentrole = DRG Submission`
   - `drg_iscurrentversion = Yes`
   - `drg_status = Submitted`
-  - `drg_source = Web App`
   - `drg_result = Success`, if the optional result column is implemented
   - the active external reviewer access list contains one row
   - If yes:
@@ -513,7 +511,6 @@ Trigger:
 - Filter rows: `statecode eq 0`
 - Trigger condition:
   - `drg_action = Download` or `drg_action = View`
-  - `drg_source = Web App`
   - `drg_result = Success`, if the optional result column is implemented
   - actor is DRG staff/program owner/admin
 

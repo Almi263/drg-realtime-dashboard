@@ -85,7 +85,6 @@ export default async function DocumentPage({
       actorName: user.name ?? user.email ?? "Signed-in user",
       actorEmail: user.email ?? "",
       action: "View",
-      source: "Web App",
     });
   }
 

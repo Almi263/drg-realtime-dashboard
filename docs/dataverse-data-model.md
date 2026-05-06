@@ -119,7 +119,10 @@ Columns:
 - `drg_currentsubmissionnumber`: Whole number
 - `drg_isclosed`: Yes/No, required, default No
 
-Create alternate key using `drg_deliverablenumber` and `drg_program`.
+Create one composite alternate key:
+
+- Key name: `ak_deliverable_program_number`
+- Columns in the same key: `drg_program`, `drg_deliverablenumber`
 
 Business rules:
 
@@ -155,7 +158,10 @@ Columns:
 - `drg_revokedbyemail`: Text
 - `drg_entraobjectid`: Text
 
-Create alternate key using `drg_program` and `drg_email`.
+Create one composite alternate key:
+
+- Key name: `ak_programaccess_program_email`
+- Columns in the same key: `drg_program`, `drg_email`
 
 Business rules:
 
@@ -179,7 +185,7 @@ Columns:
 - `drg_submissionnumber`: Whole number, required
 - `drg_documentrole`: Choice `drg_documentrole`, required
 - `drg_parentdocument`: Lookup to `drg_document`
-- `drg_approval`: Lookup to `drg_approval`
+- `drg_approval`: Optional lookup to `drg_approval`. Add this after both `drg_document` and `drg_approval` exist; it links reviewer response/signed approval documents back to the approval row that produced them.
 - `drg_filename`: Text, required
 - `drg_filesizekb`: Whole number
 - `drg_sharepointsiteurl`: URL, optional/admin metadata
@@ -200,9 +206,10 @@ Columns:
 - `drg_checksum`: Text
 - `drg_iscurrentversion`: Yes/No, required, default Yes
 
-Create alternate keys:
+Create one composite alternate key:
 
-- `drg_sharepointdriveid` and `drg_sharepointitemid`
+- Key name: `ak_document_sharepoint_item`
+- Columns in the same key: `drg_sharepointdriveid`, `drg_sharepointitemid`
 
 Business rules:
 
@@ -290,13 +297,12 @@ Columns:
 - `drg_actoremail`: Text, required
 - `drg_action`: Choice with values View, Download, Upload, Delete, Acknowledge, required
 - `drg_occurredon`: Date and time, required
-- `drg_source`: Choice with values Web App, SharePoint, Teams, API
 - `drg_result`: Choice with values Success, Denied, Failed
 - `drg_requestid`: Text
 
 Business rules:
 
-- `Successful access events`: Status rollup flows should only treat `drg_action = View` or `Download` as a real view/download when `drg_source = Web App` and, if `drg_result` is used, `drg_result = Success`. Denied or failed access attempts may be retained for audit history but must not move documents or deliverables into review states.
+- `Successful access events`: Status rollup flows should only treat `drg_action = View` or `Download` as a real view/download when, if `drg_result` is used, `drg_result = Success`. Denied or failed access attempts may be retained for audit history but must not move documents or deliverables into review states.
 
 ## Relationships
 

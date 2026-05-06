@@ -85,7 +85,6 @@ export async function POST(request: Request) {
       actorName: session.user.name ?? session.user.email ?? "Signed-in user",
       actorEmail: session.user.email ?? "",
       action: "Upload",
-      source: "Web App",
     });
 
     await triggerFlow("submissionCreated", {

@@ -39,7 +39,6 @@ export interface DocumentAccessLog {
   actorEmail: string;
   action: DocumentAccessAction;
   occurredOn: string;
-  source?: "Web App" | "SharePoint" | "Teams" | "API";
 }
 
 export interface DeliverableDocument {

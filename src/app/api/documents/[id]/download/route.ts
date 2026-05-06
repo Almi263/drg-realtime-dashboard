@@ -49,7 +49,6 @@ export async function GET(
     actorName: session.user.name ?? session.user.email ?? "Signed-in user",
     actorEmail: session.user.email ?? "",
     action: "Download",
-    source: "Web App",
   });
 
   await triggerFlow("documentDownloaded", {

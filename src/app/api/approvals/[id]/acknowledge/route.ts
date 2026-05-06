@@ -71,7 +71,6 @@ export async function POST(
         actorName: session.user.name ?? session.user.email ?? "Signed-in user",
         actorEmail: session.user.email ?? "",
         action: "Acknowledge",
-        source: "Web App",
       });
     }
 
