@@ -315,7 +315,7 @@ export default function ProgramAccessManager({ program }: { program: Program }) 
           <Table size="small">
             <TableHead>
               <TableRow>
-                <TableCell sx={{ fontWeight: 700 }}>Name</TableCell>
+                <TableCell sx={{ fontWeight: 700, width: { xs: 220, md: 300 } }}>Name</TableCell>
                 <TableCell sx={{ fontWeight: 700 }}>Email</TableCell>
                 <TableCell sx={{ fontWeight: 700 }}>Role</TableCell>
                 <TableCell sx={{ fontWeight: 700 }}>Granted</TableCell>
@@ -336,7 +336,7 @@ export default function ProgramAccessManager({ program }: { program: Program }) 
                 );
                 return (
                   <TableRow key={entry.email} hover>
-                    <TableCell sx={{ fontWeight: 600 }}>
+                    <TableCell sx={{ fontWeight: 600, minWidth: { xs: 220, md: 300 } }}>
                       {displayName}
                       {normalizeEmail(entry.email) === normalizeEmail(currentUser?.email) && (
                         <Typography component="span" variant="caption" sx={{ color: "text.secondary", ml: 0.75 }}>

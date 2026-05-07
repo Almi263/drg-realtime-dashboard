@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import Alert from "@mui/material/Alert";
 import Box from "@mui/material/Box";
@@ -45,6 +45,55 @@ function formatDate(iso: string) {
 
 function toDateInputValue(iso: string) {
   return iso ? iso.slice(0, 10) : "";
+}
+
+function ProgramDescription({ description }: { description: string }) {
+  const [expanded, setExpanded] = useState(false);
+  const [canExpand, setCanExpand] = useState(false);
+  const descriptionRef = useRef<HTMLParagraphElement | null>(null);
+
+  useEffect(() => {
+    const element = descriptionRef.current;
+    if (!element) return;
+
+    const updateCanExpand = () => {
+      setCanExpand(element.scrollHeight > element.clientHeight + 1);
+    };
+
+    updateCanExpand();
+    const observer = new ResizeObserver(updateCanExpand);
+    observer.observe(element);
+
+    return () => observer.disconnect();
+  }, [description, expanded]);
+
+  return (
+    <Box sx={{ mb: 2 }}>
+      <Typography
+        ref={descriptionRef}
+        variant="body2"
+        sx={{
+          color: "text.secondary",
+          display: expanded ? "block" : "-webkit-box",
+          WebkitBoxOrient: "vertical",
+          WebkitLineClamp: expanded ? "unset" : 2,
+          overflow: "hidden",
+        }}
+      >
+        {description}
+      </Typography>
+      {(canExpand || expanded) && (
+        <Button
+          size="small"
+          variant="text"
+          onClick={() => setExpanded((current) => !current)}
+          sx={{ mt: 0.5, minWidth: 0, p: 0, textTransform: "none" }}
+        >
+          {expanded ? "See less" : "See more"}
+        </Button>
+      )}
+    </Box>
+  );
 }
 
 interface ProgramDetailViewProps {
@@ -242,9 +291,7 @@ export default function ProgramDetailView({
           </Box>
         </Box>
 
-        <Typography variant="body2" sx={{ color: "text.secondary", mb: 2 }}>
-          {program.description}
-        </Typography>
+        <ProgramDescription description={program.description} />
 
         <Box sx={{ display: "flex", flexWrap: "wrap", gap: 2 }}>
           <Box sx={{ display: "flex", alignItems: "center", gap: 0.5 }}>

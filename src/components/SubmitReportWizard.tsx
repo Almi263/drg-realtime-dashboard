@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef } from "react";
+import { useMemo, useState, useRef } from "react";
 import Box from "@mui/material/Box";
 import Typography from "@mui/material/Typography";
 import Card from "@mui/material/Card";
@@ -11,9 +11,11 @@ import Chip from "@mui/material/Chip";
 import Divider from "@mui/material/Divider";
 import Alert from "@mui/material/Alert";
 import TextField from "@mui/material/TextField";
+import InputAdornment from "@mui/material/InputAdornment";
 import CheckCircleIcon from "@mui/icons-material/CheckCircle";
 import UploadFileIcon from "@mui/icons-material/UploadFile";
 import ArrowBackIcon from "@mui/icons-material/ArrowBack";
+import SearchIcon from "@mui/icons-material/Search";
 import Link from "next/link";
 import AccessRestrictedNotice from "@/components/AccessRestrictedNotice";
 import { useRole } from "@/lib/context/role-context";
@@ -115,6 +117,22 @@ function ProgramStep({
   deliverables: Deliverable[];
   onSelect: (id: string) => void;
 }) {
+  const [searchQuery, setSearchQuery] = useState("");
+  const normalizedSearchQuery = searchQuery.trim().toLowerCase();
+  const filteredPrograms = useMemo(() => {
+    if (!normalizedSearchQuery) return programs;
+
+    return programs.filter((program) =>
+      [
+        program.name,
+        program.programNumber,
+        program.contractRef,
+        program.ownerName ?? "",
+        program.ownerUpn,
+      ].some((value) => value.toLowerCase().includes(normalizedSearchQuery))
+    );
+  }, [normalizedSearchQuery, programs]);
+
   return (
     <Box>
       <Typography variant="h6" sx={{ fontWeight: 700, mb: 0.5 }}>
@@ -123,8 +141,25 @@ function ProgramStep({
       <Typography variant="body2" sx={{ color: "text.secondary", mb: 3 }}>
         Select the contract or program this deliverable belongs to.
       </Typography>
+      <TextField
+        value={searchQuery}
+        onChange={(event) => setSearchQuery(event.target.value)}
+        placeholder="Search programs"
+        size="small"
+        fullWidth
+        sx={{ mb: 2 }}
+        slotProps={{
+          input: {
+            startAdornment: (
+              <InputAdornment position="start">
+                <SearchIcon fontSize="small" />
+              </InputAdornment>
+            ),
+          },
+        }}
+      />
       <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", sm: "repeat(2, 1fr)" }, gap: 2 }}>
-        {programs.map((p) => {
+        {filteredPrograms.map((p) => {
           const progDeliverables = deliverables.filter((d) => d.programId === p.id);
           const pending = progDeliverables.filter(
             (d) => d.status !== "Draft" && d.status !== "Submitted" && d.status !== "Complete"
@@ -152,6 +187,11 @@ function ProgramStep({
           );
         })}
       </Box>
+      {filteredPrograms.length === 0 && (
+        <Typography variant="body2" sx={{ color: "text.secondary", textAlign: "center", py: 4 }}>
+          No programs match the current search.
+        </Typography>
+      )}
     </Box>
   );
 }
@@ -171,9 +211,24 @@ function DeliverableStep({
   onSelect: (id: string) => void;
   onBack: () => void;
 }) {
+  const [searchQuery, setSearchQuery] = useState("");
   const submittable = deliverables.filter(
     (d) => d.status !== "Draft" && d.status !== "Submitted" && d.status !== "Complete"
   );
+  const normalizedSearchQuery = searchQuery.trim().toLowerCase();
+  const filteredDeliverables = useMemo(() => {
+    if (!normalizedSearchQuery) return submittable;
+
+    return submittable.filter((deliverable) =>
+      [
+        deliverable.deliverableNumber,
+        deliverable.title,
+        deliverable.type,
+        deliverable.status,
+        deliverable.assignedTo,
+      ].some((value) => value.toLowerCase().includes(normalizedSearchQuery))
+    );
+  }, [normalizedSearchQuery, submittable]);
 
   return (
     <Box>
@@ -186,8 +241,25 @@ function DeliverableStep({
       <Typography variant="body2" sx={{ color: "text.secondary", mb: 3 }}>
         {program.name} — <span style={{ fontFamily: "monospace", fontSize: "0.8rem" }}>{program.contractRef}</span>
       </Typography>
+      <TextField
+        value={searchQuery}
+        onChange={(event) => setSearchQuery(event.target.value)}
+        placeholder="Search deliverables"
+        size="small"
+        fullWidth
+        sx={{ mb: 2 }}
+        slotProps={{
+          input: {
+            startAdornment: (
+              <InputAdornment position="start">
+                <SearchIcon fontSize="small" />
+              </InputAdornment>
+            ),
+          },
+        }}
+      />
       <Box sx={{ display: "flex", flexDirection: "column", gap: 1 }}>
-        {submittable.map((d) => (
+        {filteredDeliverables.map((d) => (
           <Card
             key={d.id}
             variant="outlined"
@@ -224,6 +296,11 @@ function DeliverableStep({
         {submittable.length === 0 && (
           <Typography variant="body2" sx={{ color: "text.secondary", textAlign: "center", py: 4 }}>
             All deliverables for this program are already approved.
+          </Typography>
+        )}
+        {submittable.length > 0 && filteredDeliverables.length === 0 && (
+          <Typography variant="body2" sx={{ color: "text.secondary", textAlign: "center", py: 4 }}>
+            No deliverables match the current search.
           </Typography>
         )}
       </Box>
