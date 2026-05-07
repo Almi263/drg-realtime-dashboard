@@ -110,11 +110,16 @@ function toGraphPath(path: string) {
   return path.split("/").map(encodeURIComponent).join("/");
 }
 
+function getDriveGraphBaseUrl(driveId: string) {
+  const siteId = process.env.SHAREPOINT_SITE_ID ?? "";
+  return `https://graph.microsoft.com/v1.0/sites/${encodeURIComponent(
+    siteId
+  )}/drives/${encodeURIComponent(driveId)}`;
+}
+
 async function getDriveItemByPath(token: string, driveId: string, path: string) {
   return fetch(
-    `https://graph.microsoft.com/v1.0/drives/${driveId}/root:/${toGraphPath(
-      path
-    )}`,
+    `${getDriveGraphBaseUrl(driveId)}/root:/${toGraphPath(path)}`,
     {
       headers: {
         Authorization: `Bearer ${token}`,
@@ -134,7 +139,7 @@ async function createFolder(
     ? `root:/${toGraphPath(parentPath)}:/children`
     : "root/children";
   const response = await fetch(
-    `https://graph.microsoft.com/v1.0/drives/${driveId}/${parentSelector}`,
+    `${getDriveGraphBaseUrl(driveId)}/${parentSelector}`,
     {
       method: "POST",
       headers: {
@@ -191,11 +196,46 @@ export async function ensureSharePointFolderPath(path: string) {
   }
 }
 
+export async function deleteSharePointFolderPath(path: string) {
+  const token = await getGraphToken();
+  const driveId = process.env.SHAREPOINT_DRIVE_ID ?? "";
+  const response = await fetch(
+    `${getDriveGraphBaseUrl(driveId)}/root:/${toGraphPath(path)}`,
+    {
+      method: "DELETE",
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+      cache: "no-store",
+    }
+  );
+
+  if (response.ok || response.status === 404) {
+    return;
+  }
+
+  const details = await response.text().catch(() => "");
+  throw new Error(
+    `SharePoint folder deletion failed: ${response.status}${
+      details ? ` - ${details}` : ""
+    }`
+  );
+}
+
 export async function ensureProgramFolder(input: {
   programId: string;
   programName: string;
 }) {
   await ensureSharePointFolderPath(
+    getProgramFolderPath(input.programId, input.programName)
+  );
+}
+
+export async function deleteProgramFolder(input: {
+  programId: string;
+  programName: string;
+}) {
+  await deleteSharePointFolderPath(
     getProgramFolderPath(input.programId, input.programName)
   );
 }
@@ -217,9 +257,9 @@ export async function fetchSharePointFile(input: SharePointDownloadInput) {
   }
 
   const response = await fetch(
-    `https://graph.microsoft.com/v1.0/drives/${encodeURIComponent(
-      input.driveId
-    )}/items/${encodeURIComponent(input.itemId)}/content`,
+    `${getDriveGraphBaseUrl(input.driveId)}/items/${encodeURIComponent(
+      input.itemId
+    )}/content`,
     {
       headers: {
         Authorization: `Bearer ${token}`,
@@ -253,14 +293,13 @@ export async function uploadPdfToSharePoint(input: {
   }
 
   const token = await getGraphToken();
-  const siteId = process.env.SHAREPOINT_SITE_ID ?? "";
   const driveId = process.env.SHAREPOINT_DRIVE_ID ?? "";
   const folderPath = getSharePointFolderPath(input);
   await ensureSharePointFolderPath(folderPath);
   const path = `${folderPath}/${getStoredFileName(input.fileName)}`;
 
   const response = await fetch(
-    `https://graph.microsoft.com/v1.0/sites/${siteId}/drives/${driveId}/root:/${toGraphPath(
+    `${getDriveGraphBaseUrl(driveId)}/root:/${toGraphPath(
       path
     )}:/content`,
     {

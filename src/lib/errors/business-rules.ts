@@ -14,6 +14,8 @@ export const BUSINESS_RULE_MESSAGES = {
     "External reviewer must already exist as an Entra guest and be a member of the external reviewer group before program access can be granted.",
   archivedProgramUploadBlocked:
     "This program is archived. Downloads remain available, but new uploads are blocked.",
+  programDeleteBlocked:
+    "Only empty test programs can be deleted. Remove or archive programs with deliverables, documents, approvals, or audit logs instead.",
   pdfRequired: "Only PDF files can be uploaded.",
   reviewedDocumentRequired:
     "A reviewed submission document is required for this action.",
@@ -34,6 +36,7 @@ const BUSINESS_RULE_STATUS: Record<BusinessRuleCode, number> = {
   duplicateProgramAccess: 409,
   externalUserNotReady: 400,
   archivedProgramUploadBlocked: 403,
+  programDeleteBlocked: 409,
   pdfRequired: 400,
   reviewedDocumentRequired: 400,
   rejectionCommentsRequired: 400,
@@ -72,6 +75,10 @@ const BUSINESS_RULE_PATTERNS: Array<{
   {
     code: "archivedProgramUploadBlocked",
     patterns: [/archived program upload/i, /program is archived/i],
+  },
+  {
+    code: "programDeleteBlocked",
+    patterns: [/program delete blocked/i, /only empty test programs can be deleted/i],
   },
   {
     code: "pdfRequired",

@@ -3,6 +3,7 @@ import { normalizeEmail } from "@/lib/auth/roles";
 import type { Program, ProgramAccess, ProgramSite, ProgramStatus } from "@/lib/models/program";
 import {
   dataverseFetch,
+  escapeODataString,
   getFormattedValue,
   isDataverseConfigured,
   listRows,
@@ -10,6 +11,7 @@ import {
   type DataverseUser,
 } from "@/lib/dataverse/client";
 import { listActiveProgramAccess } from "@/lib/dataverse/program-access";
+import { businessRuleError } from "@/lib/errors/business-rules";
 
 interface DataverseProgramRow extends Record<string, unknown> {
   drg_programid: string;
@@ -36,6 +38,10 @@ interface DataverseProgramSiteRow {
   drg_region?: string;
   drg_isprimary?: boolean;
   _drg_program_value?: string;
+}
+
+interface DataverseIdRow extends Record<string, unknown> {
+  id?: string;
 }
 
 interface DataverseSystemUserRow {
@@ -236,12 +242,85 @@ export async function getProgramById(
 
 async function findSystemUserIdByEmail(email: string) {
   const normalizedEmail = normalizeEmail(email);
+  const escapedEmail = escapeODataString(normalizedEmail);
   const rows = await listRows<DataverseSystemUserRow>(
     "systemusers",
-    `$select=systemuserid&$top=1&$filter=internalemailaddress eq '${normalizedEmail}' or domainname eq '${normalizedEmail}'`
+    `$select=systemuserid&$top=1&$filter=internalemailaddress eq '${escapedEmail}' or domainname eq '${escapedEmail}'`
   );
 
   return rows[0]?.systemuserid;
+}
+
+async function hasProgramRows(
+  entitySetName: string,
+  idColumn: string,
+  programId: string
+) {
+  const rows = await listRows<DataverseIdRow>(
+    entitySetName,
+    `$select=${idColumn}&$top=1&$filter=statecode eq 0 and _drg_program_value eq ${programId}`
+  );
+
+  return rows.length > 0;
+}
+
+async function listProgramChildIds(
+  entitySetName: string,
+  idColumn: string,
+  programId: string
+) {
+  const rows = await listRows<Record<string, unknown>>(
+    entitySetName,
+    `$select=${idColumn}&$filter=statecode eq 0 and _drg_program_value eq ${programId}`
+  );
+
+  return rows
+    .map((row) => row[idColumn])
+    .filter((id): id is string => typeof id === "string" && Boolean(id));
+}
+
+async function deleteRows(entitySetName: string, ids: readonly string[]) {
+  for (const id of ids) {
+    await dataverseFetch<void>(`/${entitySetName}(${id})`, {
+      method: "DELETE",
+    });
+  }
+}
+
+export async function deleteEmptyProgram(programId: string) {
+  if (!isDataverseConfigured()) {
+    throw new Error("Dataverse is not configured for program deletion.");
+  }
+
+  const hasBlockingChildren = await Promise.all([
+    hasProgramRows("drg_deliverables", "drg_deliverableid", programId),
+    hasProgramRows("drg_documents", "drg_documentid", programId),
+    hasProgramRows("drg_approvals", "drg_approvalid", programId),
+    hasProgramRows(
+      "drg_documentaccesslogs",
+      "drg_documentaccesslogid",
+      programId
+    ),
+  ]);
+
+  if (hasBlockingChildren.some(Boolean)) {
+    throw businessRuleError("programDeleteBlocked");
+  }
+
+  const [siteIds, accessIds] = await Promise.all([
+    listProgramChildIds("drg_programsites", "drg_programsiteid", programId),
+    listProgramChildIds(
+      "drg_programaccesses",
+      "drg_programaccessid",
+      programId
+    ),
+  ]);
+
+  await deleteRows("drg_programsites", siteIds);
+  await deleteRows("drg_programaccesses", accessIds);
+  await dataverseFetch<void>(`/drg_programs(${programId})`, {
+    method: "DELETE",
+  });
 }
 
 export async function createProgram(input: CreateProgramInput) {

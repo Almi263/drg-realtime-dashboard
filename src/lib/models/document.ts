@@ -39,6 +39,7 @@ export interface DocumentAccessLog {
   actorEmail: string;
   action: DocumentAccessAction;
   occurredOn: string;
+  source?: string;
 }
 
 export interface DeliverableDocument {

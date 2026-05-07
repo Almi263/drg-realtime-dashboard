@@ -1,159 +1,144 @@
 # Dataverse Security Roles
 
-This document maps the DRG Microsoft Entra groups to custom Dataverse security roles for the DRG IMS prototype.
+This document defines the preferred Dataverse security model for DRG IMS.
 
-The reusable part of this setup is the custom security roles. The Dataverse group teams must be recreated or rebound when the project moves to the final tenant because each group team points to a tenant-specific Entra group object ID.
+The web app is the primary access layer. Program owners, staff, and external reviewers authenticate with Entra ID and use the dashboard, but they should not receive direct Dataverse table access. The app enforces their permissions with Entra app roles/groups plus `drg_programaccess` records.
 
-## Entra Group to Dataverse Role Mapping
+Direct Dataverse access should be limited to DRG IT/admin users and the server-to-server application user used by the web app.
 
-| Entra group           | Dataverse group team membership type | Custom Dataverse role |
-| --------------------- | ------------------------------------ | --------------------- |
-| `drg_admins`          | Members                              | DRG Admin             |
-| `drg_program_owners`  | Members                              | DRG Program Owner     |
-| `drg_staff`           | Members                              | DRG Staff             |
-| `external_reviewers`  | Guests                               | DRG External Reviewer |
+## Access Model
+
+| Actor | Dataverse access | Purpose |
+| --- | --- | --- |
+| `drg_admins` / DRG IT | Direct human access | Environment support, data correction, controlled administrative actions, and troubleshooting. |
+| DRG IMS web app application user | Server-to-server access | The Next.js app reads/writes Dataverse through client credentials. |
+| `drg_program_owners` | No direct Dataverse role | Use the web app. App checks Entra role and `drg_programaccess`. |
+| `drg_staff` | No direct Dataverse role | Use the web app. App checks Entra role and `drg_programaccess`. |
+| `external_reviewers` | No direct Dataverse role | Use the web app. App checks Entra role and `drg_programaccess`. |
+
+Do not create Dataverse group teams for `drg_program_owners`, `drg_staff`, or `external_reviewers` unless DRG later decides to expose a model-driven Dataverse app directly to those users. If that decision changes, define a separate direct-user security model and test record ownership/sharing carefully.
 
 ## Permission Scope Legend
 
-| Scope            | Meaning                                                   |
-| ---------------- | --------------------------------------------------------- |
-| None             | No table privilege.                                       |
-| User             | Records owned by the user or a team the user belongs to.  |
-| Business Unit    | Records in the user's business unit.                      |
-| Parent: Child BU | Records in the user's business unit and child units.      |
-| Organization     | All records in the environment.                           |
+| Scope | Meaning |
+| --- | --- |
+| None | No table privilege. |
+| User | Records owned by the user or a team the user belongs to. |
+| Business Unit | Records in the user's business unit. |
+| Parent: Child BU | Records in the user's business unit and child units. |
+| Organization | All records in the environment. |
 
-For a single-business-unit prototype, Business Unit and Organization can feel similar in practice. Use Organization only when the role is intentionally allowed to see all records in the environment.
+For this deployment model, the two Dataverse roles below mostly use `Organization` scope because the app and DRG IT support the whole IMS dataset. End-user scoping is handled in the web app, not by direct Dataverse table privileges.
 
-## Recommended Role Setup
+## Recommended Roles
 
-Use these values when creating the custom roles in Power Platform admin center under Environment > Settings > Users + permissions > Security roles.
-
-Keep delete privileges conservative because the data model expects status fields and active flags to retire records instead of deleting history.
+Create these custom roles in Power Platform admin center under Environment > Settings > Users + permissions > Security roles.
 
 ### DRG Admin
 
-| Field                            | Value                                                                                                                                                                                                   |
-| -------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Role Name                        | `DRG Admin`                                                                                                                                                                                             |
-| Description                      | Administrative role for managing DRG application data, programs, access records, deliverables, documents, approvals, audit history, and configuration/reference tables.                                  |
-| Applies To                       | DRG IMS / DRG Realtime Dashboard                                                                                                                                                                        |
-| Summary of Core Table Privileges | Full organization-level access to DRG custom tables, including programs, program access, deliverables, documents, approvals, sites, deliverable types, and document access logs. |
-| When role is assigned to a Team  | Team member gets all team privileges by default.                                                                                                                                                         |
-| Member's privilege inheritance   | Direct User (Basic) access level and Team privileges                                                                                                                                                     |
+Assign this role to the Dataverse group team backed by the `drg_admins` Entra group, or assign it directly to named DRG IT administrators.
 
-| Dataverse table          | Create       | Read         | Write        | Delete | Append       | Append To    | Assign       | Share        |
-| ------------------------ | ------------ | ------------ | ------------ | ------ | ------------ | ------------ | ------------ | ------------ |
-| `contact`                | None         | None         | None         | None   | None         | None         | None         | None         |
-| `drg_approval`           | Organization | Organization | Organization | None   | Organization | Organization | Organization | Organization |
-| `drg_deliverable`        | Organization | Organization | Organization | None   | Organization | Organization | Organization | Organization |
-| `drg_deliverabletype`    | Organization | Organization | Organization | None   | Organization | Organization | Organization | Organization |
-| `drg_document`           | Organization | Organization | Organization | None   | Organization | Organization | Organization | Organization |
-| `drg_documentaccesslog`  | Organization | Organization | Organization | None   | Organization | Organization | Organization | Organization |
-| `drg_program`            | Organization | Organization | Organization | None   | Organization | Organization | Organization | Organization |
-| `drg_programaccess`      | Organization | Organization | Organization | None   | Organization | Organization | Organization | Organization |
-| `drg_programsite`        | Organization | Organization | Organization | None   | Organization | Organization | Organization | Organization |
-| `systemuser`             | None         | Organization | None         | None   | None         | Organization | None         | None         |
+| Field | Value |
+| --- | --- |
+| Role Name | `DRG Admin` |
+| Description | Direct Dataverse administration role for DRG IT users who support IMS data, configuration, troubleshooting, archiving, and controlled cleanup. |
+| Applies To | DRG IMS / DRG Realtime Dashboard |
+| Summary of Core Table Privileges | Organization-level access to DRG custom tables. Delete is available only where DRG intends admins to permanently remove records. |
+| When role is assigned to a Team | Team member gets all team privileges by default. |
+| Member's privilege inheritance | Direct User (Basic) access level and Team privileges. |
 
-Notes:
-
-- Program creation is restricted to DRG admins by the data model.
-- Prefer status changes and inactive flags over deleting business records.
-- Use the full DRG Admin role for app/data administration. Use Dataverse System Administrator only for environment/platform administration.
-
-### DRG Program Owner
-
-| Field                            | Value                                                                                                                                                                                                   |
-| -------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Role Name                        | `DRG Program Owner`                                                                                                                                                                                     |
-| Description                      | Program management role for users responsible for assigned programs. Program owners can view and manage program records, deliverables, reviewer access, documents, approvals, audit history, and site information for programs they own or are granted access to. |
-| Applies To                       | DRG IMS / DRG Realtime Dashboard                                                                                                                                                                        |
-| Summary of Core Table Privileges | Read access to assigned DRG program data and audit history, with create/update permissions for program access, deliverables, documents, approvals, and site records needed to manage assigned programs. Program-specific enforcement should be handled by ownership, sharing, or app/flow checks against `drg_programaccess`. |
-| When role is assigned to a Team  | Team member gets all team privileges by default.                                                                                                                                                         |
-| Member's privilege inheritance   | Direct User (Basic) access level and Team privileges                                                                                                                                                     |
-
-| Dataverse table          | Create | Read         | Write | Delete | Append        | Append To     | Assign | Share |
-| ------------------------ | ------ | ------------ | ----- | ------ | ------------- | ------------- | ------ | ----- |
-| `contact`                | None   | None         | None  | None   | None          | None          | None   | None  |
-| `drg_approval`           | User   | Organization | User  | None   | Business Unit | Business Unit | User   | User  |
-| `drg_deliverable`        | User   | Organization | User  | None   | Business Unit | Business Unit | User   | User  |
-| `drg_deliverabletype`    | None   | Organization | None  | None   | Organization  | Organization  | None   | None  |
-| `drg_document`           | User   | Organization | User  | None   | Business Unit | Business Unit | User   | User  |
-| `drg_documentaccesslog`  | User   | User         | None  | None   | User          | User          | None   | None  |
-| `drg_program`            | None   | Organization | User  | None   | Business Unit | Business Unit | User   | User  |
-| `drg_programaccess`      | User   | Organization | User  | None   | Business Unit | Business Unit | User   | User  |
-| `drg_programsite`        | User   | Organization | User  | None   | Business Unit | Business Unit | User   | User  |
-| `systemuser`             | None   | Organization | None  | None   | None          | Organization  | None   | None  |
+| Dataverse table | Create | Read | Write | Delete | Append | Append To | Assign | Share |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| `contact` | None | None | None | None | None | None | None | None |
+| `drg_approval` | Organization | Organization | Organization | See delete policy | Organization | Organization | Organization | Organization |
+| `drg_deliverable` | Organization | Organization | Organization | See delete policy | Organization | Organization | Organization | Organization |
+| `drg_deliverabletype` | Organization | Organization | Organization | None | Organization | Organization | Organization | Organization |
+| `drg_document` | Organization | Organization | Organization | See delete policy | Organization | Organization | Organization | Organization |
+| `drg_documentaccesslog` | Organization | Organization | Organization | See delete policy | Organization | Organization | Organization | Organization |
+| `drg_program` | Organization | Organization | Organization | See delete policy | Organization | Organization | Organization | Organization |
+| `drg_programaccess` | Organization | Organization | Organization | See delete policy | Organization | Organization | Organization | Organization |
+| `drg_programsite` | Organization | Organization | Organization | See delete policy | Organization | Organization | Organization | Organization |
+| `systemuser` | None | Organization | None | None | None | Organization | None | None |
 
 Notes:
 
-- Program owners can create and revoke access rows only for programs they own or manage. Dataverse role scopes alone do not understand "owner of the related program", so enforce this with ownership/sharing plus app or Power Automate checks.
-- Program owners should be able to read audit rows for every program they are assigned to, not only audit rows they personally created.
-- To make User-level read on `drg_documentaccesslog` work for assigned-program audit visibility, each audit row should be owned by or shared with the same program owner/team/access team that owns or can view the related program. If that ownership model is not implemented, use app/API filtering against `drg_programaccess` before showing audit data.
-- Revoking program access should update `drg_isactive` and stamp revoke fields instead of deleting rows.
+- DRG admins can create programs and manage administrative cleanup.
+- DRG admins can archive programs by updating `drg_program.drg_status = Archived`.
+- Prefer archive for real business records. Use delete for setup mistakes, test data, or an explicitly approved data-retention workflow.
+- Use Dataverse System Administrator only for environment/platform administration.
 
-### DRG Staff
+### DRG IMS Web App Service
 
-| Field                            | Value                                                                                                                                                                                                   |
-| -------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Role Name                        | `DRG Staff`                                                                                                                                                                                             |
-| Description                      | Internal staff role for working with assigned DRG programs, managing deliverables, uploading DRG submission documents, acknowledging approved documents, viewing assigned-program audit history, and maintaining deliverable type values. |
-| Applies To                       | DRG IMS / DRG Realtime Dashboard                                                                                                                                                                        |
-| Summary of Core Table Privileges | Read access to assigned program data and audit history, create/update access for deliverables and DRG submission documents, read access to approvals and reviewer responses, and limited create/update access to deliverable type records. |
-| When role is assigned to a Team  | Team member gets all team privileges by default.                                                                                                                                                         |
-| Member's privilege inheritance   | Direct User (Basic) access level and Team privileges                                                                                                                                                     |
+Assign this role to the Dataverse Application User for the app registration configured by `DATAVERSE_CLIENT_ID`.
 
-| Dataverse table          | Create       | Read         | Write | Delete | Append       | Append To    | Assign | Share |
-| ------------------------ | ------------ | ------------ | ----- | ------ | ------------ | ------------ | ------ | ----- |
-| `contact`                | None         | None         | None  | None   | None         | None         | None   | None  |
-| `drg_approval`           | User         | User         | None  | None   | User         | User         | None   | None  |
-| `drg_deliverable`        | User         | User         | User  | None   | User         | User         | None   | None  |
-| `drg_deliverabletype`    | Organization | Organization | User  | None   | Organization | Organization | None   | None  |
-| `drg_document`           | User         | User         | User  | None   | User         | User         | None   | None  |
-| `drg_documentaccesslog`  | User         | User         | None  | None   | User         | User         | None   | None  |
-| `drg_program`            | None         | User         | None  | None   | User         | User         | None   | None  |
-| `drg_programaccess`      | None         | User         | None  | None   | User         | User         | None   | None  |
-| `drg_programsite`        | User         | User         | User  | None   | User         | User         | None   | None  |
-| `systemuser`             | None         | Organization | None  | None   | None         | Organization | None   | None  |
+| Field | Value |
+| --- | --- |
+| Role Name | `DRG IMS Web App Service` |
+| Description | Server-to-server role used by the Next.js web app to perform all application data operations after the app has enforced user authorization. |
+| Applies To | DRG IMS / DRG Realtime Dashboard |
+| Summary of Core Table Privileges | Organization-level CRUD needed by the web app. Delete should match the implemented app behavior and DRG retention policy. |
+| Assignment | Dataverse Application User only. Do not assign this role to human users. |
 
-Notes:
-
-- DRG staff need create/update access for deliverables and DRG Submission documents because they work assigned programs and upload submissions.
-- DRG staff should be able to read audit rows for every program they are assigned to, not only audit rows they personally created.
-- To make User-level read on `drg_documentaccesslog` work for assigned-program audit visibility, each audit row should be owned by or shared with the same staff/team/access team that owns or can view the related program. If that ownership model is not implemented, use app/API filtering against `drg_programaccess` before showing audit data.
-- DRG staff can create deliverable type records, but should generally set records inactive instead of deleting them.
-- DRG staff read approval status but should not directly alter reviewer decisions.
-
-### DRG External Reviewer
-
-| Field                            | Value                                                                                                                                                                                                   |
-| -------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Role Name                        | `DRG External Reviewer`                                                                                                                                                                                 |
-| Description                      | Guest reviewer role for external users who review assigned deliverables, download DRG submissions, submit approval decisions, comments, response PDFs, and signed approval PDFs for programs where they have active access. |
-| Applies To                       | DRG IMS / DRG Realtime Dashboard                                                                                                                                                                        |
-| Summary of Core Table Privileges | Minimal read access to assigned program, deliverable, and document metadata; create/update access only for the reviewer's approval records, reviewer response documents, signed approval documents, and access log entries. Program-specific enforcement should be handled by ownership, sharing, or app/flow checks against `drg_programaccess`. |
-| When role is assigned to a Team  | Team member gets all team privileges by default.                                                                                                                                                         |
-| Member's privilege inheritance   | Direct User (Basic) access level and Team privileges                                                                                                                                                     |
-
-| Dataverse table          | Create | Read         | Write | Delete | Append | Append To | Assign | Share |
-| ------------------------ | ------ | ------------ | ----- | ------ | ------ | --------- | ------ | ----- |
-| `contact`                | None   | None         | None  | None   | None   | None      | None   | None  |
-| `drg_approval`           | None   | User         | User  | None   | User   | User      | None   | None  |
-| `drg_deliverable`        | None   | User         | None  | None   | User   | User      | None   | None  |
-| `drg_deliverabletype`    | None   | Organization | None  | None   | None   | None      | None   | None  |
-| `drg_document`           | User   | User         | User  | None   | User   | User      | None   | None  |
-| `drg_documentaccesslog`  | User   | User         | None  | None   | User   | User      | None   | None  |
-| `drg_program`            | None   | User         | None  | None   | User   | User      | None   | None  |
-| `drg_programaccess`      | None   | User         | None  | None   | None   | None      | None   | None  |
-| `drg_programsite`        | None   | User         | None  | None   | User   | User      | None   | None  |
-| `systemuser`             | None   | User         | None  | None   | None   | User      | None   | None  |
+| Dataverse table | Create | Read | Write | Delete | Append | Append To | Assign | Share |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| `contact` | None | None | None | None | None | None | None | None |
+| `drg_approval` | Organization | Organization | Organization | See delete policy | Organization | Organization | Organization | Organization |
+| `drg_deliverable` | Organization | Organization | Organization | See delete policy | Organization | Organization | Organization | Organization |
+| `drg_deliverabletype` | Organization | Organization | Organization | None | Organization | Organization | Organization | Organization |
+| `drg_document` | Organization | Organization | Organization | See delete policy | Organization | Organization | Organization | Organization |
+| `drg_documentaccesslog` | Organization | Organization | Organization | See delete policy | Organization | Organization | Organization | Organization |
+| `drg_program` | Organization | Organization | Organization | See delete policy | Organization | Organization | Organization | Organization |
+| `drg_programaccess` | Organization | Organization | Organization | See delete policy | Organization | Organization | Organization | Organization |
+| `drg_programsite` | Organization | Organization | Organization | See delete policy | Organization | Organization | Organization | Organization |
+| `systemuser` | None | Organization | None | None | None | Organization | None | None |
 
 Notes:
 
-- External reviewers should generally read only active assignments.
-- External reviewers create Reviewer Response and Signed Approval documents only for assigned review work.
-- External reviewers update their own approval decision, comments, response document, and signed approval document.
-- SharePoint file permissions must align with these Dataverse permissions.
+- The web app service role is powerful by design. User-level authorization must be enforced before every write, archive, delete, upload, download, approval, and access-management action.
+- Program-specific access is still represented by `drg_programaccess`; it is application data, not a direct Dataverse security boundary for non-admin users.
+- Keep this application user's client secret or certificate restricted to the hosting environment.
+
+## Delete Policy
+
+Current production-safe recommendation:
+
+| Table | Delete recommendation |
+| --- | --- |
+| `drg_program` | Enable only when the app has an admin-only delete action. |
+| `drg_programsite` | Enable if deleting a program should clean up setup/site rows. |
+| `drg_programaccess` | Enable if deleting a program should clean up access rows. |
+| `drg_deliverable` | Enable only when full cascade delete is intentionally implemented. |
+| `drg_document` | Enable only when full cascade delete is intentionally implemented and SharePoint cleanup is handled. |
+| `drg_approval` | Enable only when full cascade delete is intentionally implemented. |
+| `drg_documentaccesslog` | Avoid deleting unless DRG approves deleting audit history. |
+| `drg_deliverabletype` | Keep delete off; deactivate or rename reference values instead. |
+
+Recommended staged rollout:
+
+1. **Archive first:** implement admin-only archive by updating `drg_program.drg_status = Archived`.
+2. **Delete empty/test programs:** allow admin-only delete only when the program has no deliverables, documents, approvals, or audit logs. The app may delete simple setup children such as `drg_programsite` and `drg_programaccess`.
+3. **Full cascading delete:** enable broader delete privileges only after the app implements an explicit cascade plan, confirmation UI, SharePoint file cleanup, and audit/retention approval.
+
+Do not enable blanket delete privileges simply because the app may need them later. Grant them when the app behavior and DRG retention decision are ready.
+
+## Application Role Enforcement
+
+The following roles are still used by the web app, but they should not receive Dataverse security roles in the IT-only Dataverse model:
+
+| Entra group/app role | Web app behavior |
+| --- | --- |
+| `drg_program_owners` | May manage assigned programs and access through the app when an active `Program Owner` `drg_programaccess` row exists. |
+| `drg_staff` | May work assigned programs and upload DRG submissions through the app when an active `DRG Staff` or `Program Owner` access row exists. |
+| `external_reviewers` | May review assigned work through the app when an active `External Reviewer` access row exists. |
+
+The app must enforce:
+
+- Only DRG admins can create programs.
+- Only DRG admins can archive programs.
+- Only DRG admins can delete programs.
+- Program owners can manage access only for programs where they have active owner access.
+- Staff and external reviewers can only work programs where they have active access.
+- Archived programs remain readable to authorized users but block new uploads and approval actions.
 
 ## Lookup and Relationship Privileges
 
@@ -168,17 +153,15 @@ Examples:
 - Creating a `drg_programaccess` row linked to a `drg_program` and `systemuser` usually requires Append on `drg_programaccess` and Append To on the related parent records.
 - Creating a `drg_approval` linked to `drg_program`, `drg_deliverable`, and `drg_document` requires the appropriate Append and Append To privileges across those tables.
 
+Because the web app service role creates these records server-side, the service role needs the relevant Append and Append To privileges at Organization scope.
+
 ## System Table Access
 
-Each role also needs the minimum privileges required to open the model-driven app and resolve user lookups.
+Keep `systemuser` read access because the model uses lookups to `systemuser` for creators, owners, assigned staff, reviewers, uploaders, viewers, and grant/revoke users.
 
-Recommended setup:
+Keep `Append To` on `systemuser` where the app creates records that reference a user lookup, such as `drg_programaccess.drg_user`, `drg_approval.drg_revieweruser`, or `drg_document.drg_uploadedby`.
 
-- Turn on **Include App Opener privileges for running Model-Driven apps** when creating each custom role.
-- Keep `systemuser` read access because the model uses lookups to `systemuser` for creators, owners, assigned staff, reviewers, uploaders, viewers, and grant/revoke users.
-- Keep `Append To` on `systemuser` where the role creates records that reference a user lookup, such as `drg_programaccess.drg_user`, `drg_approval.drg_revieweruser`, or `drg_document.drg_uploadedby`.
-- `contact` is not used by the current data model. External reviewers are Entra B2B guest users, so they appear as Dataverse users in `systemuser`, not as `contact` rows. Leave `contact` as None unless you add a separate external reviewer directory or customer/contact management feature.
-- If the app uses saved views, dashboards, charts, or personal settings, keep the default app opener/basic user privileges created by the role wizard.
+`contact` is not used by the current data model. External reviewers are Entra B2B guest users, so they appear as Dataverse users in `systemuser`, not as `contact` rows. Leave `contact` as None unless DRG adds a separate external reviewer directory or customer/contact management feature.
 
 ## Tenant Migration Notes
 
@@ -186,6 +169,9 @@ When moving from the development tenant to the final tenant:
 
 1. Export these custom security roles in a solution.
 2. Import the solution into the final tenant environment.
-3. Recreate the Dataverse group teams for the final tenant's Entra groups.
-4. Assign the imported roles to the new Dataverse group teams.
-5. Re-test with one user from each group, especially one guest external reviewer.
+3. Recreate or rebind the `drg_admins` Dataverse group team for the final tenant's Entra group.
+4. Create the Dataverse Application User for the final web app registration.
+5. Assign `DRG Admin` to the admin group team or named DRG IT users.
+6. Assign `DRG IMS Web App Service` to the application user.
+7. Do not assign Dataverse roles to program owners, staff, or external reviewers unless DRG intentionally adopts direct Dataverse/model-driven access for those groups.
+8. Re-test with one admin and one user from each web app role to confirm the dashboard permissions work without direct Dataverse access.

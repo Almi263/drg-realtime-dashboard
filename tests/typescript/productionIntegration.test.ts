@@ -266,6 +266,69 @@ describe("production integration layer", () => {
     ]);
   });
 
+  it("blocks deleting programs with substantive child records", async () => {
+    vi.resetModules();
+    configureDataverseEnv();
+
+    global.fetch = createDataverseFetchMock({
+      "/drg_deliverables?": () =>
+        jsonResponse({ value: [{ drg_deliverableid: "deliverable-1" }] }),
+      "/drg_documents?": () => jsonResponse({ value: [] }),
+      "/drg_approvals?": () => jsonResponse({ value: [] }),
+      "/drg_documentaccesslogs?": () => jsonResponse({ value: [] }),
+    });
+
+    const { deleteEmptyProgram } = await import("@/lib/dataverse/programs");
+
+    await expect(deleteEmptyProgram("program-1")).rejects.toMatchObject({
+      code: "programDeleteBlocked",
+      status: 409,
+    });
+
+    expect(global.fetch).not.toHaveBeenCalledWith(
+      expect.stringContaining("/drg_programs(program-1)"),
+      expect.objectContaining({ method: "DELETE" })
+    );
+  });
+
+  it("deletes setup children before deleting empty test programs", async () => {
+    vi.resetModules();
+    configureDataverseEnv();
+
+    const deletedPaths: string[] = [];
+    global.fetch = createDataverseFetchMock({
+      "/drg_deliverables?": () => jsonResponse({ value: [] }),
+      "/drg_documents?": () => jsonResponse({ value: [] }),
+      "/drg_approvals?": () => jsonResponse({ value: [] }),
+      "/drg_documentaccesslogs?": () => jsonResponse({ value: [] }),
+      "/drg_programsites?": () =>
+        jsonResponse({ value: [{ drg_programsiteid: "site-1" }] }),
+      "/drg_programaccesses?": () =>
+        jsonResponse({ value: [{ drg_programaccessid: "access-1" }] }),
+      "/drg_programsites(site-1)": (request) => {
+        deletedPaths.push(new URL(request.url).pathname);
+        return new Response(null, { status: 204 });
+      },
+      "/drg_programaccesses(access-1)": (request) => {
+        deletedPaths.push(new URL(request.url).pathname);
+        return new Response(null, { status: 204 });
+      },
+      "/drg_programs(program-1)": (request) => {
+        deletedPaths.push(new URL(request.url).pathname);
+        return new Response(null, { status: 204 });
+      },
+    });
+
+    const { deleteEmptyProgram } = await import("@/lib/dataverse/programs");
+
+    await expect(deleteEmptyProgram("program-1")).resolves.toBeUndefined();
+    expect(deletedPaths).toEqual([
+      "/api/data/v9.2/drg_programsites(site-1)",
+      "/api/data/v9.2/drg_programaccesses(access-1)",
+      "/api/data/v9.2/drg_programs(program-1)",
+    ]);
+  });
+
   it("blocks non-PDF uploads before SharePoint is called", async () => {
     vi.resetModules();
     vi.stubEnv("SHAREPOINT_TENANT_ID", "tenant-id");
@@ -404,6 +467,45 @@ describe("production integration layer", () => {
       ),
       expect.objectContaining({ method: "PUT" })
     );
+  });
+
+  it("deletes readable SharePoint program folders by path", async () => {
+    vi.resetModules();
+    vi.stubEnv("SHAREPOINT_TENANT_ID", "tenant-id");
+    vi.stubEnv("SHAREPOINT_CLIENT_ID", "client-id");
+    vi.stubEnv("SHAREPOINT_CLIENT_SECRET", "client-secret");
+    vi.stubEnv("SHAREPOINT_SITE_ID", "site-id");
+    vi.stubEnv("SHAREPOINT_DRIVE_ID", "drive-id");
+    vi.stubEnv("SHAREPOINT_DOCUMENT_FOLDER", "DRG Submissions");
+
+    let deletedPath = "";
+    global.fetch = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const request = new Request(input, init);
+      const url = request.url;
+
+      if (url.includes("login.microsoftonline.com")) {
+        return jsonResponse({ access_token: "graph-token" });
+      }
+
+      if (request.method === "DELETE" && url.includes("/root:/")) {
+        expect(request.headers.get("authorization")).toBe("Bearer graph-token");
+        deletedPath = decodeURIComponent(url.split("/root:/")[1] ?? "");
+        return new Response(null, { status: 204 });
+      }
+
+      throw new Error(`Unhandled fetch URL: ${url}`);
+    });
+
+    const { deleteProgramFolder } = await import("@/lib/sharepoint/files");
+
+    await expect(
+      deleteProgramFolder({
+        programId: "PRG-001",
+        programName: "Surface Comms",
+      })
+    ).resolves.toBeUndefined();
+
+    expect(deletedPath).toBe("DRG Submissions/PRG-001 - Surface Comms");
   });
 
   it("blocks upload actions for archived programs", async () => {

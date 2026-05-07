@@ -83,11 +83,22 @@ export async function POST(request: Request) {
       creatorUpn,
     });
 
+    let sharePointProvisioningWarning: string | undefined;
+
     if (isSharePointUploadConfigured()) {
-      await ensureProgramFolder({
-        programId,
-        programName: name,
-      });
+      try {
+        await ensureProgramFolder({
+          programId,
+          programName: name,
+        });
+      } catch (error) {
+        console.error("SharePoint folder provisioning failed after program creation", {
+          programId,
+          error,
+        });
+        sharePointProvisioningWarning =
+          "Program was created, but SharePoint folder provisioning failed. Document uploads may fail until SharePoint app permissions are fixed.";
+      }
     }
 
     await triggerFlow("programAccessChanged", {
@@ -97,7 +108,17 @@ export async function POST(request: Request) {
       createdByEmail: creatorUpn,
     });
 
-    return NextResponse.json({ programId, created: true }, { status: 201 });
+    return NextResponse.json(
+      {
+        programId,
+        created: true,
+        sharePointFolderReady: !sharePointProvisioningWarning,
+        ...(sharePointProvisioningWarning
+          ? { warning: sharePointProvisioningWarning }
+          : {}),
+      },
+      { status: 201 }
+    );
   } catch (error) {
     return errorResponse(error, {
       fallback: "Failed to create program.",

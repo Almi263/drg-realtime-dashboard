@@ -1,12 +1,21 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
+import Alert from "@mui/material/Alert";
 import Box from "@mui/material/Box";
+import Button from "@mui/material/Button";
 import Chip from "@mui/material/Chip";
+import Dialog from "@mui/material/Dialog";
+import DialogActions from "@mui/material/DialogActions";
+import DialogContent from "@mui/material/DialogContent";
+import DialogContentText from "@mui/material/DialogContentText";
+import DialogTitle from "@mui/material/DialogTitle";
 import Tab from "@mui/material/Tab";
 import Tabs from "@mui/material/Tabs";
 import Typography from "@mui/material/Typography";
 import CalendarTodayIcon from "@mui/icons-material/CalendarToday";
+import DeleteOutlineIcon from "@mui/icons-material/DeleteOutline";
 import LocationOnIcon from "@mui/icons-material/LocationOn";
 import AccessRestrictedNotice from "@/components/AccessRestrictedNotice";
 import DocumentsTable from "@/components/DocumentsTable";
@@ -38,7 +47,11 @@ export default function ProgramDetailView({
   accessLogsByDocumentId = {},
 }: ProgramDetailViewProps) {
   const [activeTab, setActiveTab] = useState(0);
-  const { getProgramById } = useRole();
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
+  const router = useRouter();
+  const { getProgramById, refreshPrograms, role } = useRole();
   const program = getProgramById(programId);
 
   if (!program) {
@@ -49,6 +62,34 @@ export default function ProgramDetailView({
 
   const deliverableMap = Object.fromEntries(deliverables.map((d) => [d.id, d.title]));
   const overdue = deliverables.filter((d) => d.status.startsWith("Overdue")).length;
+  const mayDeleteProgram = role === "drg-admin";
+
+  async function handleDeleteProgram() {
+    setIsDeleting(true);
+    setDeleteError(null);
+
+    try {
+      const response = await fetch(`/api/programs/${programId}`, {
+        method: "DELETE",
+      });
+
+      if (!response.ok) {
+        const json = await response.json().catch(() => null);
+        throw new Error(json?.error ?? "Failed to delete program.");
+      }
+
+      await refreshPrograms();
+      setIsDeleteDialogOpen(false);
+      router.push("/programs");
+      router.refresh();
+    } catch (error) {
+      setDeleteError(
+        error instanceof Error ? error.message : "Failed to delete program."
+      );
+    } finally {
+      setIsDeleting(false);
+    }
+  }
 
   return (
     <Box sx={{ display: "flex", flexDirection: "column", gap: 4 }}>
@@ -61,6 +102,12 @@ export default function ProgramDetailView({
           p: 2.5,
         }}
       >
+        {deleteError && (
+          <Alert severity="error" sx={{ mb: 2 }}>
+            {deleteError}
+          </Alert>
+        )}
+
         <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", flexWrap: "wrap", gap: 1, mb: 1.5 }}>
           <Box>
             <Typography variant="h6" sx={{ fontWeight: 700 }}>
@@ -70,9 +117,25 @@ export default function ProgramDetailView({
               {program.contractRef}
             </Typography>
           </Box>
-          {overdue > 0 && (
-            <Chip label={`${overdue} overdue`} sx={{ bgcolor: "error.main", color: "#fff", fontWeight: 700 }} />
-          )}
+          <Box sx={{ display: "flex", alignItems: "center", gap: 1, flexWrap: "wrap", justifyContent: "flex-end" }}>
+            {overdue > 0 && (
+              <Chip label={`${overdue} overdue`} sx={{ bgcolor: "error.main", color: "#fff", fontWeight: 700 }} />
+            )}
+            {mayDeleteProgram && (
+              <Button
+                color="error"
+                variant="outlined"
+                size="small"
+                startIcon={<DeleteOutlineIcon />}
+                onClick={() => {
+                  setDeleteError(null);
+                  setIsDeleteDialogOpen(true);
+                }}
+              >
+                Delete
+              </Button>
+            )}
+          </Box>
         </Box>
 
         <Typography variant="body2" sx={{ color: "text.secondary", mb: 2 }}>
@@ -135,6 +198,37 @@ export default function ProgramDetailView({
           {activeTab === 2 && <ProgramAccessManager program={program} />}
         </Box>
       </Box>
+
+      <Dialog
+        open={isDeleteDialogOpen}
+        onClose={() => {
+          if (!isDeleting) setIsDeleteDialogOpen(false);
+        }}
+        maxWidth="xs"
+        fullWidth
+      >
+        <DialogTitle>Delete Program?</DialogTitle>
+        <DialogContent>
+          <DialogContentText>
+            This permanently deletes the program only if it is still empty test
+            data. Programs with deliverables, documents, approvals, or audit
+            logs will be kept.
+          </DialogContentText>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setIsDeleteDialogOpen(false)} disabled={isDeleting}>
+            Cancel
+          </Button>
+          <Button
+            color="error"
+            variant="contained"
+            onClick={handleDeleteProgram}
+            disabled={isDeleting}
+          >
+            {isDeleting ? "Deleting..." : "Delete"}
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Box>
   );
 }

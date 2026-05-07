@@ -84,6 +84,10 @@ export function canCreateProgram(user: { internalRoles: InternalRole[] }) {
   return user.internalRoles.includes("drg-admin");
 }
 
+export function canDeleteProgram(user: { internalRoles: InternalRole[] }) {
+  return user.internalRoles.includes("drg-admin");
+}
+
 export function canManageProgramAccess(
   user: { email?: string | null; internalRoles: InternalRole[] },
   program: Program

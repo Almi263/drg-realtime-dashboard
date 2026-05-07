@@ -107,16 +107,38 @@ export async function POST(request: Request) {
       assignedToEmail: requiredString(body?.assignedToEmail),
     });
 
+    let sharePointProvisioningWarning: string | undefined;
+
     if (isSharePointUploadConfigured()) {
-      await ensureDeliverableFolder({
-        programId,
-        programName: program.name,
-        deliverableId,
-        deliverableName: title,
-      });
+      try {
+        await ensureDeliverableFolder({
+          programId,
+          programName: program.name,
+          deliverableId,
+          deliverableName: title,
+        });
+      } catch (error) {
+        console.error("SharePoint folder provisioning failed after deliverable creation", {
+          deliverableId,
+          programId,
+          error,
+        });
+        sharePointProvisioningWarning =
+          "Deliverable was created, but SharePoint folder provisioning failed. Document uploads may fail until SharePoint app permissions are fixed.";
+      }
     }
 
-    return NextResponse.json({ deliverableId, created: true }, { status: 201 });
+    return NextResponse.json(
+      {
+        deliverableId,
+        created: true,
+        sharePointFolderReady: !sharePointProvisioningWarning,
+        ...(sharePointProvisioningWarning
+          ? { warning: sharePointProvisioningWarning }
+          : {}),
+      },
+      { status: 201 }
+    );
   } catch (error) {
     return errorResponse(error, {
       fallback: "Failed to create deliverable.",
