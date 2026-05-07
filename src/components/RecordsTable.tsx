@@ -30,6 +30,7 @@ import type { Deliverable, DeliverableStatus } from "@/lib/models/deliverable";
 import { DELIVERABLE_STATUSES } from "@/lib/models/deliverable";
 import type { Program } from "@/lib/models/program";
 import { useRole } from "@/lib/context/role-context";
+import { normalizeEmail } from "@/lib/auth/roles";
 
 /* ------------------------------------------------------------------ */
 /*  Helpers                                                           */
@@ -41,6 +42,7 @@ type SortableKey =
   | "type"
   | "status"
   | "dueDate"
+  | "createdOn"
   | "assignedTo";
 type Order = "asc" | "desc";
 
@@ -77,6 +79,16 @@ function getComparator(order: Order, orderBy: SortableKey) {
 
 function formatDate(iso: string): string {
   return new Date(iso).toLocaleDateString();
+}
+
+function getAssignedToDisplay(deliverable: Deliverable, programs: Program[]) {
+  const program = programs.find((entry) => entry.id === deliverable.programId);
+  return (
+    program?.access.find(
+      (entry) =>
+        normalizeEmail(entry.email) === normalizeEmail(deliverable.assignedToEmail)
+    )?.displayName ?? deliverable.assignedTo
+  );
 }
 
 /* ------------------------------------------------------------------ */
@@ -133,13 +145,13 @@ export default function RecordsTable({
           d.title,
           d.type,
           d.status,
-          d.assignedTo,
+          getAssignedToDisplay(d, programs),
           programMap[d.programId] ?? d.programId,
         ].some((value) => value.toLowerCase().includes(normalizedSearchQuery))
       );
     }
     return rows.slice().sort(getComparator(order, orderBy));
-  }, [deliverables, statusFilter, typeFilter, programFilter, searchQuery, order, orderBy, programMap]);
+  }, [deliverables, statusFilter, typeFilter, programFilter, searchQuery, order, orderBy, programMap, programs]);
 
   const handleSort = (column: SortableKey) => {
     const isAsc = orderBy === column && order === "asc";
@@ -281,6 +293,7 @@ export default function RecordsTable({
                 { key: "type" as SortableKey, label: "Type" },
                 { key: "status" as SortableKey, label: "Status" },
                 { key: "dueDate" as SortableKey, label: "Due Date" },
+                { key: "createdOn" as SortableKey, label: "Created On" },
                 { key: "assignedTo" as SortableKey, label: "Assigned To" },
               ].map((col) => (
                 <TableCell key={col.key} sortDirection={orderBy === col.key ? order : false}>
@@ -308,6 +321,8 @@ export default function RecordsTable({
                   ? "Program owners can only delete deliverables with no documents"
                   : "Delete deliverable";
 
+              const assignedToDisplay = getAssignedToDisplay(d, programs);
+
               return (
                 <TableRow
                   key={d.id}
@@ -333,7 +348,8 @@ export default function RecordsTable({
                   <TableCell sx={d.status.startsWith("Overdue") ? { color: "error.main" } : undefined}>
                     {formatDate(d.dueDate)}
                   </TableCell>
-                  <TableCell>{d.assignedTo}</TableCell>
+                  <TableCell>{d.createdOn ? formatDate(d.createdOn) : "—"}</TableCell>
+                  <TableCell>{assignedToDisplay}</TableCell>
                   {showProgramFilter && (
                     <TableCell>
                       <Typography variant="caption" sx={{ color: "text.secondary" }}>
@@ -367,7 +383,7 @@ export default function RecordsTable({
             {filtered.length === 0 && (
               <TableRow>
                 <TableCell
-                  colSpan={6 + (showProgramFilter ? 1 : 0) + (showActions ? 1 : 0)}
+                  colSpan={7 + (showProgramFilter ? 1 : 0) + (showActions ? 1 : 0)}
                   align="center"
                   sx={{ py: 4, color: "text.secondary" }}
                 >

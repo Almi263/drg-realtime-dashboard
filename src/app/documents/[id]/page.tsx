@@ -32,7 +32,11 @@ async function DocumentDetailContent({ id, user }: { id: string; user: Awaited<R
   return (
     <DocumentDetail
       doc={doc}
-      deliverableTitle={deliverable?.title ?? doc.deliverableId}
+      deliverableLabel={
+        deliverable
+          ? `${deliverable.deliverableNumber}: ${deliverable.title}`
+          : doc.deliverableId
+      }
       program={program}
       accessLogs={accessLogs}
     />

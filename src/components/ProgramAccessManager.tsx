@@ -219,7 +219,7 @@ export default function ProgramAccessManager({ program }: { program: Program }) 
   }
 
   return (
-    <Card variant="outlined">
+    <Card variant="outlined" sx={{ mx: { md: -2 } }}>
       <CardContent sx={{ p: 2.5 }}>
         <Stack direction="row" spacing={1} sx={{ alignItems: "center", mb: 1 }}>
           <Typography variant="subtitle1" sx={{ fontWeight: 700 }}>
@@ -312,14 +312,14 @@ export default function ProgramAccessManager({ program }: { program: Program }) 
         {accessError && <Alert severity="error" sx={{ mb: 2 }}>{accessError}</Alert>}
 
         <TableContainer>
-          <Table size="small">
+          <Table size="small" sx={{ minWidth: 980 }}>
             <TableHead>
               <TableRow>
                 <TableCell sx={{ fontWeight: 700, width: { xs: 220, md: 300 } }}>Name</TableCell>
-                <TableCell sx={{ fontWeight: 700 }}>Email</TableCell>
-                <TableCell sx={{ fontWeight: 700 }}>Role</TableCell>
-                <TableCell sx={{ fontWeight: 700 }}>Granted</TableCell>
-                <TableCell sx={{ fontWeight: 700 }}>Granted By</TableCell>
+                <TableCell sx={{ fontWeight: 700, minWidth: 240 }}>Email</TableCell>
+                <TableCell sx={{ fontWeight: 700, minWidth: 150 }}>Role</TableCell>
+                <TableCell sx={{ fontWeight: 700, minWidth: 180 }}>Granted On</TableCell>
+                <TableCell sx={{ fontWeight: 700, minWidth: 220 }}>Granted By</TableCell>
                 {mayManageAccess && <TableCell sx={{ fontWeight: 700, width: 120 }}>Actions</TableCell>}
               </TableRow>
             </TableHead>

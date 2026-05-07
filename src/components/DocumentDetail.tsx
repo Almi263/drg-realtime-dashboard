@@ -14,6 +14,8 @@ import LockIcon from "@mui/icons-material/Lock";
 import VisibilityIcon from "@mui/icons-material/Visibility";
 import FileDownloadIcon from "@mui/icons-material/FileDownload";
 import UploadFileIcon from "@mui/icons-material/UploadFile";
+import BusinessCenterIcon from "@mui/icons-material/BusinessCenter";
+import DescriptionIcon from "@mui/icons-material/Description";
 import type {
   DeliverableDocument,
   DocumentAccessAction,
@@ -158,20 +160,27 @@ function AccessTimeline({ logs }: { logs: DocumentAccessLog[] }) {
 
 interface DocumentDetailProps {
   doc: DeliverableDocument;
-  deliverableTitle: string;
+  deliverableLabel: string;
   program: Program | undefined;
   accessLogs?: DocumentAccessLog[];
 }
 
 export default function DocumentDetail({
   doc,
-  deliverableTitle,
+  deliverableLabel,
   program,
   accessLogs = [],
 }: DocumentDetailProps) {
   const { role } = useRole();
   const canSeeAccessLog =
     role === "drg-admin" || role === "drg-program-owner" || role === "drg-staff";
+  const uploadLog = accessLogs.find((event) => event.action === "Upload");
+  const uploadedBy =
+    uploadLog?.actorName && uploadLog.actorName.length > doc.uploadedBy.length
+      ? uploadLog.actorName
+      : doc.uploadedBy.includes("@")
+      ? uploadLog?.actorName || doc.uploadedBy
+      : doc.uploadedBy;
 
   return (
     <Box sx={{ display: "flex", flexDirection: "column", gap: 3 }}>
@@ -193,7 +202,7 @@ export default function DocumentDetail({
               <Typography variant="body2" sx={{ color: "text.secondary" }}>
                 {formatFileSize(doc.sizeKb)}
                 {" · "}
-                Uploaded by <strong>{doc.uploadedBy}</strong>
+                Uploaded by <strong>{uploadedBy}</strong>
                 {" · "}
                 {formatDateTime(doc.uploadedAt)}
               </Typography>
@@ -214,12 +223,12 @@ export default function DocumentDetail({
           {/* Metadata row */}
           <Box sx={{ display: "flex", flexWrap: "wrap", gap: 1.5 }}>
             <Box sx={{ display: "flex", gap: 0.5, alignItems: "center" }}>
-              <Typography variant="caption" sx={{ color: "text.secondary", fontWeight: 600 }}>Deliverable</Typography>
-              <Chip label={`${doc.deliverableId} — ${deliverableTitle}`} size="small" variant="outlined" sx={{ fontSize: "0.72rem" }} />
+              <DescriptionIcon fontSize="small" sx={{ color: "text.secondary" }} />
+              <Chip label={deliverableLabel} size="small" variant="outlined" sx={{ fontSize: "0.72rem" }} />
             </Box>
             {program && (
               <Box sx={{ display: "flex", gap: 0.5, alignItems: "center" }}>
-                <Typography variant="caption" sx={{ color: "text.secondary", fontWeight: 600 }}>Program</Typography>
+                <BusinessCenterIcon fontSize="small" sx={{ color: "text.secondary" }} />
                 <Chip label={program.name} size="small" variant="outlined" sx={{ fontSize: "0.72rem" }} />
               </Box>
             )}

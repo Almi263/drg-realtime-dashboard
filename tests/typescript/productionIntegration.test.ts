@@ -584,6 +584,7 @@ describe("production integration layer", () => {
         fileName: "submission.pdf",
         sizeKb: 12,
         uploadedByEmail: "staff@drg.test",
+        description: "Reviewer context for this submission.",
         sharePointSiteUrl: "https://sharepoint.test/sites/drg",
         sharePointDriveId: "drive-id",
         sharePointItemId: "item-id",
@@ -595,6 +596,7 @@ describe("production integration layer", () => {
     expect(createdPayload).toMatchObject({
       drg_documentrole: 100000000,
       drg_status: 100000010,
+      drg_description: "Reviewer context for this submission.",
       drg_sharepointsiteurl: "https://sharepoint.test/sites/drg",
       "drg_uploadedby@odata.bind": "/systemusers(uploader-user-1)",
     });

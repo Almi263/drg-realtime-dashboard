@@ -188,6 +188,7 @@ Columns:
 - `drg_parentdocument`: Lookup to `drg_document`
 - `drg_approval`: Optional lookup to `drg_approval`. Add this after both `drg_document` and `drg_approval` exist; it links reviewer response/signed approval documents back to the approval row that produced them.
 - `drg_filename`: Text, required
+- `drg_description`: Multiline text
 - `drg_filesizekb`: Whole number
 - `drg_sharepointsiteurl`: URL, optional/admin metadata
 - `drg_sharepointdriveid`: Text, required

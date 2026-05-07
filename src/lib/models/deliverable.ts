@@ -40,5 +40,6 @@ export interface Deliverable {
   acknowledgedOn?: string;
   currentSubmissionNumber?: number;
   isClosed: boolean;
+  createdOn?: string;
   lastUpdated: string;
 }

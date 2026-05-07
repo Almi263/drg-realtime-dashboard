@@ -31,6 +31,7 @@ interface DataverseDeliverableRow extends Record<string, unknown> {
   drg_acknowledgedon?: string;
   drg_currentsubmissionnumber?: number;
   drg_isclosed?: boolean;
+  createdon?: string;
   modifiedon?: string;
   _drg_program_value?: string;
   _drg_type_value?: string;
@@ -71,6 +72,14 @@ export interface CreateDeliverableInput {
   dueDate: string;
   assignedToEmail?: string;
   status?: DeliverableStatus;
+}
+
+export interface UpdateDeliverableInput {
+  deliverableId: string;
+  title: string;
+  description?: string;
+  dueDate: string;
+  assignedToEmail?: string;
 }
 
 const DELIVERABLE_STATUS_ENV: Partial<Record<DeliverableStatus, string>> = {
@@ -199,7 +208,10 @@ function mapDeliverableRow(row: DataverseDeliverableRow): Deliverable {
     dueDate: row.drg_duedate ?? "",
     assignedToUserId: row._drg_assignedtouser_value,
     assignedToEmail: row.drg_assignedtoemail,
-    assignedTo: row.drg_assignedtoemail ?? "",
+    assignedTo:
+      getFormattedValue(row, "_drg_assignedtouser_value") ??
+      row.drg_assignedtoemail ??
+      "",
     programId: row._drg_program_value ?? "",
     contractRef: row.drg_contractref ?? "",
     description: row.drg_description ?? "",
@@ -210,6 +222,7 @@ function mapDeliverableRow(row: DataverseDeliverableRow): Deliverable {
     acknowledgedOn: row.drg_acknowledgedon,
     currentSubmissionNumber: row.drg_currentsubmissionnumber,
     isClosed: row.drg_isclosed ?? false,
+    createdOn: row.createdon,
     lastUpdated: row.modifiedon ?? "",
   };
 }
@@ -222,7 +235,7 @@ export async function listDeliverables(): Promise<Deliverable[]> {
 
   const rows = await listRows<DataverseDeliverableRow>(
     "drg_deliverables",
-    "$select=drg_deliverableid,drg_title,drg_deliverablenumber,drg_contractref,drg_description,drg_duedate,drg_assignedtoemail,_drg_assignedtouser_value,drg_lastsubmittedon,drg_lastapprovedon,_drg_acknowledgedby_value,drg_acknowledgedbyemail,drg_acknowledgedon,drg_currentsubmissionnumber,drg_isclosed,modifiedon,_drg_program_value,_drg_type_value,drg_status&$filter=statecode eq 0 and drg_isclosed ne true"
+    "$select=drg_deliverableid,drg_title,drg_deliverablenumber,drg_contractref,drg_description,drg_duedate,drg_assignedtoemail,_drg_assignedtouser_value,drg_lastsubmittedon,drg_lastapprovedon,_drg_acknowledgedby_value,drg_acknowledgedbyemail,drg_acknowledgedon,drg_currentsubmissionnumber,drg_isclosed,createdon,modifiedon,_drg_program_value,_drg_type_value,drg_status&$filter=statecode eq 0 and drg_isclosed ne true"
   );
 
   return rows.map(mapDeliverableRow);
@@ -360,6 +373,36 @@ export async function createDeliverable(input: CreateDeliverableInput) {
   }
 
   return deliverableId;
+}
+
+export async function updateDeliverable(input: UpdateDeliverableInput) {
+  if (!isDataverseConfigured()) {
+    throw new Error("Dataverse is not configured for deliverable updates.");
+  }
+
+  const assignedToEmail = normalizeEmail(input.assignedToEmail);
+  const assignedToUserId = assignedToEmail
+    ? await findSystemUserIdByEmail(assignedToEmail)
+    : undefined;
+
+  const payload: Record<string, unknown> = {
+    drg_title: input.title,
+    drg_description: input.description ?? "",
+    drg_duedate: input.dueDate,
+    drg_assignedtoemail: assignedToEmail,
+  };
+
+  if (assignedToUserId) {
+    payload["drg_assignedtouser@odata.bind"] = lookupBind(
+      "systemusers",
+      assignedToUserId
+    );
+  }
+
+  await dataverseFetch<void>(`/drg_deliverables(${input.deliverableId})`, {
+    method: "PATCH",
+    body: JSON.stringify(payload),
+  });
 }
 
 export async function deleteDeliverable(input: {

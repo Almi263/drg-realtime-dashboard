@@ -76,6 +76,7 @@ export interface CreateDocumentMetadataInput {
   fileName: string;
   sizeKb: number;
   uploadedByEmail: string;
+  description?: string;
   sharePointSiteUrl: string;
   sharePointDriveId: string;
   sharePointItemId: string;
@@ -424,6 +425,7 @@ export async function createDocumentMetadata(input: CreateDocumentMetadataInput)
     drg_name: input.fileName,
     "drg_program@odata.bind": lookupBind("drg_programs", input.programId),
     "drg_deliverable@odata.bind": lookupBind("drg_deliverables", input.deliverableId),
+    drg_description: input.description?.trim() || undefined,
     drg_filename: input.fileName,
     drg_filesizekb: input.sizeKb,
     drg_sharepointsiteurl: toDataverseOptionalUrl(input.sharePointSiteUrl),

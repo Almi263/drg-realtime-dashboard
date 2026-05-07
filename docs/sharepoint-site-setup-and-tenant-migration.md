@@ -14,6 +14,7 @@ Dataverse stores the business metadata for each PDF:
 - `drg_sharepointdriveid`
 - `drg_sharepointitemid`
 - `drg_sharepointurl`
+- `drg_description`
 - file name, file size, upload user, upload date, document role, review due date, and workflow status
 
 Because Dataverse references SharePoint files by site URL, drive ID, item ID, and web URL, any tenant migration must update the Dataverse `drg_document` rows after files are copied or moved.
@@ -155,6 +156,7 @@ Before production uploads, the `drg_document` table must include these SharePoin
 - `drg_sharepointdriveid`: Text, required
 - `drg_sharepointitemid`: Text, required
 - `drg_sharepointurl`: URL, optional/admin metadata. User downloads must not redirect to this URL.
+- `drg_description`: Multiline text, optional uploader-provided context
 
 Create an alternate key across:
 

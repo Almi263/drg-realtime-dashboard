@@ -45,6 +45,7 @@ export async function POST(request: Request) {
   const deliverableId = String(formData?.get("deliverableId") ?? "");
   const programId = String(formData?.get("programId") ?? "");
   const reviewDueDate = String(formData?.get("reviewDueDate") ?? "");
+  const documentDescription = String(formData?.get("documentDescription") ?? "");
 
   if (!(file instanceof File)) {
     return businessRuleResponse("pdfRequired");
@@ -109,6 +110,7 @@ export async function POST(request: Request) {
       sharePointUrl: sharePointFile.webUrl,
       documentRole: "DRG Submission",
       reviewDueDate,
+      description: documentDescription,
     });
 
     await createDocumentAccessLog({
@@ -127,6 +129,7 @@ export async function POST(request: Request) {
       uploadedByEmail: session.user.email,
       sharePointItemId: sharePointFile.itemId,
       reviewDueDate,
+      documentDescription,
     });
 
     return NextResponse.json({

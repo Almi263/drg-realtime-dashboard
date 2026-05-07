@@ -303,7 +303,7 @@ function DeliverableStep({
         ))}
         {submittable.length === 0 && (
           <Typography variant="body2" sx={{ color: "text.secondary", textAlign: "center", py: 4 }}>
-            All deliverables for this program are already approved.
+            All deliverables for this program already have submitted documents or are complete.
           </Typography>
         )}
         {submittable.length > 0 && filteredDeliverables.length === 0 && (
@@ -329,12 +329,13 @@ function UploadStep({
 }: {
   deliverable: Deliverable;
   program: Program;
-  onSubmit: (file: File, reviewDueDate: string) => void;
+  onSubmit: (file: File, reviewDueDate: string, documentDescription: string) => void;
   onBack: () => void;
   isSubmitting: boolean;
 }) {
   const [file, setFile] = useState<File | null>(null);
   const [documentName, setDocumentName] = useState("");
+  const [documentDescription, setDocumentDescription] = useState("");
   const [fileError, setFileError] = useState<string | null>(null);
   const [reviewDueDate, setReviewDueDate] = useState("");
   const [dragging, setDragging] = useState(false);
@@ -344,6 +345,7 @@ function UploadStep({
     if (f.type !== "application/pdf" || !f.name.toLowerCase().endsWith(".pdf")) {
       setFile(null);
       setDocumentName("");
+      setDocumentDescription("");
       setFileError(PDF_REQUIRED_MESSAGE);
       return;
     }
@@ -447,6 +449,19 @@ function UploadStep({
         />
       )}
 
+      {file && (
+        <TextField
+          label="Document description"
+          value={documentDescription}
+          onChange={(event) => setDocumentDescription(event.target.value)}
+          fullWidth
+          multiline
+          minRows={3}
+          placeholder="Add any notes or context reviewers should see"
+          sx={{ mb: 3 }}
+        />
+      )}
+
       <TextField
         label="Review due date"
         type="date"
@@ -465,7 +480,8 @@ function UploadStep({
             if (!file || !submittedFileName) return;
             onSubmit(
               new File([file], submittedFileName, { type: file.type }),
-              reviewDueDate
+              reviewDueDate,
+              documentDescription
             );
           }}
         >
@@ -614,7 +630,7 @@ export default function SubmitReportWizard({
     setStep(2);
   };
 
-  const handleSubmit = async (f: File, reviewDueDate: string) => {
+  const handleSubmit = async (f: File, reviewDueDate: string, documentDescription: string) => {
     if (!program || !deliverable) return;
     if (f.type !== "application/pdf" || !f.name.toLowerCase().endsWith(".pdf")) {
       setSubmissionError(PDF_REQUIRED_MESSAGE);
@@ -631,6 +647,9 @@ export default function SubmitReportWizard({
       formData.set("deliverableId", deliverable.id);
       formData.set("file", f);
       if (reviewDueDate) formData.set("reviewDueDate", reviewDueDate);
+      if (documentDescription.trim()) {
+        formData.set("documentDescription", documentDescription.trim());
+      }
 
       const res = await fetch("/api/documents/submit", {
         method: "POST",
