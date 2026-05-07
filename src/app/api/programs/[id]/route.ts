@@ -38,8 +38,9 @@ export async function DELETE(
   try {
     if (isSharePointUploadConfigured()) {
       await deleteProgramFolder({
-        programId: id,
+        programNumber: program.programNumber,
         programName: program.name,
+        legacyProgramId: id,
       });
     }
 

@@ -500,12 +500,52 @@ describe("production integration layer", () => {
 
     await expect(
       deleteProgramFolder({
-        programId: "PRG-001",
+        programNumber: "PRG-001",
         programName: "Surface Comms",
       })
     ).resolves.toBeUndefined();
 
     expect(deletedPath).toBe("DRG Submissions/PRG-001 - Surface Comms");
+  });
+
+  it("deletes legacy GUID-named SharePoint program folders when present", async () => {
+    vi.resetModules();
+    vi.stubEnv("SHAREPOINT_TENANT_ID", "tenant-id");
+    vi.stubEnv("SHAREPOINT_CLIENT_ID", "client-id");
+    vi.stubEnv("SHAREPOINT_CLIENT_SECRET", "client-secret");
+    vi.stubEnv("SHAREPOINT_SITE_ID", "site-id");
+    vi.stubEnv("SHAREPOINT_DRIVE_ID", "drive-id");
+    vi.stubEnv("SHAREPOINT_DOCUMENT_FOLDER", "DRG Submissions");
+
+    const deletedPaths: string[] = [];
+    global.fetch = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const request = new Request(input, init);
+      const url = request.url;
+
+      if (url.includes("login.microsoftonline.com")) {
+        return jsonResponse({ access_token: "graph-token" });
+      }
+
+      if (request.method === "DELETE" && url.includes("/root:/")) {
+        deletedPaths.push(decodeURIComponent(url.split("/root:/")[1] ?? ""));
+        return new Response(null, { status: 204 });
+      }
+
+      throw new Error(`Unhandled fetch URL: ${url}`);
+    });
+
+    const { deleteProgramFolder } = await import("@/lib/sharepoint/files");
+
+    await deleteProgramFolder({
+      programNumber: "PRG-001",
+      programName: "Surface Comms",
+      legacyProgramId: "aa82b438-b749-f111-bec6-000d3a3837db",
+    });
+
+    expect(deletedPaths).toEqual([
+      "DRG Submissions/PRG-001 - Surface Comms",
+      "DRG Submissions/aa82b438-b749-f111-bec6-000d3a3837db - Surface Comms",
+    ]);
   });
 
   it("blocks upload actions for archived programs", async () => {

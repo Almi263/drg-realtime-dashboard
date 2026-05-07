@@ -75,9 +75,9 @@ function getReadableFolderName(id: string, name?: string) {
   return encodePathSegment(readableName ? `${id} - ${readableName}` : id);
 }
 
-function getProgramFolderPath(programId: string, programName?: string) {
+function getProgramFolderPath(programNumber: string, programName?: string) {
   const baseFolder = process.env.SHAREPOINT_DOCUMENT_FOLDER ?? "DRG Submissions";
-  return [baseFolder, getReadableFolderName(programId, programName)].join("/");
+  return [baseFolder, getReadableFolderName(programNumber, programName)].join("/");
 }
 
 function getSharePointFolderPath(input: {
@@ -223,21 +223,28 @@ export async function deleteSharePointFolderPath(path: string) {
 }
 
 export async function ensureProgramFolder(input: {
-  programId: string;
+  programNumber: string;
   programName: string;
 }) {
   await ensureSharePointFolderPath(
-    getProgramFolderPath(input.programId, input.programName)
+    getProgramFolderPath(input.programNumber, input.programName)
   );
 }
 
 export async function deleteProgramFolder(input: {
-  programId: string;
+  programNumber: string;
   programName: string;
+  legacyProgramId?: string;
 }) {
   await deleteSharePointFolderPath(
-    getProgramFolderPath(input.programId, input.programName)
+    getProgramFolderPath(input.programNumber, input.programName)
   );
+
+  if (input.legacyProgramId && input.legacyProgramId !== input.programNumber) {
+    await deleteSharePointFolderPath(
+      getProgramFolderPath(input.legacyProgramId, input.programName)
+    );
+  }
 }
 
 export async function ensureDeliverableFolder(input: {

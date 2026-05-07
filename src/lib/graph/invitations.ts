@@ -1,10 +1,16 @@
 async function getGraphToken() {
-  const tenantId = process.env.AZURE_TENANT_ID;
-  const clientId = process.env.AZURE_GRAPH_CLIENT_ID;
-  const clientSecret = process.env.AZURE_GRAPH_CLIENT_SECRET;
+  const issuerTenantId = process.env.AUTH_MICROSOFT_ENTRA_ID_ISSUER?.match(
+    /login\.microsoftonline\.com\/([^/]+)/
+  )?.[1];
+  const tenantId = process.env.AZURE_TENANT_ID || issuerTenantId;
+  const clientId =
+    process.env.AZURE_GRAPH_CLIENT_ID || process.env.AUTH_MICROSOFT_ENTRA_ID_ID;
+  const clientSecret =
+    process.env.AZURE_GRAPH_CLIENT_SECRET ||
+    process.env.AUTH_MICROSOFT_ENTRA_ID_SECRET;
 
   if (!tenantId || !clientId || !clientSecret) {
-    throw new Error("Missing Microsoft Graph invitation configuration.");
+    throw new Error("Missing Microsoft Graph app credentials.");
   }
 
   const res = await fetch(
@@ -35,6 +41,76 @@ export interface ExternalReviewerPrincipal {
   id: string;
   email: string;
   displayName?: string;
+}
+
+export interface EntraUserPrincipal {
+  id: string;
+  email: string;
+  displayName: string;
+}
+
+function getPrincipalEmail(user: {
+  mail?: string | null;
+  userPrincipalName?: string | null;
+}) {
+  return user.mail ?? user.userPrincipalName ?? "";
+}
+
+function matchesUserQuery(user: EntraUserPrincipal, query: string) {
+  const normalizedQuery = query.trim().toLowerCase();
+  if (!normalizedQuery) return true;
+
+  return (
+    user.displayName.toLowerCase().includes(normalizedQuery) ||
+    user.email.toLowerCase().includes(normalizedQuery)
+  );
+}
+
+export async function listProgramOwnerPrincipals(
+  query = ""
+): Promise<EntraUserPrincipal[]> {
+  const programOwnerGroupId = process.env.ENTRA_DRG_PROGRAM_OWNER_GROUP_ID;
+
+  if (!programOwnerGroupId) {
+    throw new Error("Missing ENTRA_DRG_PROGRAM_OWNER_GROUP_ID.");
+  }
+
+  const token = await getGraphToken();
+  const res = await fetch(
+    `https://graph.microsoft.com/v1.0/groups/${programOwnerGroupId}/transitiveMembers/microsoft.graph.user?$select=id,mail,userPrincipalName,displayName&$top=999`,
+    {
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+      cache: "no-store",
+    }
+  );
+
+  if (!res.ok) {
+    throw new Error(`Failed to load program owners: ${await res.text()}`);
+  }
+
+  const json = (await res.json()) as {
+    value?: Array<{
+      id: string;
+      mail?: string | null;
+      userPrincipalName?: string | null;
+      displayName?: string | null;
+    }>;
+  };
+
+  return (
+    json.value
+      ?.map((user) => ({
+        id: user.id,
+        email: getPrincipalEmail(user),
+        displayName: user.displayName ?? getPrincipalEmail(user),
+      }))
+      .filter((user) => user.email)
+      .filter((user) => matchesUserQuery(user, query))
+      .sort((a, b) => a.displayName.localeCompare(b.displayName))
+      .slice(0, 50) ?? []
+  );
 }
 
 export async function getExternalReviewerPrincipal(
@@ -103,7 +179,7 @@ export async function getExternalReviewerPrincipal(
 
   return {
     id: user.id,
-    email: user.mail ?? user.userPrincipalName ?? email,
+    email: getPrincipalEmail(user) || email,
     displayName: user.displayName,
   };
 }

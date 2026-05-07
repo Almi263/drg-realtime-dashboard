@@ -88,7 +88,7 @@ export async function POST(request: Request) {
     if (isSharePointUploadConfigured()) {
       try {
         await ensureProgramFolder({
-          programId,
+          programNumber,
           programName: name,
         });
       } catch (error) {
