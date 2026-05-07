@@ -11,7 +11,9 @@ import {
 } from "@/lib/dataverse/client";
 import { listVisiblePrograms } from "@/lib/dataverse/programs";
 import { toDeliverableTypeName } from "@/lib/dataverse/deliverable-types";
+import { listDocumentIdsForDeliverable } from "@/lib/dataverse/documents";
 import { normalizeEmail } from "@/lib/auth/roles";
+import { businessRuleError } from "@/lib/errors/business-rules";
 
 interface DataverseDeliverableRow extends Record<string, unknown> {
   drg_deliverableid: string;
@@ -264,6 +266,50 @@ async function findSystemUserIdByEmail(email: string) {
   return rows[0]?.systemuserid;
 }
 
+async function listChildIdsByDeliverable(
+  entitySetName: string,
+  idColumn: string,
+  deliverableId: string
+) {
+  const rows = await listRows<Record<string, unknown>>(
+    entitySetName,
+    `$select=${idColumn}&$filter=statecode eq 0 and _drg_deliverable_value eq ${deliverableId}`
+  );
+
+  return rows
+    .map((row) => row[idColumn])
+    .filter((id): id is string => typeof id === "string" && Boolean(id));
+}
+
+async function listChildIdsByDocumentIds(
+  entitySetName: string,
+  idColumn: string,
+  documentLookupColumn: string,
+  documentIds: readonly string[]
+) {
+  if (documentIds.length === 0) return [];
+
+  const filter = documentIds
+    .map((documentId) => `${documentLookupColumn} eq ${documentId}`)
+    .join(" or ");
+  const rows = await listRows<Record<string, unknown>>(
+    entitySetName,
+    `$select=${idColumn}&$filter=statecode eq 0 and (${filter})`
+  );
+
+  return rows
+    .map((row) => row[idColumn])
+    .filter((id): id is string => typeof id === "string" && Boolean(id));
+}
+
+async function deleteRows(entitySetName: string, ids: readonly string[]) {
+  for (const id of ids) {
+    await dataverseFetch<void>(`/${entitySetName}(${id})`, {
+      method: "DELETE",
+    });
+  }
+}
+
 export async function createDeliverable(input: CreateDeliverableInput) {
   if (!isDataverseConfigured()) {
     throw new Error("Dataverse is not configured for deliverable creation.");
@@ -314,6 +360,58 @@ export async function createDeliverable(input: CreateDeliverableInput) {
   }
 
   return deliverableId;
+}
+
+export async function deleteDeliverable(input: {
+  deliverableId: string;
+  forceWithDocuments?: boolean;
+}) {
+  if (!isDataverseConfigured()) {
+    throw new Error("Dataverse is not configured for deliverable deletion.");
+  }
+
+  const documentIds = await listDocumentIdsForDeliverable(input.deliverableId);
+  if (documentIds.length > 0 && !input.forceWithDocuments) {
+    throw businessRuleError("deliverableDeleteBlocked");
+  }
+
+  const [approvalIds, documentApprovalIds, responseApprovalIds, accessLogIds] =
+    await Promise.all([
+      listChildIdsByDeliverable(
+        "drg_approvals",
+        "drg_approvalid",
+        input.deliverableId
+      ),
+      listChildIdsByDocumentIds(
+        "drg_approvals",
+        "drg_approvalid",
+        "_drg_document_value",
+        documentIds
+      ),
+      listChildIdsByDocumentIds(
+        "drg_approvals",
+        "drg_approvalid",
+        "_drg_responsedocument_value",
+        documentIds
+      ),
+      listChildIdsByDocumentIds(
+        "drg_documentaccesslogs",
+        "drg_documentaccesslogid",
+        "_drg_document_value",
+        documentIds
+      ),
+    ]);
+
+  const uniqueApprovalIds = [
+    ...new Set([...approvalIds, ...documentApprovalIds, ...responseApprovalIds]),
+  ];
+
+  await deleteRows("drg_documentaccesslogs", accessLogIds);
+  await deleteRows("drg_approvals", uniqueApprovalIds);
+  await deleteRows("drg_documents", documentIds);
+  await dataverseFetch<void>(`/drg_deliverables(${input.deliverableId})`, {
+    method: "DELETE",
+  });
 }
 
 export async function approveDeliverableDraft(id: string) {

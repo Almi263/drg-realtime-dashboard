@@ -8,15 +8,25 @@ import FilteredRecordsView from "@/components/FilteredRecordsView";
 import { requireUser } from "@/lib/auth/guards";
 import { listDeliverableTypes } from "@/lib/dataverse/deliverable-types";
 import { listVisibleDeliverables } from "@/lib/dataverse/deliverables";
+import { listVisibleDocuments } from "@/lib/dataverse/documents";
 import { listVisiblePrograms } from "@/lib/dataverse/programs";
 
 async function RecordsContent() {
   const user = await requireUser();
-  const [deliverables, programs, deliverableTypes] = await Promise.all([
+  const [deliverables, documents, programs, deliverableTypes] = await Promise.all([
     listVisibleDeliverables(user),
+    listVisibleDocuments(user, { currentOnly: false }),
     listVisiblePrograms(user),
     listDeliverableTypes(),
   ]);
+  const documentCountsByDeliverableId = documents.reduce<Record<string, number>>(
+    (counts, document) => ({
+      ...counts,
+      [document.deliverableId]: (counts[document.deliverableId] ?? 0) + 1,
+    }),
+    {}
+  );
+
   return (
     <>
       <Box sx={{ mb: 2.5 }}>
@@ -45,6 +55,7 @@ async function RecordsContent() {
       <FilteredRecordsView
         deliverables={deliverables}
         programs={programs}
+        documentCountsByDeliverableId={documentCountsByDeliverableId}
       />
     </>
   );

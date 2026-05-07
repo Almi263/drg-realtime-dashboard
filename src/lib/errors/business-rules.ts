@@ -16,6 +16,8 @@ export const BUSINESS_RULE_MESSAGES = {
     "This program is archived. Downloads remain available, but new uploads are blocked.",
   programDeleteBlocked:
     "Only empty test programs can be deleted. Remove or archive programs with deliverables, documents, approvals, or audit logs instead.",
+  deliverableDeleteBlocked:
+    "Program owners can only delete deliverables that do not have any documents.",
   pdfRequired: "Only PDF files can be uploaded.",
   reviewedDocumentRequired:
     "A reviewed submission document is required for this action.",
@@ -37,6 +39,7 @@ const BUSINESS_RULE_STATUS: Record<BusinessRuleCode, number> = {
   externalUserNotReady: 400,
   archivedProgramUploadBlocked: 403,
   programDeleteBlocked: 409,
+  deliverableDeleteBlocked: 409,
   pdfRequired: 400,
   reviewedDocumentRequired: 400,
   rejectionCommentsRequired: 400,
@@ -84,6 +87,10 @@ const BUSINESS_RULE_PATTERNS: Array<{
   {
     code: "programDeleteBlocked",
     patterns: [/program delete blocked/i, /only empty test programs can be deleted/i],
+  },
+  {
+    code: "deliverableDeleteBlocked",
+    patterns: [/deliverable delete blocked/i, /deliverables? that do not have any documents/i],
   },
   {
     code: "pdfRequired",

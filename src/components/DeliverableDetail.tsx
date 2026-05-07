@@ -16,6 +16,7 @@ import CheckCircleOutlineIcon from "@mui/icons-material/CheckCircleOutline";
 import VisibilityIcon from "@mui/icons-material/Visibility";
 import CalendarTodayIcon from "@mui/icons-material/CalendarToday";
 import PersonIcon from "@mui/icons-material/Person";
+import DeleteOutlineIcon from "@mui/icons-material/DeleteOutline";
 import type { Deliverable, DeliverableStatus } from "@/lib/models/deliverable";
 import type { DeliverableDocument, FileType } from "@/lib/models/document";
 import type { Program } from "@/lib/models/program";
@@ -69,6 +70,7 @@ function formatDateTime(iso: string) {
 interface DeliverableDetailProps {
   deliverable: Deliverable;
   documents: DeliverableDocument[];
+  documentCount?: number;
   program: Program | undefined;
   accessLogCountsByDocumentId?: Record<string, number>;
 }
@@ -76,13 +78,19 @@ interface DeliverableDetailProps {
 export default function DeliverableDetail({
   deliverable: d,
   documents,
+  documentCount = documents.length,
   program,
   accessLogCountsByDocumentId = {},
 }: DeliverableDetailProps) {
   const router = useRouter();
   const [isApprovingDraft, setIsApprovingDraft] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
-  const { canApproveDeliverableDraftForProgram, role } = useRole();
+  const {
+    canApproveDeliverableDraftForProgram,
+    canDeleteDeliverableForProgram,
+    role,
+  } = useRole();
   const canSubmit =
     Boolean(program && program.status !== "Archived") &&
     d.status !== "Draft" &&
@@ -95,6 +103,9 @@ export default function DeliverableDetail({
   const canApproveDraft =
     d.status === "Draft" &&
     Boolean(program && canApproveDeliverableDraftForProgram(program.id));
+  const canDelete =
+    Boolean(program) &&
+    canDeleteDeliverableForProgram(d.programId, documentCount);
 
   const statusColors = STATUS_COLORS[d.status];
 
@@ -117,6 +128,36 @@ export default function DeliverableDetail({
       setActionError(error instanceof Error ? error.message : "Failed to approve draft.");
     } finally {
       setIsApprovingDraft(false);
+    }
+  }
+
+  async function handleDelete() {
+    const message =
+      documentCount > 0
+        ? `Delete ${d.deliverableNumber} and its ${documentCount} document${documentCount === 1 ? "" : "s"}? This cannot be undone.`
+        : `Delete ${d.deliverableNumber}? This cannot be undone.`;
+
+    if (!window.confirm(message)) return;
+
+    setIsDeleting(true);
+    setActionError(null);
+
+    try {
+      const response = await fetch(`/api/deliverables/${d.id}`, {
+        method: "DELETE",
+      });
+
+      if (!response.ok) {
+        const json = await response.json().catch(() => null);
+        throw new Error(json?.error ?? "Failed to delete deliverable.");
+      }
+
+      router.push(program ? `/programs/${program.id}` : "/records");
+      router.refresh();
+    } catch (error) {
+      setActionError(error instanceof Error ? error.message : "Failed to delete deliverable.");
+    } finally {
+      setIsDeleting(false);
     }
   }
 
@@ -207,6 +248,26 @@ export default function DeliverableDetail({
           >
             {isApprovingDraft ? "Approving..." : "Approve Draft"}
           </Button>
+        </Box>
+      )}
+
+      {canDelete && (
+        <Box>
+          <Button
+            variant="outlined"
+            color="error"
+            size="small"
+            startIcon={<DeleteOutlineIcon />}
+            onClick={handleDelete}
+            disabled={isDeleting}
+          >
+            {isDeleting ? "Deleting..." : "Delete Deliverable"}
+          </Button>
+          {role === "drg-admin" && documentCount > 0 && (
+            <Typography variant="caption" sx={{ display: "block", color: "text.secondary", mt: 0.75 }}>
+              DRG admins can delete deliverables even when submitted documents exist.
+            </Typography>
+          )}
         </Box>
       )}
 

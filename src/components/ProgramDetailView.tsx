@@ -102,6 +102,7 @@ interface ProgramDetailViewProps {
   deliverables: Deliverable[];
   deliverableTypes: DeliverableType[];
   documents: DeliverableDocument[];
+  documentCountsByDeliverableId?: Record<string, number>;
   accessLogsByDocumentId?: Record<string, DocumentAccessLog[]>;
 }
 
@@ -111,6 +112,7 @@ export default function ProgramDetailView({
   deliverables,
   deliverableTypes,
   documents,
+  documentCountsByDeliverableId: initialDocumentCountsByDeliverableId,
   accessLogsByDocumentId = {},
 }: ProgramDetailViewProps) {
   const [activeTab, setActiveTab] = useState(0);
@@ -144,6 +146,15 @@ export default function ProgramDetailView({
 
   const activeProgram = program;
   const deliverableMap = Object.fromEntries(deliverables.map((d) => [d.id, d.title]));
+  const documentCountsByDeliverableId =
+    initialDocumentCountsByDeliverableId ??
+    documents.reduce<Record<string, number>>(
+      (counts, document) => ({
+        ...counts,
+        [document.deliverableId]: (counts[document.deliverableId] ?? 0) + 1,
+      }),
+      {}
+    );
   const overdue = deliverables.filter((d) => d.status.startsWith("Overdue")).length;
   const mayManageProgram =
     canManageProgramAccess(activeProgram.id) ||
@@ -341,6 +352,7 @@ export default function ProgramDetailView({
             <RecordsTable
               deliverables={deliverables}
               programs={[program]}
+              documentCountsByDeliverableId={documentCountsByDeliverableId}
               toolbarAction={
                 <CreateDeliverableDialog
                   programs={[program]}

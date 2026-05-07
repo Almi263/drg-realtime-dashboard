@@ -58,6 +58,7 @@ interface RoleContextValue {
   canViewProgram: (programId: string) => boolean;
   canCreateDeliverableForProgram: (programId: string) => boolean;
   canApproveDeliverableDraftForProgram: (programId: string) => boolean;
+  canDeleteDeliverableForProgram: (programId: string, documentCount: number) => boolean;
   canUploadToProgram: (programId: string) => boolean;
   canManageProgramAccess: (programId: string) => boolean;
   canGrantProgramAccess: (programId: string, email: string) => boolean;
@@ -77,6 +78,7 @@ const RoleContext = createContext<RoleContextValue>({
   canViewProgram: () => false,
   canCreateDeliverableForProgram: () => false,
   canApproveDeliverableDraftForProgram: () => false,
+  canDeleteDeliverableForProgram: () => false,
   canUploadToProgram: () => false,
   canManageProgramAccess: () => false,
   canGrantProgramAccess: () => false,
@@ -258,6 +260,24 @@ export function RoleProvider({ children }: { children: React.ReactNode }) {
     );
   };
 
+  const canDeleteDeliverableForProgram = (
+    programId: string,
+    documentCount: number,
+  ) => {
+    const program = mergedPrograms.find((program) => program.id === programId);
+    if (!program || program.status === 'Archived') return false;
+    if (internalRoles.includes('drg-admin')) return true;
+    if (!internalRoles.includes('drg-program-owner')) return false;
+    if (documentCount > 0) return false;
+
+    return (programAccessMap[programId] ?? []).some(
+      (entry) =>
+        entry.isActive &&
+        entry.accessRole === 'Program Owner' &&
+        normalizeEmail(entry.email) === currentUserEmail,
+    );
+  };
+
   const canGrantProgramAccess = (programId: string, email: string) => {
     const normalizedEmail = normalizeEmail(email);
 
@@ -290,6 +310,7 @@ export function RoleProvider({ children }: { children: React.ReactNode }) {
         canViewProgram,
         canCreateDeliverableForProgram,
         canApproveDeliverableDraftForProgram,
+        canDeleteDeliverableForProgram,
         canUploadToProgram,
         canManageProgramAccess,
         canGrantProgramAccess,

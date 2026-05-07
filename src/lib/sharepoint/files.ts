@@ -345,6 +345,21 @@ export async function ensureDeliverableFolder(input: {
   await ensureSharePointFolderPath(getSharePointFolderPath(input));
 }
 
+export async function deleteDeliverableFolder(input: {
+  programId: string;
+  programNumber?: string;
+  deliverableId: string;
+  deliverableNumber?: string;
+  programName: string;
+  deliverableName: string;
+}) {
+  if ((process.env.SHAREPOINT_FOLDER_STRATEGY ?? "program-deliverable") === "flat") {
+    return;
+  }
+
+  await deleteSharePointFolderPath(getSharePointFolderPath(input));
+}
+
 export async function fetchSharePointFile(input: SharePointDownloadInput) {
   const token = await getGraphToken();
 

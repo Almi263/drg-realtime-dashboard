@@ -23,14 +23,27 @@ async function ProgramDetailContent({
   program: Program;
 }) {
   const includeArchivedPrograms = program.status === "Archived";
-  const [deliverables, documents, deliverableTypes] = await Promise.all([
+  const [deliverables, documents, allDocuments, deliverableTypes] = await Promise.all([
     listVisibleDeliverables(user, { includeArchivedPrograms }),
     listVisibleDocuments(user, { includeArchivedPrograms }),
+    listVisibleDocuments(user, {
+      includeArchivedPrograms,
+      currentOnly: false,
+    }),
     listDeliverableTypes(),
   ]);
 
   const programDeliverables = deliverables.filter((d) => d.programId === id);
   const programDocuments = documents.filter((d) => d.programId === id);
+  const documentCountsByDeliverableId = allDocuments
+    .filter((document) => document.programId === id)
+    .reduce<Record<string, number>>(
+      (counts, document) => ({
+        ...counts,
+        [document.deliverableId]: (counts[document.deliverableId] ?? 0) + 1,
+      }),
+      {}
+    );
   const accessLogMap = await listDocumentAccessLogs(
     programDocuments.map((document) => document.id)
   );
@@ -43,6 +56,7 @@ async function ProgramDetailContent({
       deliverables={programDeliverables}
       deliverableTypes={deliverableTypes}
       documents={programDocuments}
+      documentCountsByDeliverableId={documentCountsByDeliverableId}
       accessLogsByDocumentId={accessLogsByDocumentId}
     />
   );

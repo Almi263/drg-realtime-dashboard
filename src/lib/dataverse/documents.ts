@@ -164,15 +164,22 @@ function mapDocumentRow(row: DataverseDocumentRow): DeliverableDocument {
   };
 }
 
-export async function listDocuments(): Promise<DeliverableDocument[]> {
+export async function listDocuments(
+  currentOnly = true
+): Promise<DeliverableDocument[]> {
   if (!isDataverseConfigured()) {
     const documents = await new MockDocumentConnector().getDocuments();
-    return documents.map(normalizeMockDocument);
+    return documents
+      .map(normalizeMockDocument)
+      .filter((document) => !currentOnly || document.isCurrentVersion);
   }
 
+  const filter = currentOnly
+    ? "statecode eq 0 and drg_iscurrentversion eq true"
+    : "statecode eq 0";
   const rows = await listRows<DataverseDocumentRow>(
     "drg_documents",
-    "$select=drg_documentid,drg_name,drg_filename,drg_filesizekb,drg_submissionnumber,drg_uploadedbyemail,drg_uploadedon,_drg_uploadedby_value,_drg_deliverable_value,_drg_program_value,_drg_parentdocument_value,_drg_approval_value,drg_sharepointsiteurl,drg_sharepointdriveid,drg_sharepointitemid,drg_sharepointurl,drg_versionlabel,drg_reviewduedate,_drg_viewedby_value,drg_viewedbyemail,drg_viewedon,_drg_supersededbydocument_value,drg_supersededon,drg_checksum,drg_iscurrentversion,drg_documentrole,drg_status&$filter=statecode eq 0 and drg_iscurrentversion eq true"
+    `$select=drg_documentid,drg_name,drg_filename,drg_filesizekb,drg_submissionnumber,drg_uploadedbyemail,drg_uploadedon,_drg_uploadedby_value,_drg_deliverable_value,_drg_program_value,_drg_parentdocument_value,_drg_approval_value,drg_sharepointsiteurl,drg_sharepointdriveid,drg_sharepointitemid,drg_sharepointurl,drg_versionlabel,drg_reviewduedate,_drg_viewedby_value,drg_viewedbyemail,drg_viewedon,_drg_supersededbydocument_value,drg_supersededon,drg_checksum,drg_iscurrentversion,drg_documentrole,drg_status&$filter=${filter}`
   );
   return rows.map(mapDocumentRow);
 }
@@ -187,7 +194,7 @@ export async function listVisibleDocuments(
   } = {}
 ): Promise<DeliverableDocument[]> {
   const [documents, programs] = await Promise.all([
-    listDocuments(),
+    listDocuments(options.currentOnly !== false),
     listVisiblePrograms(user, {
       includeArchived: options.includeArchivedPrograms,
     }),
@@ -200,7 +207,6 @@ export async function listVisibleDocuments(
       return false;
     }
     if (options.status && document.status !== options.status) return false;
-    if (options.currentOnly !== false && !document.isCurrentVersion) return false;
     return true;
   });
 }
@@ -208,6 +214,23 @@ export async function listVisibleDocuments(
 export async function getVisibleDocumentById(id: string, user: DataverseUser) {
   const documents = await listVisibleDocuments(user);
   return documents.find((document) => document.id === id);
+}
+
+export async function listDocumentIdsForDeliverable(deliverableId: string) {
+  if (!isDataverseConfigured()) {
+    const documents = await new MockDocumentConnector().getDocuments();
+    return documents
+      .map(normalizeMockDocument)
+      .filter((document) => document.deliverableId === deliverableId)
+      .map((document) => document.id);
+  }
+
+  const rows = await listRows<Pick<DataverseDocumentRow, "drg_documentid">>(
+    "drg_documents",
+    `$select=drg_documentid&$filter=statecode eq 0 and _drg_deliverable_value eq ${deliverableId}`
+  );
+
+  return rows.map((row) => row.drg_documentid).filter(Boolean);
 }
 
 export async function createDocumentMetadata(input: CreateDocumentMetadataInput) {

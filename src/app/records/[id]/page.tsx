@@ -8,7 +8,7 @@ import DeliverableDetail from "@/components/DeliverableDetail";
 import { assertCanViewProgram, requireUser } from "@/lib/auth/guards";
 import { listDocumentAccessLogs } from "@/lib/dataverse/document-access-logs";
 import { getVisibleDeliverableById, listVisibleDeliverables } from "@/lib/dataverse/deliverables";
-import { listVisibleDocuments } from "@/lib/dataverse/documents";
+import { listDocumentIdsForDeliverable, listVisibleDocuments } from "@/lib/dataverse/documents";
 import { getProgramById, listVisiblePrograms } from "@/lib/dataverse/programs";
 
 async function DeliverableDetailContent({ id, user }: { id: string; user: Awaited<ReturnType<typeof requireUser>> }) {
@@ -22,6 +22,7 @@ async function DeliverableDetailContent({ id, user }: { id: string; user: Awaite
   if (!deliverable) notFound();
 
   const linkedDocs = documents.filter((doc) => doc.deliverableId === id);
+  const documentIds = await listDocumentIdsForDeliverable(id);
   const program = programs.find((p) => p.id === deliverable.programId);
   const accessLogMap = await listDocumentAccessLogs(linkedDocs.map((doc) => doc.id));
   const accessLogCountsByDocumentId = Object.fromEntries(
@@ -32,6 +33,7 @@ async function DeliverableDetailContent({ id, user }: { id: string; user: Awaite
     <DeliverableDetail
       deliverable={deliverable}
       documents={linkedDocs}
+      documentCount={documentIds.length}
       program={program}
       accessLogCountsByDocumentId={accessLogCountsByDocumentId}
     />

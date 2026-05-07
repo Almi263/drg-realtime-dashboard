@@ -61,7 +61,7 @@ src/
 - `/programs` and `/programs/[id]` for program-level views
 - `/records` and `/records/[id]` for deliverables
 - `/documents` and `/documents/[id]` for the document repository, each document has an expandable access log
-- `/submit` is the submission wizard, only accessible to drg-staff and drg-admin roles
+- `/submit` is the submission wizard, only accessible to drg-staff, drg-program-owners, and drg-admin roles
 - `/calendar` groups upcoming deadlines by urgency
 
 ## How it's built

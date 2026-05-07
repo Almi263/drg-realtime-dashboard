@@ -88,6 +88,24 @@ export function canDeleteProgram(user: { internalRoles: InternalRole[] }) {
   return user.internalRoles.includes("drg-admin");
 }
 
+export function canDeleteDeliverable(
+  user: { email?: string | null; internalRoles: InternalRole[] },
+  program: Program,
+  documentCount: number
+) {
+  if (isProgramArchived(program)) return false;
+  if (user.internalRoles.includes("drg-admin")) return true;
+
+  if (!user.internalRoles.includes("drg-program-owner")) {
+    return false;
+  }
+
+  return (
+    documentCount === 0 &&
+    hasActiveProgramAccessWithRole(program, user.email, ["Program Owner"])
+  );
+}
+
 export function canManageProgramAccess(
   user: { email?: string | null; internalRoles: InternalRole[] },
   program: Program

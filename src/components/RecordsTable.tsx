@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useMemo } from "react";
-import type { ReactNode } from "react";
+import type { MouseEvent, ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import Table from "@mui/material/Table";
 import TableBody from "@mui/material/TableBody";
@@ -20,11 +20,16 @@ import Select from "@mui/material/Select";
 import MenuItem from "@mui/material/MenuItem";
 import TextField from "@mui/material/TextField";
 import Typography from "@mui/material/Typography";
+import Alert from "@mui/material/Alert";
+import IconButton from "@mui/material/IconButton";
+import Tooltip from "@mui/material/Tooltip";
 import SearchIcon from "@mui/icons-material/Search";
+import DeleteOutlineIcon from "@mui/icons-material/DeleteOutline";
 import type { SelectChangeEvent } from "@mui/material/Select";
 import type { Deliverable, DeliverableStatus } from "@/lib/models/deliverable";
 import { DELIVERABLE_STATUSES } from "@/lib/models/deliverable";
 import type { Program } from "@/lib/models/program";
+import { useRole } from "@/lib/context/role-context";
 
 /* ------------------------------------------------------------------ */
 /*  Helpers                                                           */
@@ -84,6 +89,7 @@ interface RecordsTableProps {
   detailSource?: "records";
   toolbarAction?: ReactNode;
   showSearch?: boolean;
+  documentCountsByDeliverableId?: Record<string, number>;
 }
 
 export default function RecordsTable({
@@ -92,14 +98,18 @@ export default function RecordsTable({
   detailSource,
   toolbarAction,
   showSearch = false,
+  documentCountsByDeliverableId = {},
 }: RecordsTableProps) {
   const router = useRouter();
+  const { canDeleteDeliverableForProgram, role } = useRole();
   const [statusFilter, setStatusFilter] = useState<string>("All");
   const [typeFilter, setTypeFilter] = useState<string>("All");
   const [programFilter, setProgramFilter] = useState<string>("All");
   const [searchQuery, setSearchQuery] = useState("");
   const [orderBy, setOrderBy] = useState<SortableKey>("dueDate");
   const [order, setOrder] = useState<Order>("asc");
+  const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [actionError, setActionError] = useState<string | null>(null);
 
   const programMap = useMemo(
     () => Object.fromEntries(programs.map((p) => [p.id, p.name])),
@@ -137,11 +147,52 @@ export default function RecordsTable({
     setOrderBy(column);
   };
 
+  async function handleDelete(event: MouseEvent, deliverable: Deliverable) {
+    event.stopPropagation();
+    const documentCount = documentCountsByDeliverableId[deliverable.id] ?? 0;
+    const message =
+      documentCount > 0
+        ? `Delete ${deliverable.deliverableNumber} and its ${documentCount} document${documentCount === 1 ? "" : "s"}? This cannot be undone.`
+        : `Delete ${deliverable.deliverableNumber}? This cannot be undone.`;
+
+    if (!window.confirm(message)) return;
+
+    setDeletingId(deliverable.id);
+    setActionError(null);
+
+    try {
+      const response = await fetch(`/api/deliverables/${deliverable.id}`, {
+        method: "DELETE",
+      });
+
+      if (!response.ok) {
+        const json = await response.json().catch(() => null);
+        throw new Error(json?.error ?? "Failed to delete deliverable.");
+      }
+
+      router.refresh();
+    } catch (error) {
+      setActionError(
+        error instanceof Error ? error.message : "Failed to delete deliverable."
+      );
+    } finally {
+      setDeletingId(null);
+    }
+  }
+
   // Only show program filter if multiple programs present
   const showProgramFilter = programs.length > 1;
+  const showActions = filtered.some((deliverable) =>
+    canDeleteDeliverableForProgram(
+      deliverable.programId,
+      documentCountsByDeliverableId[deliverable.id] ?? 0
+    )
+  );
 
   return (
     <Box>
+      {actionError && <Alert severity="error" sx={{ mb: 2 }}>{actionError}</Alert>}
+
       {/* Filter controls */}
       <Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 2, mb: 2, flexWrap: "wrap" }}>
         <Box sx={{ display: "flex", gap: 2, flexWrap: "wrap" }}>
@@ -244,49 +295,82 @@ export default function RecordsTable({
                 </TableCell>
               ))}
               {showProgramFilter && <TableCell sx={{ fontWeight: 700 }}>Program</TableCell>}
+              {showActions && <TableCell align="right" sx={{ fontWeight: 700 }}>Actions</TableCell>}
             </TableRow>
           </TableHead>
 
           <TableBody>
-            {filtered.map((d) => (
-              <TableRow
-                key={d.id}
-                hover
-                onClick={() => router.push(detailSource ? `/records/${d.id}?from=${detailSource}` : `/records/${d.id}`)}
-                sx={{ cursor: "pointer" }}
-              >
-                <TableCell sx={{ fontFamily: "monospace", fontSize: "0.8rem", color: "primary.main", fontWeight: 600 }}>
-                  {d.deliverableNumber}
-                </TableCell>
-                <TableCell>{d.title}</TableCell>
-                <TableCell>
-                  <Chip
-                    label={d.type}
-                    size="small"
-                    variant="outlined"
-                    color={d.type === "CDRL" ? "primary" : "secondary"}
-                  />
-                </TableCell>
-                <TableCell>
-                  <Chip label={d.status} size="small" {...getStatusChipProps(d.status)} />
-                </TableCell>
-                <TableCell sx={d.status.startsWith("Overdue") ? { color: "error.main" } : undefined}>
-                  {formatDate(d.dueDate)}
-                </TableCell>
-                <TableCell>{d.assignedTo}</TableCell>
-                {showProgramFilter && (
-                  <TableCell>
-                    <Typography variant="caption" sx={{ color: "text.secondary" }}>
-                      {programMap[d.programId] ?? d.programId}
-                    </Typography>
+            {filtered.map((d) => {
+              const documentCount = documentCountsByDeliverableId[d.id] ?? 0;
+              const canDelete = canDeleteDeliverableForProgram(d.programId, documentCount);
+              const deleteTooltip =
+                role === "drg-program-owner" && documentCount > 0
+                  ? "Program owners can only delete deliverables with no documents"
+                  : "Delete deliverable";
+
+              return (
+                <TableRow
+                  key={d.id}
+                  hover
+                  onClick={() => router.push(detailSource ? `/records/${d.id}?from=${detailSource}` : `/records/${d.id}`)}
+                  sx={{ cursor: "pointer" }}
+                >
+                  <TableCell sx={{ fontFamily: "monospace", fontSize: "0.8rem", color: "primary.main", fontWeight: 600 }}>
+                    {d.deliverableNumber}
                   </TableCell>
-                )}
-              </TableRow>
-            ))}
+                  <TableCell>{d.title}</TableCell>
+                  <TableCell>
+                    <Chip
+                      label={d.type}
+                      size="small"
+                      variant="outlined"
+                      color={d.type === "CDRL" ? "primary" : "secondary"}
+                    />
+                  </TableCell>
+                  <TableCell>
+                    <Chip label={d.status} size="small" {...getStatusChipProps(d.status)} />
+                  </TableCell>
+                  <TableCell sx={d.status.startsWith("Overdue") ? { color: "error.main" } : undefined}>
+                    {formatDate(d.dueDate)}
+                  </TableCell>
+                  <TableCell>{d.assignedTo}</TableCell>
+                  {showProgramFilter && (
+                    <TableCell>
+                      <Typography variant="caption" sx={{ color: "text.secondary" }}>
+                        {programMap[d.programId] ?? d.programId}
+                      </Typography>
+                    </TableCell>
+                  )}
+                  {showActions && (
+                    <TableCell align="right">
+                      {canDelete && (
+                        <Tooltip title={deleteTooltip}>
+                          <span>
+                            <IconButton
+                              aria-label={`Delete ${d.deliverableNumber}`}
+                              color="error"
+                              size="small"
+                              onClick={(event) => handleDelete(event, d)}
+                              disabled={deletingId === d.id}
+                            >
+                              <DeleteOutlineIcon fontSize="small" />
+                            </IconButton>
+                          </span>
+                        </Tooltip>
+                      )}
+                    </TableCell>
+                  )}
+                </TableRow>
+              );
+            })}
 
             {filtered.length === 0 && (
               <TableRow>
-                <TableCell colSpan={showProgramFilter ? 7 : 6} align="center" sx={{ py: 4, color: "text.secondary" }}>
+                <TableCell
+                  colSpan={6 + (showProgramFilter ? 1 : 0) + (showActions ? 1 : 0)}
+                  align="center"
+                  sx={{ py: 4, color: "text.secondary" }}
+                >
                   No records match the current filters.
                 </TableCell>
               </TableRow>
