@@ -1,6 +1,9 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/auth";
-import { canWorkProgram } from "@/lib/auth/guards";
+import {
+  canCreateApprovedDeliverable,
+  canCreateDeliverable,
+} from "@/lib/auth/guards";
 import {
   createDeliverable,
   listVisibleDeliverables,
@@ -28,6 +31,31 @@ function requiredString(value: unknown) {
   return typeof value === "string" ? value.trim() : "";
 }
 
+function escapeRegExp(value: string) {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+function getNextDeliverableNumber(input: {
+  programNumber: string;
+  existingNumbers: string[];
+}) {
+  const prefix = input.programNumber.trim();
+  const pattern = new RegExp(`^${escapeRegExp(prefix)}-(\\d{3,})$`, "i");
+  let nextSequence = 0;
+
+  for (const number of input.existingNumbers) {
+    const match = number.trim().match(pattern);
+    if (!match) continue;
+
+    const sequence = Number(match[1]);
+    if (Number.isInteger(sequence)) {
+      nextSequence = Math.max(nextSequence, sequence + 1);
+    }
+  }
+
+  return `${prefix}-${String(nextSequence).padStart(3, "0")}`;
+}
+
 export async function POST(request: Request) {
   const session = await auth();
 
@@ -38,15 +66,15 @@ export async function POST(request: Request) {
   const body = await request.json().catch(() => null);
   const programId = requiredString(body?.programId);
   const title = requiredString(body?.title);
-  const deliverableNumber = requiredString(body?.deliverableNumber);
+  const requestedDeliverableNumber = requiredString(body?.deliverableNumber);
   const typeId = requiredString(body?.typeId);
   const dueDate = requiredString(body?.dueDate);
 
-  if (!programId || !title || !deliverableNumber || !typeId || !dueDate) {
+  if (!programId || !title || !typeId || !dueDate) {
     return NextResponse.json(
       {
         error:
-          "Program, title, deliverable number, type, and due date are required.",
+          "Program, title, type, and due date are required.",
       },
       { status: 400 }
     );
@@ -61,7 +89,7 @@ export async function POST(request: Request) {
       );
     }
 
-    if (!canWorkProgram(session.user, program)) {
+    if (!canCreateDeliverable(session.user, program)) {
       if (program.status === "Archived") {
         return businessRuleResponse("archivedProgramUploadBlocked");
       }
@@ -76,11 +104,21 @@ export async function POST(request: Request) {
       listVisibleDeliverables(session.user),
       listDeliverableTypes(),
     ]);
+    const programDeliverables = existingDeliverables.filter(
+      (deliverable) => deliverable.programId === programId
+    );
+    const deliverableNumber =
+      requestedDeliverableNumber ||
+      getNextDeliverableNumber({
+        programNumber: program.programNumber,
+        existingNumbers: programDeliverables.map(
+          (deliverable) => deliverable.deliverableNumber
+        ),
+      });
 
     if (
-      existingDeliverables.some(
+      programDeliverables.some(
         (deliverable) =>
-          deliverable.programId === programId &&
           deliverable.deliverableNumber.trim().toLowerCase() ===
             deliverableNumber.toLowerCase()
       )
@@ -96,6 +134,7 @@ export async function POST(request: Request) {
       );
     }
 
+    const createdAsDraft = !canCreateApprovedDeliverable(session.user, program);
     const deliverableId = await createDeliverable({
       programId,
       title,
@@ -105,6 +144,7 @@ export async function POST(request: Request) {
       contractRef: program.contractRef,
       description: requiredString(body?.description),
       assignedToEmail: requiredString(body?.assignedToEmail),
+      status: createdAsDraft ? "Draft" : "Not Submitted",
     });
 
     let sharePointProvisioningWarning: string | undefined;
@@ -116,6 +156,7 @@ export async function POST(request: Request) {
           programNumber: program.programNumber,
           programName: program.name,
           deliverableId,
+          deliverableNumber,
           deliverableName: title,
         });
       } catch (error) {
@@ -132,7 +173,10 @@ export async function POST(request: Request) {
     return NextResponse.json(
       {
         deliverableId,
+        deliverableNumber,
         created: true,
+        status: createdAsDraft ? "Draft" : "Not Submitted",
+        requiresProgramOwnerApproval: createdAsDraft,
         sharePointFolderReady: !sharePointProvisioningWarning,
         ...(sharePointProvisioningWarning
           ? { warning: sharePointProvisioningWarning }

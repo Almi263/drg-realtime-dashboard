@@ -1,4 +1,8 @@
-import { isDataverseConfigured, listRows } from "@/lib/dataverse/client";
+import {
+  dataverseFetch,
+  isDataverseConfigured,
+  listRows,
+} from "@/lib/dataverse/client";
 import type { DeliverableType } from "@/lib/models/deliverable";
 
 interface DataverseDeliverableTypeRow {
@@ -10,6 +14,10 @@ interface DataverseDeliverableTypeRow {
 
 export function toDeliverableTypeName(value: string | undefined) {
   return value?.trim() || "CDRL";
+}
+
+function normalizeTypeName(value: string) {
+  return value.trim().toLowerCase();
 }
 
 export async function listDeliverableTypes(): Promise<DeliverableType[]> {
@@ -35,4 +43,42 @@ export async function listDeliverableTypes(): Promise<DeliverableType[]> {
       (row.drg_name ?? row.drg_deliverabletypeid).toLowerCase(),
     isActive: row.drg_isactive !== false,
   }));
+}
+
+export async function createDeliverableType(name: string): Promise<DeliverableType> {
+  const trimmedName = name.trim();
+  if (!trimmedName) {
+    throw new Error("Deliverable type name is required.");
+  }
+
+  if (!isDataverseConfigured()) {
+    return {
+      id: trimmedName,
+      name: trimmedName,
+      normalizedName: normalizeTypeName(trimmedName),
+      isActive: true,
+    };
+  }
+
+  const response = await dataverseFetch<DataverseDeliverableTypeRow>(
+    "/drg_deliverabletypes",
+    {
+      method: "POST",
+      headers: {
+        Prefer: "return=representation",
+      },
+      body: JSON.stringify({
+        drg_name: trimmedName,
+        drg_normalizedname: normalizeTypeName(trimmedName),
+        drg_isactive: true,
+      }),
+    }
+  );
+
+  return {
+    id: response.drg_deliverabletypeid,
+    name: response.drg_name ?? trimmedName,
+    normalizedName: response.drg_normalizedname ?? normalizeTypeName(trimmedName),
+    isActive: response.drg_isactive !== false,
+  };
 }

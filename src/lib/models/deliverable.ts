@@ -7,6 +7,7 @@ export interface DeliverableType {
 }
 
 export const DELIVERABLE_STATUSES = [
+  "Draft",
   "Not Submitted",
   "Submitted",
   "In Review",

@@ -42,6 +42,13 @@ export async function POST(request: Request) {
     );
   }
 
+  if (deliverable.status === "Draft") {
+    return NextResponse.json(
+      { error: "Draft deliverables must be approved by the program owner before submission." },
+      { status: 409 }
+    );
+  }
+
   if (!program || !canUploadToProgram(session.user, program)) {
     if (program?.status === "Archived") {
       return businessRuleResponse("archivedProgramUploadBlocked");
@@ -60,6 +67,7 @@ export async function POST(request: Request) {
       deliverableId,
       programNumber: program.programNumber,
       programName: program.name,
+      deliverableNumber: deliverable.deliverableNumber,
       deliverableName: deliverable.title,
       fileName: file.name,
       content,

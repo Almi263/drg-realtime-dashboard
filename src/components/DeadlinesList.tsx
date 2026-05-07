@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo } from "react";
+import NextLink from "next/link";
 import Box from "@mui/material/Box";
 import Typography from "@mui/material/Typography";
 import Card from "@mui/material/Card";
@@ -8,6 +9,7 @@ import CardContent from "@mui/material/CardContent";
 import Chip from "@mui/material/Chip";
 import Stack from "@mui/material/Stack";
 import type { Deliverable, DeliverableStatus } from "@/lib/models/deliverable";
+import type { Program } from "@/lib/models/program";
 
 /* ------------------------------------------------------------------ */
 /*  Status chip styling (matches RecordsTable)                        */
@@ -132,9 +134,29 @@ function groupDeliverables(deliverables: Deliverable[]): DeliverableGroup[] {
 /*  Deliverable card                                                  */
 /* ------------------------------------------------------------------ */
 
-function DeliverableCard({ deliverable }: { deliverable: Deliverable }) {
+function DeliverableCard({
+  deliverable,
+  programName,
+}: {
+  deliverable: Deliverable;
+  programName: string;
+}) {
   return (
-    <Card variant="outlined">
+    <Card
+      variant="outlined"
+      component={NextLink}
+      href={`/records/${deliverable.id}?from=records`}
+      sx={{
+        color: "inherit",
+        cursor: "pointer",
+        display: "block",
+        textDecoration: "none",
+        "&:hover": {
+          borderColor: "primary.main",
+          boxShadow: 1,
+        },
+      }}
+    >
       <CardContent
         sx={{
           display: "flex",
@@ -144,12 +166,20 @@ function DeliverableCard({ deliverable }: { deliverable: Deliverable }) {
           "&:last-child": { pb: 2 },
         }}
       >
-        {/* Row 1: ID + Title */}
-        <Box sx={{ display: "flex", alignItems: "baseline", gap: 1 }}>
-          <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>
-            {deliverable.id}
+        {/* Row 1: Deliverable number + Title */}
+        <Box sx={{ display: "flex", alignItems: "baseline", flexWrap: "wrap" }}>
+          <Typography
+            variant="subtitle1"
+            sx={{
+              color: "text.primary",
+              fontWeight: 700,
+            }}
+          >
+            Deliverable {deliverable.deliverableNumber}:
           </Typography>
-          <Typography variant="subtitle1">{deliverable.title}</Typography>
+          <Typography variant="subtitle1" sx={{ color: "secondary.main", fontWeight: 600, ml: 0.5 }}>
+            {deliverable.title}
+          </Typography>
         </Box>
 
         {/* Row 2: Type chip, Status chip, Due date, Assigned to */}
@@ -184,6 +214,12 @@ function DeliverableCard({ deliverable }: { deliverable: Deliverable }) {
           </Typography>
           <Typography
             variant="body2"
+            sx={{ color: "text.secondary" }}
+          >
+            Program: {programName}
+          </Typography>
+          <Typography
+            variant="body2"
             sx={{ color: "text.secondary", ml: "auto" }}
           >
             {deliverable.assignedTo}
@@ -200,14 +236,19 @@ function DeliverableCard({ deliverable }: { deliverable: Deliverable }) {
 
 interface DeadlinesListProps {
   deliverables: Deliverable[];
+  programs: Program[];
 }
 
-export default function DeadlinesList({ deliverables }: DeadlinesListProps) {
+export default function DeadlinesList({ deliverables, programs }: DeadlinesListProps) {
   // Exclude completed items — the calendar is an action surface, not a history view
   const actionable = deliverables.filter(
-    (d) => d.status !== "Submitted" && d.status !== "Complete"
+    (d) => d.status !== "Draft" && d.status !== "Submitted" && d.status !== "Complete"
   );
   const groups = useMemo(() => groupDeliverables(actionable), [actionable]);
+  const programNameById = useMemo(
+    () => Object.fromEntries(programs.map((program) => [program.id, program.name])),
+    [programs]
+  );
 
   if (groups.length === 0) {
     return (
@@ -262,7 +303,11 @@ export default function DeadlinesList({ deliverables }: DeadlinesListProps) {
           {/* Deliverable cards */}
           <Stack spacing={1.5}>
             {group.items.map((d) => (
-              <DeliverableCard key={d.id} deliverable={d} />
+              <DeliverableCard
+                key={d.id}
+                deliverable={d}
+                programName={programNameById[d.programId] ?? d.programId}
+              />
             ))}
           </Stack>
         </Box>

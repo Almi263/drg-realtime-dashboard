@@ -56,6 +56,8 @@ interface RoleContextValue {
   getProgramById: (programId: string) => Program | undefined;
   getProgramAccessList: (programId: string) => ProgramAccess[];
   canViewProgram: (programId: string) => boolean;
+  canCreateDeliverableForProgram: (programId: string) => boolean;
+  canApproveDeliverableDraftForProgram: (programId: string) => boolean;
   canUploadToProgram: (programId: string) => boolean;
   canManageProgramAccess: (programId: string) => boolean;
   canGrantProgramAccess: (programId: string, email: string) => boolean;
@@ -73,6 +75,8 @@ const RoleContext = createContext<RoleContextValue>({
   getProgramById: () => undefined,
   getProgramAccessList: () => [],
   canViewProgram: () => false,
+  canCreateDeliverableForProgram: () => false,
+  canApproveDeliverableDraftForProgram: () => false,
   canUploadToProgram: () => false,
   canManageProgramAccess: () => false,
   canGrantProgramAccess: () => false,
@@ -216,6 +220,44 @@ export function RoleProvider({ children }: { children: React.ReactNode }) {
     });
   };
 
+  const canCreateDeliverableForProgram = (programId: string) => {
+    const program = mergedPrograms.find((program) => program.id === programId);
+    if (!program || program.status === 'Archived') return false;
+    if (internalRoles.includes('drg-admin')) return true;
+
+    return (programAccessMap[programId] ?? []).some((entry) => {
+      const isCurrentUser = normalizeEmail(entry.email) === currentUserEmail;
+      if (!entry.isActive || !isCurrentUser) return false;
+
+      if (internalRoles.includes('drg-program-owner')) {
+        return entry.accessRole === 'Program Owner';
+      }
+
+      if (internalRoles.includes('drg-staff')) {
+        return (
+          entry.accessRole === 'DRG Staff' ||
+          entry.accessRole === 'Program Owner'
+        );
+      }
+
+      return false;
+    });
+  };
+
+  const canApproveDeliverableDraftForProgram = (programId: string) => {
+    const program = mergedPrograms.find((program) => program.id === programId);
+    if (!program || program.status === 'Archived') return false;
+    if (internalRoles.includes('drg-admin')) return true;
+    if (!internalRoles.includes('drg-program-owner')) return false;
+
+    return (programAccessMap[programId] ?? []).some(
+      (entry) =>
+        entry.isActive &&
+        entry.accessRole === 'Program Owner' &&
+        normalizeEmail(entry.email) === currentUserEmail,
+    );
+  };
+
   const canGrantProgramAccess = (programId: string, email: string) => {
     const normalizedEmail = normalizeEmail(email);
 
@@ -246,6 +288,8 @@ export function RoleProvider({ children }: { children: React.ReactNode }) {
         getProgramById,
         getProgramAccessList,
         canViewProgram,
+        canCreateDeliverableForProgram,
+        canApproveDeliverableDraftForProgram,
         canUploadToProgram,
         canManageProgramAccess,
         canGrantProgramAccess,

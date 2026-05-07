@@ -127,7 +127,7 @@ function ProgramStep({
         {programs.map((p) => {
           const progDeliverables = deliverables.filter((d) => d.programId === p.id);
           const pending = progDeliverables.filter(
-            (d) => d.status !== "Submitted" && d.status !== "Complete"
+            (d) => d.status !== "Draft" && d.status !== "Submitted" && d.status !== "Complete"
           ).length;
           return (
             <Card key={p.id} variant="outlined" sx={{ "&:hover": { boxShadow: 3 } }}>
@@ -172,7 +172,7 @@ function DeliverableStep({
   onBack: () => void;
 }) {
   const submittable = deliverables.filter(
-    (d) => d.status !== "Submitted" && d.status !== "Complete"
+    (d) => d.status !== "Draft" && d.status !== "Submitted" && d.status !== "Complete"
   );
 
   return (
@@ -198,7 +198,7 @@ function DeliverableStep({
                 <Box sx={{ flex: 1 }}>
                   <Box sx={{ display: "flex", alignItems: "center", gap: 1, mb: 0.25 }}>
                     <Typography variant="caption" sx={{ fontFamily: "monospace", fontWeight: 700, color: "text.secondary" }}>
-                      {d.id}
+                      {d.deliverableNumber}
                     </Typography>
                     <Chip
                       label={d.type}
@@ -281,7 +281,7 @@ function UploadStep({
         Attach document
       </Typography>
       <Box sx={{ display: "flex", gap: 1, flexWrap: "wrap", mb: 3 }}>
-        <Chip label={deliverable.id} size="small" variant="outlined" sx={{ fontFamily: "monospace" }} />
+        <Chip label={deliverable.deliverableNumber} size="small" variant="outlined" sx={{ fontFamily: "monospace" }} />
         <Chip label={deliverable.title} size="small" variant="outlined" />
         <Chip label={program.name} size="small" />
       </Box>
@@ -397,7 +397,7 @@ function ConfirmationStep({
             { label: "Submission reference", value: submissionRef, mono: true },
             { label: "Submitted at", value: new Date(submissionTime).toLocaleString("en-US", { dateStyle: "medium", timeStyle: "short" }) },
             { label: "Document", value: file.name },
-            { label: "Deliverable", value: `${deliverable.id} — ${deliverable.title}` },
+            { label: "Deliverable", value: `${deliverable.deliverableNumber} - ${deliverable.title}` },
             { label: "Program", value: `${program.name} (${program.contractRef})` },
           ].map(({ label, value, mono }) => (
             <Box key={label} sx={{ display: "flex", gap: 2, alignItems: "baseline" }}>
@@ -449,7 +449,7 @@ export default function SubmitReportWizard({
   const visiblePrograms = allPrograms.filter((program) => canUploadToProgram(program.id));
   const visibleProgramIds = new Set(visiblePrograms.map((program) => program.id));
   const visibleDeliverables = deliverables.filter((deliverable) =>
-    visibleProgramIds.has(deliverable.programId)
+    visibleProgramIds.has(deliverable.programId) && deliverable.status !== "Draft"
   );
 
   // If we got here from a deliverable page (?programId=&deliverableId=), skip to upload

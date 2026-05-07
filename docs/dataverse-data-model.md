@@ -21,7 +21,7 @@ Create these global choices:
 
 `drg_programstatus`: Draft, Active, On Hold, Closed, Archived
 
-`drg_deliverablestatus`: Not Submitted, Submitted, In Review, Returned, Pending Acknowledgment, Complete, Overdue - Waiting on Reviewer, Overdue - Waiting on DRG
+`drg_deliverablestatus`: Draft, Not Submitted, Submitted, In Review, Returned, Pending Acknowledgment, Complete, Overdue - Waiting on Reviewer, Overdue - Waiting on DRG
 
 `drg_accessrole`: Program Owner, DRG Staff, External Reviewer, Read Only
 
@@ -127,6 +127,7 @@ Create one composite alternate key:
 Business rules:
 
 - `Default new deliverable`: When a deliverable is created, set `drg_status = Not Submitted` and `drg_isclosed = No`. Dataverse default values.
+- `Staff-created deliverable draft`: When DRG staff create a deliverable, set `drg_status = Draft`. Program owners or DRG admins approve the draft by setting `drg_status = Not Submitted`.
 - `Copy contract reference`: When `drg_program` is selected, set `drg_contractref` from the parent program contract reference. App/Power Automate rule.
 - `Submit deliverable`: When DRG staff upload a current `DRG Submission` document, set `drg_status = Submitted`, increment `drg_currentsubmissionnumber`, stamp `drg_lastsubmittedon`, and notify external reviewer(s). Power Automate.
 - `Start review`: When an external reviewer downloads the current `DRG Submission` document, set `drg_status = In Review`. Power Automate.

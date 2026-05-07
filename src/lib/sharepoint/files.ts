@@ -92,6 +92,7 @@ function getSharePointFolderPath(input: {
   programId: string;
   programNumber?: string;
   deliverableId: string;
+  deliverableNumber?: string;
   programName?: string;
   deliverableName?: string;
 }) {
@@ -106,7 +107,10 @@ function getSharePointFolderPath(input: {
   return [
     baseFolder,
     getReadableFolderName(input.programNumber ?? input.programId, input.programName),
-    getReadableFolderName(input.deliverableId, input.deliverableName),
+    getReadableFolderName(
+      input.deliverableNumber ?? input.deliverableId,
+      input.deliverableName
+    ),
   ].join("/");
 }
 
@@ -334,6 +338,7 @@ export async function ensureDeliverableFolder(input: {
   programId: string;
   programNumber?: string;
   deliverableId: string;
+  deliverableNumber?: string;
   programName: string;
   deliverableName: string;
 }) {
@@ -375,6 +380,7 @@ export async function uploadPdfToSharePoint(input: {
   programId: string;
   programNumber?: string;
   deliverableId: string;
+  deliverableNumber?: string;
   programName?: string;
   deliverableName?: string;
   fileName: string;

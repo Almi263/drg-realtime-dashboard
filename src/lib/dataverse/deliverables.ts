@@ -38,6 +38,27 @@ interface DataverseSystemUserRow {
   systemuserid: string;
 }
 
+type DataverseChoiceOption = {
+  Value?: number;
+  Label?: {
+    UserLocalizedLabel?: {
+      Label?: string;
+    } | null;
+    LocalizedLabels?: Array<{
+      Label?: string;
+    }>;
+  };
+};
+
+type DataverseChoiceMetadata = {
+  OptionSet?: {
+    Options?: DataverseChoiceOption[];
+  } | null;
+  GlobalOptionSet?: {
+    Options?: DataverseChoiceOption[];
+  } | null;
+};
+
 export interface CreateDeliverableInput {
   title: string;
   deliverableNumber: string;
@@ -47,10 +68,21 @@ export interface CreateDeliverableInput {
   description?: string;
   dueDate: string;
   assignedToEmail?: string;
+  status?: DeliverableStatus;
 }
+
+const DELIVERABLE_STATUS_ENV: Partial<Record<DeliverableStatus, string>> = {
+  Draft: "DATAVERSE_DELIVERABLE_STATUS_DRAFT_VALUE",
+  "Not Submitted": "DATAVERSE_DELIVERABLE_STATUS_NOT_SUBMITTED_VALUE",
+};
+
+let deliverableStatusOptionValuesPromise:
+  | Promise<Map<DeliverableStatus, number>>
+  | undefined;
 
 function toUiStatus(value: string | undefined): DeliverableStatus {
   switch (value) {
+    case "Draft":
     case "Not Submitted":
     case "Submitted":
     case "In Review":
@@ -63,6 +95,73 @@ function toUiStatus(value: string | undefined): DeliverableStatus {
     default:
       return "Not Submitted";
   }
+}
+
+function getChoiceOptionLabel(option: DataverseChoiceOption) {
+  return (
+    option.Label?.UserLocalizedLabel?.Label ??
+    option.Label?.LocalizedLabels?.find((label) => label.Label)?.Label ??
+    ""
+  );
+}
+
+function parseDeliverableStatus(value: string | undefined) {
+  return toUiStatus(value) === value ? value : undefined;
+}
+
+function getConfiguredDeliverableStatusValue(status: DeliverableStatus) {
+  const envName = DELIVERABLE_STATUS_ENV[status];
+  if (!envName) return undefined;
+
+  const raw = process.env[envName]?.trim();
+  if (!raw) return undefined;
+
+  const value = Number(raw);
+  if (!Number.isInteger(value)) {
+    throw new Error(`${envName} must be a Dataverse integer choice value.`);
+  }
+
+  return value;
+}
+
+async function loadDeliverableStatusOptionValues() {
+  const configuredValues = new Map<DeliverableStatus, number>();
+  for (const status of Object.keys(DELIVERABLE_STATUS_ENV) as DeliverableStatus[]) {
+    const configuredValue = getConfiguredDeliverableStatusValue(status);
+    if (configuredValue !== undefined) {
+      configuredValues.set(status, configuredValue);
+    }
+  }
+
+  const metadata = await dataverseFetch<DataverseChoiceMetadata>(
+    "/EntityDefinitions(LogicalName='drg_deliverable')/Attributes(LogicalName='drg_status')/Microsoft.Dynamics.CRM.PicklistAttributeMetadata?$select=LogicalName&$expand=OptionSet($select=Options),GlobalOptionSet($select=Options)"
+  );
+  const options =
+    metadata.OptionSet?.Options ?? metadata.GlobalOptionSet?.Options ?? [];
+  const values = new Map(configuredValues);
+
+  for (const option of options) {
+    if (typeof option.Value !== "number") continue;
+    const status = parseDeliverableStatus(getChoiceOptionLabel(option));
+    if (!status) continue;
+    values.set(status, option.Value);
+  }
+
+  return values;
+}
+
+async function getDeliverableStatusOptionValue(status: DeliverableStatus) {
+  deliverableStatusOptionValuesPromise ??= loadDeliverableStatusOptionValues();
+  const values = await deliverableStatusOptionValuesPromise;
+  const value = values.get(status);
+
+  if (value === undefined) {
+    throw new Error(
+      `Could not resolve Dataverse drg_status choice value for "${status}".`
+    );
+  }
+
+  return value;
 }
 
 function normalizeMockDeliverable(deliverable: Deliverable): Deliverable {
@@ -187,6 +286,10 @@ export async function createDeliverable(input: CreateDeliverableInput) {
     drg_isclosed: false,
   };
 
+  if (input.status && input.status !== "Not Submitted") {
+    payload.drg_status = await getDeliverableStatusOptionValue(input.status);
+  }
+
   if (assignedToUserId) {
     payload["drg_assignedtouser@odata.bind"] = lookupBind(
       "systemusers",
@@ -211,4 +314,17 @@ export async function createDeliverable(input: CreateDeliverableInput) {
   }
 
   return deliverableId;
+}
+
+export async function approveDeliverableDraft(id: string) {
+  if (!isDataverseConfigured()) {
+    throw new Error("Dataverse is not configured for deliverable updates.");
+  }
+
+  await dataverseFetch<void>(`/drg_deliverables(${id})`, {
+    method: "PATCH",
+    body: JSON.stringify({
+      drg_status: await getDeliverableStatusOptionValue("Not Submitted"),
+    }),
+  });
 }

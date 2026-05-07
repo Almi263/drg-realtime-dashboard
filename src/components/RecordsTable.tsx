@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useMemo } from "react";
+import type { ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import Table from "@mui/material/Table";
 import TableBody from "@mui/material/TableBody";
@@ -26,10 +27,17 @@ import type { Program } from "@/lib/models/program";
 /*  Helpers                                                           */
 /* ------------------------------------------------------------------ */
 
-type SortableKey = "id" | "title" | "type" | "status" | "dueDate" | "assignedTo";
+type SortableKey =
+  | "deliverableNumber"
+  | "title"
+  | "type"
+  | "status"
+  | "dueDate"
+  | "assignedTo";
 type Order = "asc" | "desc";
 
 const STATUS_CHIP_STYLE: Partial<Record<DeliverableStatus, object>> = {
+  Draft: { bgcolor: "#5c6bc0", color: "#fff" },
   "Not Submitted": {},
   "In Review": { bgcolor: "#0078d4", color: "#fff" },
   Returned: { bgcolor: "#ed6c02", color: "#fff" },
@@ -71,9 +79,15 @@ interface RecordsTableProps {
   deliverables: Deliverable[];
   programs: Program[];
   detailSource?: "records";
+  toolbarAction?: ReactNode;
 }
 
-export default function RecordsTable({ deliverables, programs, detailSource }: RecordsTableProps) {
+export default function RecordsTable({
+  deliverables,
+  programs,
+  detailSource,
+  toolbarAction,
+}: RecordsTableProps) {
   const router = useRouter();
   const [statusFilter, setStatusFilter] = useState<string>("All");
   const [typeFilter, setTypeFilter] = useState<string>("All");
@@ -104,55 +118,58 @@ export default function RecordsTable({ deliverables, programs, detailSource }: R
   return (
     <Box>
       {/* Filter controls */}
-      <Box sx={{ display: "flex", gap: 2, mb: 2, flexWrap: "wrap" }}>
-        {showProgramFilter && (
-          <FormControl size="small" sx={{ minWidth: 180 }}>
-            <InputLabel id="program-filter-label">Program</InputLabel>
+      <Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 2, mb: 2, flexWrap: "wrap" }}>
+        <Box sx={{ display: "flex", gap: 2, flexWrap: "wrap" }}>
+          {showProgramFilter && (
+            <FormControl size="small" sx={{ minWidth: 180 }}>
+              <InputLabel id="program-filter-label">Program</InputLabel>
+              <Select
+                labelId="program-filter-label"
+                value={programFilter}
+                label="Program"
+                onChange={(e: SelectChangeEvent) => setProgramFilter(e.target.value)}
+              >
+                <MenuItem value="All">All Programs</MenuItem>
+                {programs.map((p) => (
+                  <MenuItem key={p.id} value={p.id}>
+                    {p.name}
+                  </MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+          )}
+
+          <FormControl size="small" sx={{ minWidth: 160 }}>
+            <InputLabel id="status-filter-label">Status</InputLabel>
             <Select
-              labelId="program-filter-label"
-              value={programFilter}
-              label="Program"
-              onChange={(e: SelectChangeEvent) => setProgramFilter(e.target.value)}
+              labelId="status-filter-label"
+              value={statusFilter}
+              label="Status"
+              onChange={(e: SelectChangeEvent) => setStatusFilter(e.target.value)}
             >
-              <MenuItem value="All">All Programs</MenuItem>
-              {programs.map((p) => (
-                <MenuItem key={p.id} value={p.id}>
-                  {p.name}
-                </MenuItem>
+              <MenuItem value="All">All Statuses</MenuItem>
+              {DELIVERABLE_STATUSES.map((s) => (
+                <MenuItem key={s} value={s}>{s}</MenuItem>
               ))}
             </Select>
           </FormControl>
-        )}
 
-        <FormControl size="small" sx={{ minWidth: 160 }}>
-          <InputLabel id="status-filter-label">Status</InputLabel>
-          <Select
-            labelId="status-filter-label"
-            value={statusFilter}
-            label="Status"
-            onChange={(e: SelectChangeEvent) => setStatusFilter(e.target.value)}
-          >
-            <MenuItem value="All">All Statuses</MenuItem>
-            {DELIVERABLE_STATUSES.map((s) => (
-              <MenuItem key={s} value={s}>{s}</MenuItem>
-            ))}
-          </Select>
-        </FormControl>
-
-        <FormControl size="small" sx={{ minWidth: 130 }}>
-          <InputLabel id="type-filter-label">Type</InputLabel>
-          <Select
-            labelId="type-filter-label"
-            value={typeFilter}
-            label="Type"
-            onChange={(e: SelectChangeEvent) => setTypeFilter(e.target.value)}
-          >
-            <MenuItem value="All">All Types</MenuItem>
-            {deliverableTypes.map((t) => (
-              <MenuItem key={t} value={t}>{t}</MenuItem>
-            ))}
-          </Select>
-        </FormControl>
+          <FormControl size="small" sx={{ minWidth: 130 }}>
+            <InputLabel id="type-filter-label">Type</InputLabel>
+            <Select
+              labelId="type-filter-label"
+              value={typeFilter}
+              label="Type"
+              onChange={(e: SelectChangeEvent) => setTypeFilter(e.target.value)}
+            >
+              <MenuItem value="All">All Types</MenuItem>
+              {deliverableTypes.map((t) => (
+                <MenuItem key={t} value={t}>{t}</MenuItem>
+              ))}
+            </Select>
+          </FormControl>
+        </Box>
+        {toolbarAction && <Box sx={{ ml: "auto" }}>{toolbarAction}</Box>}
       </Box>
 
       {/* Table */}
@@ -161,7 +178,7 @@ export default function RecordsTable({ deliverables, programs, detailSource }: R
           <TableHead>
             <TableRow>
               {[
-                { key: "id" as SortableKey, label: "ID" },
+                { key: "deliverableNumber" as SortableKey, label: "Deliverable Number" },
                 { key: "title" as SortableKey, label: "Title" },
                 { key: "type" as SortableKey, label: "Type" },
                 { key: "status" as SortableKey, label: "Status" },
@@ -192,7 +209,7 @@ export default function RecordsTable({ deliverables, programs, detailSource }: R
                 sx={{ cursor: "pointer" }}
               >
                 <TableCell sx={{ fontFamily: "monospace", fontSize: "0.8rem", color: "primary.main", fontWeight: 600 }}>
-                  {d.id}
+                  {d.deliverableNumber}
                 </TableCell>
                 <TableCell>{d.title}</TableCell>
                 <TableCell>

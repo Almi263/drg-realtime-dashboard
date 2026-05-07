@@ -5,15 +5,17 @@ import CircularProgress from "@mui/material/CircularProgress";
 import BackButton from "@/components/BackButton";
 import ProgramDetailView from "@/components/ProgramDetailView";
 import { assertCanViewProgram, requireUser } from "@/lib/auth/guards";
+import { listDeliverableTypes } from "@/lib/dataverse/deliverable-types";
 import { listDocumentAccessLogs } from "@/lib/dataverse/document-access-logs";
 import { listVisibleDeliverables } from "@/lib/dataverse/deliverables";
 import { listVisibleDocuments } from "@/lib/dataverse/documents";
 import { getProgramById } from "@/lib/dataverse/programs";
 
 async function ProgramDetailContent({ id, user }: { id: string; user: Awaited<ReturnType<typeof requireUser>> }) {
-  const [deliverables, documents] = await Promise.all([
+  const [deliverables, documents, deliverableTypes] = await Promise.all([
     listVisibleDeliverables(user),
     listVisibleDocuments(user),
+    listDeliverableTypes(),
   ]);
 
   const programDeliverables = deliverables.filter((d) => d.programId === id);
@@ -27,6 +29,7 @@ async function ProgramDetailContent({ id, user }: { id: string; user: Awaited<Re
     <ProgramDetailView
       programId={id}
       deliverables={programDeliverables}
+      deliverableTypes={deliverableTypes}
       documents={programDocuments}
       accessLogsByDocumentId={accessLogsByDocumentId}
     />

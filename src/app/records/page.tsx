@@ -5,16 +5,24 @@ import Typography from "@mui/material/Typography";
 import CircularProgress from "@mui/material/CircularProgress";
 import FilteredRecordsView from "@/components/FilteredRecordsView";
 import { requireUser } from "@/lib/auth/guards";
+import { listDeliverableTypes } from "@/lib/dataverse/deliverable-types";
 import { listVisibleDeliverables } from "@/lib/dataverse/deliverables";
 import { listVisiblePrograms } from "@/lib/dataverse/programs";
 
 async function RecordsContent() {
   const user = await requireUser();
-  const [deliverables, programs] = await Promise.all([
+  const [deliverables, programs, deliverableTypes] = await Promise.all([
     listVisibleDeliverables(user),
     listVisiblePrograms(user),
+    listDeliverableTypes(),
   ]);
-  return <FilteredRecordsView deliverables={deliverables} programs={programs} />;
+  return (
+    <FilteredRecordsView
+      deliverables={deliverables}
+      programs={programs}
+      deliverableTypes={deliverableTypes}
+    />
+  );
 }
 
 export default function RecordsPage() {

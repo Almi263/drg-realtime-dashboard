@@ -21,13 +21,14 @@ import EditOutlinedIcon from "@mui/icons-material/EditOutlined";
 import LocationOnIcon from "@mui/icons-material/LocationOn";
 import AccessRestrictedNotice from "@/components/AccessRestrictedNotice";
 import DocumentsTable from "@/components/DocumentsTable";
+import CreateDeliverableDialog from "@/components/CreateDeliverableDialog";
 import ProgramOwnerAutocomplete, {
   type ProgramOwnerOption,
 } from "@/components/ProgramOwnerAutocomplete";
 import ProgramAccessManager from "@/components/ProgramAccessManager";
 import RecordsTable from "@/components/RecordsTable";
 import { useRole } from "@/lib/context/role-context";
-import type { Deliverable } from "@/lib/models/deliverable";
+import type { Deliverable, DeliverableType } from "@/lib/models/deliverable";
 import type { DeliverableDocument, DocumentAccessLog } from "@/lib/models/document";
 
 function formatDate(iso: string) {
@@ -47,6 +48,7 @@ function toDateInputValue(iso: string) {
 interface ProgramDetailViewProps {
   programId: string;
   deliverables: Deliverable[];
+  deliverableTypes: DeliverableType[];
   documents: DeliverableDocument[];
   accessLogsByDocumentId?: Record<string, DocumentAccessLog[]>;
 }
@@ -54,6 +56,7 @@ interface ProgramDetailViewProps {
 export default function ProgramDetailView({
   programId,
   deliverables,
+  deliverableTypes,
   documents,
   accessLogsByDocumentId = {},
 }: ProgramDetailViewProps) {
@@ -273,7 +276,19 @@ export default function ProgramDetailView({
         </Tabs>
 
         <Box sx={{ p: 2.5 }}>
-          {activeTab === 0 && <RecordsTable deliverables={deliverables} programs={[program]} />}
+          {activeTab === 0 && (
+            <RecordsTable
+              deliverables={deliverables}
+              programs={[program]}
+              toolbarAction={
+                <CreateDeliverableDialog
+                  programs={[program]}
+                  deliverableTypes={deliverableTypes}
+                  defaultProgramId={program.id}
+                />
+              }
+            />
+          )}
           {activeTab === 1 && (
             <DocumentsTable
               documents={documents}

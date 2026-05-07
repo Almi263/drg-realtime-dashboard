@@ -10,9 +10,15 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: "Authentication required." }, { status: 401 });
   }
 
-  if (!hasAnyRole(session.user.internalRoles, ["drg-admin", "drg-program-owner"])) {
+  if (
+    !hasAnyRole(session.user.internalRoles, [
+      "drg-admin",
+      "drg-program-owner",
+      "drg-staff",
+    ])
+  ) {
     return NextResponse.json(
-      { error: "Only DRG admins or program owners can search collaborators." },
+      { error: "Only DRG admins, program owners, or DRG staff can search collaborators." },
       { status: 403 }
     );
   }

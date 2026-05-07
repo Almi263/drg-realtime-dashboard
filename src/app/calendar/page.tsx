@@ -5,13 +5,17 @@ import Typography from "@mui/material/Typography";
 import CircularProgress from "@mui/material/CircularProgress";
 import { requireUser } from "@/lib/auth/guards";
 import { listVisibleDeliverables } from "@/lib/dataverse/deliverables";
+import { listVisiblePrograms } from "@/lib/dataverse/programs";
 import DeadlinesList from "@/components/DeadlinesList";
 
 async function CalendarContent() {
   const user = await requireUser();
-  const visibleDeliverables = await listVisibleDeliverables(user);
+  const [visibleDeliverables, visiblePrograms] = await Promise.all([
+    listVisibleDeliverables(user),
+    listVisiblePrograms(user),
+  ]);
 
-  return <DeadlinesList deliverables={visibleDeliverables} />;
+  return <DeadlinesList deliverables={visibleDeliverables} programs={visiblePrograms} />;
 }
 
 export default function CalendarPage() {

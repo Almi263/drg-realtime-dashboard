@@ -2,7 +2,9 @@
 
 import { useEffect, useState } from "react";
 import Autocomplete from "@mui/material/Autocomplete";
+import Stack from "@mui/material/Stack";
 import TextField from "@mui/material/TextField";
+import Typography from "@mui/material/Typography";
 
 export interface ProgramOwnerOption {
   id: string;
@@ -79,14 +81,26 @@ export default function ProgramOwnerAutocomplete({
       inputValue={inputValue}
       loading={isLoading}
       disabled={disabled}
-      getOptionLabel={(option) =>
-        option.displayName ? `${option.displayName} (${option.email})` : option.email
-      }
+      getOptionLabel={(option) => option.displayName || option.email}
       isOptionEqualToValue={(option, selectedValue) =>
         option.id === selectedValue.id
       }
       onChange={(_, selectedValue) => onChange(selectedValue)}
       onInputChange={(_, nextValue) => onInputChange(nextValue)}
+      renderOption={(props, option) => (
+        <li {...props} key={option.id}>
+          <Stack spacing={0.25}>
+            <Typography variant="body2">
+              {option.displayName || option.email}
+            </Typography>
+            {option.displayName && (
+              <Typography variant="caption" sx={{ color: "text.secondary" }}>
+                {option.email}
+              </Typography>
+            )}
+          </Stack>
+        </li>
+      )}
       renderInput={(params) => (
         <TextField
           {...params}

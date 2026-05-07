@@ -122,6 +122,50 @@ export function canWorkProgram(
   return false;
 }
 
+export function canCreateApprovedDeliverable(
+  user: { email?: string | null; internalRoles: InternalRole[] },
+  program: Program
+) {
+  if (isProgramArchived(program)) return false;
+  if (user.internalRoles.includes("drg-admin")) return true;
+
+  if (user.internalRoles.includes("drg-program-owner")) {
+    return hasActiveProgramAccessWithRole(program, user.email, ["Program Owner"]);
+  }
+
+  return false;
+}
+
+export function canCreateDeliverableDraft(
+  user: { email?: string | null; internalRoles: InternalRole[] },
+  program: Program
+) {
+  if (isProgramArchived(program)) return false;
+  if (!user.internalRoles.includes("drg-staff")) return false;
+
+  return hasActiveProgramAccessWithRole(program, user.email, [
+    "DRG Staff",
+    "Program Owner",
+  ]);
+}
+
+export function canCreateDeliverable(
+  user: { email?: string | null; internalRoles: InternalRole[] },
+  program: Program
+) {
+  return (
+    canCreateApprovedDeliverable(user, program) ||
+    canCreateDeliverableDraft(user, program)
+  );
+}
+
+export function canApproveDeliverableDraft(
+  user: { email?: string | null; internalRoles: InternalRole[] },
+  program: Program
+) {
+  return canCreateApprovedDeliverable(user, program);
+}
+
 export function canUploadToProgram(
   user: { email?: string | null; internalRoles: InternalRole[] },
   program: Program

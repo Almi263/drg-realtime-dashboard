@@ -1,6 +1,7 @@
 "use client";
 
 import Box from "@mui/material/Box";
+import Alert from "@mui/material/Alert";
 import Typography from "@mui/material/Typography";
 import Card from "@mui/material/Card";
 import CardContent from "@mui/material/CardContent";
@@ -11,6 +12,7 @@ import MuiLink from "@mui/material/Link";
 import NextLink from "next/link";
 import Tooltip from "@mui/material/Tooltip";
 import UploadFileIcon from "@mui/icons-material/UploadFile";
+import CheckCircleOutlineIcon from "@mui/icons-material/CheckCircleOutline";
 import VisibilityIcon from "@mui/icons-material/Visibility";
 import CalendarTodayIcon from "@mui/icons-material/CalendarToday";
 import PersonIcon from "@mui/icons-material/Person";
@@ -18,12 +20,15 @@ import type { Deliverable, DeliverableStatus } from "@/lib/models/deliverable";
 import type { DeliverableDocument, FileType } from "@/lib/models/document";
 import type { Program } from "@/lib/models/program";
 import { useRole } from "@/lib/context/role-context";
+import { useRouter } from "next/navigation";
+import { useState } from "react";
 
 /* ------------------------------------------------------------------ */
 /*  Helpers                                                           */
 /* ------------------------------------------------------------------ */
 
 const STATUS_COLORS: Partial<Record<DeliverableStatus, { bg: string; color: string }>> = {
+  Draft: { bg: "#5c6bc0", color: "#fff" },
   "In Review": { bg: "#0078d4", color: "#fff" },
   Returned: { bg: "#ed6c02", color: "#fff" },
   "Pending Acknowledgment": { bg: "#6d4c41", color: "#fff" },
@@ -74,21 +79,51 @@ export default function DeliverableDetail({
   program,
   accessLogCountsByDocumentId = {},
 }: DeliverableDetailProps) {
-  const { role } = useRole();
+  const router = useRouter();
+  const [isApprovingDraft, setIsApprovingDraft] = useState(false);
+  const [actionError, setActionError] = useState<string | null>(null);
+  const { canApproveDeliverableDraftForProgram, role } = useRole();
   const canSubmit =
     Boolean(program && program.status !== "Archived") &&
+    d.status !== "Draft" &&
     Boolean(
       role &&
         ["drg-admin", "drg-program-owner", "drg-staff", "external-reviewer"].includes(role)
     );
   const canSeeAccessLog =
     role === "drg-admin" || role === "drg-program-owner" || role === "drg-staff";
+  const canApproveDraft =
+    d.status === "Draft" &&
+    Boolean(program && canApproveDeliverableDraftForProgram(program.id));
 
   const statusColors = STATUS_COLORS[d.status];
+
+  async function handleApproveDraft() {
+    setIsApprovingDraft(true);
+    setActionError(null);
+
+    try {
+      const response = await fetch(`/api/deliverables/${d.id}/approve-draft`, {
+        method: "POST",
+      });
+
+      if (!response.ok) {
+        const json = await response.json().catch(() => null);
+        throw new Error(json?.error ?? "Failed to approve draft.");
+      }
+
+      router.refresh();
+    } catch (error) {
+      setActionError(error instanceof Error ? error.message : "Failed to approve draft.");
+    } finally {
+      setIsApprovingDraft(false);
+    }
+  }
 
   return (
     <Box sx={{ display: "flex", flexDirection: "column", gap: 3 }}>
       {/* Header card */}
+      {actionError && <Alert severity="error">{actionError}</Alert>}
       <Card
         variant="outlined"
         sx={{ borderColor: d.status.startsWith("Overdue") ? "error.main" : "divider" }}
@@ -110,7 +145,7 @@ export default function DeliverableDetail({
                   variant="caption"
                   sx={{ fontFamily: "monospace", fontWeight: 700, color: "text.secondary", fontSize: "0.85rem" }}
                 >
-                  {d.id}
+                  {d.deliverableNumber}
                 </Typography>
                 <Chip
                   label={d.type}
@@ -161,6 +196,20 @@ export default function DeliverableDetail({
         </CardContent>
       </Card>
 
+      {canApproveDraft && (
+        <Box>
+          <Button
+            variant="contained"
+            size="small"
+            startIcon={<CheckCircleOutlineIcon />}
+            onClick={handleApproveDraft}
+            disabled={isApprovingDraft}
+          >
+            {isApprovingDraft ? "Approving..." : "Approve Draft"}
+          </Button>
+        </Box>
+      )}
+
       {/* Submit action */}
       {canSubmit && d.status !== "Complete" && (
         <Box>
@@ -171,7 +220,7 @@ export default function DeliverableDetail({
             startIcon={<UploadFileIcon />}
             size="small"
           >
-            Submit Document for {d.id}
+            Submit Document for {d.title}
           </Button>
           <Typography variant="caption" sx={{ display: "block", color: "text.secondary", mt: 0.75 }}>
             This will open the submission wizard pre-filled for this deliverable.
