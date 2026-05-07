@@ -540,6 +540,10 @@ describe("production integration layer", () => {
 
     let createdPayload: Record<string, unknown> | undefined;
     global.fetch = createDataverseFetchMock({
+      "/systemusers?": () =>
+        jsonResponse({
+          value: [{ systemuserid: "uploader-user-1" }],
+        }),
       "Attributes(LogicalName='drg_documentrole')": () =>
         jsonResponse({
           GlobalOptionSet: {
@@ -592,6 +596,7 @@ describe("production integration layer", () => {
       drg_documentrole: 100000000,
       drg_status: 100000010,
       drg_sharepointsiteurl: "https://sharepoint.test/sites/drg",
+      "drg_uploadedby@odata.bind": "/systemusers(uploader-user-1)",
     });
     expect(createdPayload?.drg_sharepointurl).toBeUndefined();
   });

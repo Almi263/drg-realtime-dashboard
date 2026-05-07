@@ -32,6 +32,7 @@ import UploadFileIcon from "@mui/icons-material/UploadFile";
 import SearchIcon from "@mui/icons-material/Search";
 import MuiLink from "@mui/material/Link";
 import NextLink from "next/link";
+import { usePathname } from "next/navigation";
 import type { SelectChangeEvent } from "@mui/material/Select";
 import type {
   DeliverableDocument,
@@ -151,6 +152,7 @@ export default function DocumentsTable({
   showSearch = false,
   showArchivedToggle = false,
 }: DocumentsTableProps) {
+  const pathname = usePathname();
   const { role, canUploadToProgram } = useRole();
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [programFilter, setProgramFilter] = useState<string>("All");
@@ -304,7 +306,7 @@ export default function DocumentsTable({
             <Tooltip title="Upload a PDF deliverable document">
               <Button
                 component={NextLink}
-                href="/submit"
+                href={`/submit?returnTo=${encodeURIComponent(pathname)}&returnLabel=Documents`}
                 variant="contained"
                 size="small"
                 startIcon={<UploadFileIcon />}

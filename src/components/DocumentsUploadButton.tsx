@@ -10,7 +10,7 @@ export default function DocumentsUploadButton() {
     <Tooltip title="Upload a PDF deliverable document">
       <Button
         component={NextLink}
-        href="/submit?from=documents"
+        href="/submit?returnTo=%2Fdocuments&returnLabel=Documents"
         variant="contained"
         size="small"
         startIcon={<UploadFileIcon />}

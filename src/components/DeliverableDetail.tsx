@@ -21,7 +21,7 @@ import type { Deliverable, DeliverableStatus } from "@/lib/models/deliverable";
 import type { DeliverableDocument, FileType } from "@/lib/models/document";
 import type { Program } from "@/lib/models/program";
 import { useRole } from "@/lib/context/role-context";
-import { useRouter } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { useState } from "react";
 
 /* ------------------------------------------------------------------ */
@@ -82,6 +82,7 @@ export default function DeliverableDetail({
   program,
   accessLogCountsByDocumentId = {},
 }: DeliverableDetailProps) {
+  const pathname = usePathname();
   const router = useRouter();
   const [isApprovingDraft, setIsApprovingDraft] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
@@ -276,7 +277,7 @@ export default function DeliverableDetail({
         <Box>
           <Button
             component={NextLink}
-            href={`/submit?programId=${d.programId}&deliverableId=${d.id}`}
+            href={`/submit?programId=${encodeURIComponent(d.programId)}&deliverableId=${encodeURIComponent(d.id)}&returnTo=${encodeURIComponent(pathname)}&returnLabel=Deliverable`}
             variant="contained"
             startIcon={<UploadFileIcon />}
             size="small"

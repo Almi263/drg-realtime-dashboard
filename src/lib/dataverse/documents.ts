@@ -7,12 +7,14 @@ import type {
 } from "@/lib/models/document";
 import {
   dataverseFetch,
+  escapeODataString,
   getFormattedValue,
   isDataverseConfigured,
   listRows,
   lookupBind,
   type DataverseUser,
 } from "@/lib/dataverse/client";
+import { normalizeEmail } from "@/lib/auth/roles";
 import { listVisiblePrograms } from "@/lib/dataverse/programs";
 
 interface DataverseDocumentRow extends Record<string, unknown> {
@@ -63,6 +65,10 @@ type DataverseChoiceMetadata = {
     Options?: DataverseChoiceOption[];
   } | null;
 };
+
+interface DataverseSystemUserRow {
+  systemuserid: string;
+}
 
 export interface CreateDocumentMetadataInput {
   programId: string;
@@ -182,6 +188,30 @@ function toDataverseOptionalUrl(value: string) {
   return trimmed;
 }
 
+function getDisplayNameFromEmail(email: string) {
+  const localPart = email.split("@")[0]?.trim();
+  if (!localPart) return email;
+
+  return localPart
+    .split(/[._-]+/)
+    .filter(Boolean)
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(" ");
+}
+
+async function findSystemUserIdByEmail(email: string) {
+  const normalizedEmail = normalizeEmail(email);
+  if (!normalizedEmail) return undefined;
+
+  const escapedEmail = escapeODataString(normalizedEmail);
+  const rows = await listRows<DataverseSystemUserRow>(
+    "systemusers",
+    `$select=systemuserid&$top=1&$filter=internalemailaddress eq '${escapedEmail}' or domainname eq '${escapedEmail}'`
+  );
+
+  return rows[0]?.systemuserid;
+}
+
 async function loadChoiceOptionValues<T extends string>(input: {
   entityLogicalName: string;
   attributeLogicalName: string;
@@ -297,7 +327,9 @@ function mapDocumentRow(row: DataverseDocumentRow): DeliverableDocument {
     versionLabel: row.drg_versionlabel,
     uploadedByUserId: row._drg_uploadedby_value,
     uploadedByEmail: row.drg_uploadedbyemail ?? "",
-    uploadedBy: row.drg_uploadedbyemail ?? "",
+    uploadedBy:
+      getFormattedValue(row, "_drg_uploadedby_value") ??
+      getDisplayNameFromEmail(row.drg_uploadedbyemail ?? ""),
     uploadedAt: row.drg_uploadedon ?? "",
     status: toUiStatus(getFormattedValue(row, "drg_status")),
     sizeKb: row.drg_filesizekb ?? 0,
@@ -387,6 +419,7 @@ export async function createDocumentMetadata(input: CreateDocumentMetadataInput)
   }
 
   const documentRole = input.documentRole ?? "DRG Submission";
+  const uploadedByUserId = await findSystemUserIdByEmail(input.uploadedByEmail);
   const payload: Record<string, unknown> = {
     drg_name: input.fileName,
     "drg_program@odata.bind": lookupBind("drg_programs", input.programId),
@@ -405,6 +438,13 @@ export async function createDocumentMetadata(input: CreateDocumentMetadataInput)
     drg_checksum: input.checksum,
     drg_reviewduedate: input.reviewDueDate || undefined,
   };
+
+  if (uploadedByUserId) {
+    payload["drg_uploadedby@odata.bind"] = lookupBind(
+      "systemusers",
+      uploadedByUserId
+    );
+  }
 
   if (input.parentDocumentId) {
     payload["drg_parentdocument@odata.bind"] = lookupBind(

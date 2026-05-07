@@ -16,6 +16,8 @@ import CheckCircleIcon from "@mui/icons-material/CheckCircle";
 import UploadFileIcon from "@mui/icons-material/UploadFile";
 import ArrowBackIcon from "@mui/icons-material/ArrowBack";
 import SearchIcon from "@mui/icons-material/Search";
+import BusinessCenterIcon from "@mui/icons-material/BusinessCenter";
+import DescriptionIcon from "@mui/icons-material/Description";
 import Link from "next/link";
 import AccessRestrictedNotice from "@/components/AccessRestrictedNotice";
 import { useRole } from "@/lib/context/role-context";
@@ -28,6 +30,12 @@ import type { Deliverable, DeliverableStatus } from "@/lib/models/deliverable";
 
 const STEPS = ["Select Program", "Select Deliverable", "Attach Document", "Submitted"];
 const PDF_REQUIRED_MESSAGE = "Only PDF files can be uploaded.";
+
+function ensurePdfFileName(value: string) {
+  const trimmed = value.trim();
+  if (!trimmed) return "";
+  return trimmed.toLowerCase().endsWith(".pdf") ? trimmed : `${trimmed}.pdf`;
+}
 
 const STATUS_CHIP_STYLE: Partial<Record<DeliverableStatus, object>> = {
   "In Review": { bgcolor: "#0078d4", color: "#fff" },
@@ -326,6 +334,7 @@ function UploadStep({
   isSubmitting: boolean;
 }) {
   const [file, setFile] = useState<File | null>(null);
+  const [documentName, setDocumentName] = useState("");
   const [fileError, setFileError] = useState<string | null>(null);
   const [reviewDueDate, setReviewDueDate] = useState("");
   const [dragging, setDragging] = useState(false);
@@ -334,13 +343,17 @@ function UploadStep({
   const handleFile = (f: File) => {
     if (f.type !== "application/pdf" || !f.name.toLowerCase().endsWith(".pdf")) {
       setFile(null);
+      setDocumentName("");
       setFileError(PDF_REQUIRED_MESSAGE);
       return;
     }
 
     setFileError(null);
     setFile(f);
+    setDocumentName(f.name);
   };
+
+  const submittedFileName = ensurePdfFileName(documentName);
 
   const handleDrop = (e: React.DragEvent) => {
     e.preventDefault();
@@ -352,15 +365,25 @@ function UploadStep({
   return (
     <Box>
       <Button startIcon={<ArrowBackIcon />} size="small" sx={{ color: "text.secondary", mb: 2 }} onClick={onBack}>
-        Back
+        Previous Section
       </Button>
       <Typography variant="h6" sx={{ fontWeight: 700, mb: 0.5 }}>
         Attach document
       </Typography>
-      <Box sx={{ display: "flex", gap: 1, flexWrap: "wrap", mb: 3 }}>
-        <Chip label={deliverable.deliverableNumber} size="small" variant="outlined" sx={{ fontFamily: "monospace" }} />
-        <Chip label={deliverable.title} size="small" variant="outlined" />
-        <Chip label={program.name} size="small" />
+      <Box sx={{ display: "flex", gap: 1.5, flexWrap: "wrap", mb: 3 }}>
+        <Box sx={{ display: "inline-flex", alignItems: "center", gap: 0.5 }}>
+          <BusinessCenterIcon fontSize="small" sx={{ color: "text.secondary" }} />
+          <Chip label={program.name} size="small" />
+        </Box>
+        <Box sx={{ display: "inline-flex", alignItems: "center", gap: 0.5 }}>
+          <DescriptionIcon fontSize="small" sx={{ color: "text.secondary" }} />
+          <Chip
+            label={`${deliverable.deliverableNumber}: ${deliverable.title}`}
+            size="small"
+            variant="outlined"
+            sx={{ fontFamily: "monospace" }}
+          />
+        </Box>
       </Box>
 
       {/* Drop zone */}
@@ -413,6 +436,17 @@ function UploadStep({
       </Alert>
       {fileError && <Alert severity="error" sx={{ mb: 3 }}>{fileError}</Alert>}
 
+      {file && (
+        <TextField
+          label="PDF name"
+          value={documentName}
+          onChange={(event) => setDocumentName(event.target.value)}
+          fullWidth
+          helperText="This is the document name that will be saved with the submission."
+          sx={{ mb: 3 }}
+        />
+      )}
+
       <TextField
         label="Review due date"
         type="date"
@@ -424,7 +458,17 @@ function UploadStep({
       />
 
       <Box sx={{ display: "flex", gap: 2 }}>
-        <Button variant="contained" disabled={!file || isSubmitting} onClick={() => file && onSubmit(file, reviewDueDate)}>
+        <Button
+          variant="contained"
+          disabled={!file || !submittedFileName || isSubmitting}
+          onClick={() => {
+            if (!file || !submittedFileName) return;
+            onSubmit(
+              new File([file], submittedFileName, { type: file.type }),
+              reviewDueDate
+            );
+          }}
+        >
           {isSubmitting ? "Submitting..." : "Submit Document"}
         </Button>
         <Button component={Link} href="/documents" color="inherit">
