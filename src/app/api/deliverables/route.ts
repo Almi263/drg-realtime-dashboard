@@ -113,6 +113,7 @@ export async function POST(request: Request) {
       try {
         await ensureDeliverableFolder({
           programId,
+          programNumber: program.programNumber,
           programName: program.name,
           deliverableId,
           deliverableName: title,

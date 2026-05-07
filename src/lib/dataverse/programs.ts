@@ -60,6 +60,18 @@ export interface CreateProgramInput {
   creatorUpn: string;
 }
 
+export interface UpdateProgramInput {
+  programId: string;
+  name: string;
+  programNumber: string;
+  contractRef: string;
+  description?: string;
+  sites: string[];
+  startDate?: string;
+  endDate?: string;
+  ownerUpn?: string;
+}
+
 function isInternalAllProgramsUser(user: DataverseUser) {
   return Boolean(user.internalRoles?.includes("drg-admin"));
 }
@@ -287,6 +299,28 @@ async function deleteRows(entitySetName: string, ids: readonly string[]) {
   }
 }
 
+async function replaceProgramSites(programId: string, sites: readonly string[]) {
+  const siteIds = await listProgramChildIds(
+    "drg_programsites",
+    "drg_programsiteid",
+    programId
+  );
+
+  await deleteRows("drg_programsites", siteIds);
+  await Promise.all(
+    sites.map((site, index) =>
+      dataverseFetch<void>("/drg_programsites", {
+        method: "POST",
+        body: JSON.stringify({
+          drg_name: site,
+          "drg_program@odata.bind": lookupBind("drg_programs", programId),
+          drg_isprimary: index === 0,
+        }),
+      })
+    )
+  );
+}
+
 export async function deleteEmptyProgram(programId: string) {
   if (!isDataverseConfigured()) {
     throw new Error("Dataverse is not configured for program deletion.");
@@ -321,6 +355,42 @@ export async function deleteEmptyProgram(programId: string) {
   await dataverseFetch<void>(`/drg_programs(${programId})`, {
     method: "DELETE",
   });
+}
+
+export async function updateProgram(input: UpdateProgramInput) {
+  if (!isDataverseConfigured()) {
+    throw new Error("Dataverse is not configured for program updates.");
+  }
+
+  const payload: Record<string, unknown> = {
+    drg_name: input.name,
+    drg_programnumber: input.programNumber,
+    drg_contractref: input.contractRef,
+    drg_description: input.description ?? "",
+    drg_startdate: input.startDate || null,
+    drg_enddate: input.endDate || null,
+    drg_primarysitecount: input.sites.length,
+  };
+
+  if (input.ownerUpn) {
+    const ownerUpn = normalizeEmail(input.ownerUpn);
+    const ownerUserId = await findSystemUserIdByEmail(ownerUpn);
+    payload.drg_ownerupn = ownerUpn;
+
+    if (ownerUserId) {
+      payload["drg_owneruser@odata.bind"] = lookupBind(
+        "systemusers",
+        ownerUserId
+      );
+    }
+  }
+
+  await dataverseFetch<void>(`/drg_programs(${input.programId})`, {
+    method: "PATCH",
+    body: JSON.stringify(payload),
+  });
+
+  await replaceProgramSites(input.programId, input.sites);
 }
 
 export async function createProgram(input: CreateProgramInput) {
@@ -369,18 +439,7 @@ export async function createProgram(input: CreateProgramInput) {
     throw new Error("Dataverse did not return the created program ID.");
   }
 
-  await Promise.all(
-    input.sites.map((site, index) =>
-      dataverseFetch<void>("/drg_programsites", {
-        method: "POST",
-        body: JSON.stringify({
-          drg_name: site,
-          "drg_program@odata.bind": lookupBind("drg_programs", programId),
-          drg_isprimary: index === 0,
-        }),
-      })
-    )
-  );
+  await replaceProgramSites(programId, input.sites);
 
   return programId;
 }

@@ -80,8 +80,17 @@ function getProgramFolderPath(programNumber: string, programName?: string) {
   return [baseFolder, getReadableFolderName(programNumber, programName)].join("/");
 }
 
+function splitSharePointPath(path: string) {
+  const segments = path.split("/").filter(Boolean);
+  return {
+    parentPath: segments.slice(0, -1).join("/"),
+    name: segments.at(-1) ?? "",
+  };
+}
+
 function getSharePointFolderPath(input: {
   programId: string;
+  programNumber?: string;
   deliverableId: string;
   programName?: string;
   deliverableName?: string;
@@ -96,7 +105,7 @@ function getSharePointFolderPath(input: {
 
   return [
     baseFolder,
-    getReadableFolderName(input.programId, input.programName),
+    getReadableFolderName(input.programNumber ?? input.programId, input.programName),
     getReadableFolderName(input.deliverableId, input.deliverableName),
   ].join("/");
 }
@@ -247,8 +256,83 @@ export async function deleteProgramFolder(input: {
   }
 }
 
+export async function renameProgramFolder(input: {
+  oldProgramNumber: string;
+  oldProgramName: string;
+  programNumber: string;
+  programName: string;
+  legacyProgramId?: string;
+}) {
+  const newPath = getProgramFolderPath(input.programNumber, input.programName);
+  const candidateOldPaths = [
+    getProgramFolderPath(input.oldProgramNumber, input.oldProgramName),
+    ...(input.legacyProgramId && input.legacyProgramId !== input.oldProgramNumber
+      ? [getProgramFolderPath(input.legacyProgramId, input.oldProgramName)]
+      : []),
+  ];
+
+  if (candidateOldPaths.includes(newPath)) return;
+
+  const token = await getGraphToken();
+  const driveId = process.env.SHAREPOINT_DRIVE_ID ?? "";
+  let existingFolderResponse: Response | undefined;
+
+  for (const oldPath of candidateOldPaths) {
+    const response = await getDriveItemByPath(token, driveId, oldPath);
+    if (response.status === 404) continue;
+
+    existingFolderResponse = response;
+    break;
+  }
+
+  if (!existingFolderResponse) {
+    await ensureSharePointFolderPath(newPath);
+    return;
+  }
+
+  if (!existingFolderResponse.ok) {
+    const details = await existingFolderResponse.text().catch(() => "");
+    throw new Error(
+      `SharePoint folder lookup failed before rename: ${existingFolderResponse.status}${
+        details ? ` - ${details}` : ""
+      }`
+    );
+  }
+
+  const existingFolder = (await existingFolderResponse.json()) as { id?: string };
+  if (!existingFolder.id) {
+    throw new Error("SharePoint folder lookup did not return an item ID.");
+  }
+
+  const { name } = splitSharePointPath(newPath);
+  const response = await fetch(
+    `${getDriveGraphBaseUrl(driveId)}/items/${encodeURIComponent(
+      existingFolder.id
+    )}`,
+    {
+      method: "PATCH",
+      headers: {
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ name }),
+      cache: "no-store",
+    }
+  );
+
+  if (!response.ok) {
+    const details = await response.text().catch(() => "");
+    throw new Error(
+      `SharePoint folder rename failed: ${response.status}${
+        details ? ` - ${details}` : ""
+      }`
+    );
+  }
+}
+
 export async function ensureDeliverableFolder(input: {
   programId: string;
+  programNumber?: string;
   deliverableId: string;
   programName: string;
   deliverableName: string;
@@ -289,6 +373,7 @@ export async function fetchSharePointFile(input: SharePointDownloadInput) {
 
 export async function uploadPdfToSharePoint(input: {
   programId: string;
+  programNumber?: string;
   deliverableId: string;
   programName?: string;
   deliverableName?: string;

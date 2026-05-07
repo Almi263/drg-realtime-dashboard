@@ -329,6 +329,85 @@ describe("production integration layer", () => {
     ]);
   });
 
+  it("updates program information and replaces site rows", async () => {
+    vi.resetModules();
+    configureDataverseEnv();
+
+    let programPayload: Record<string, unknown> | undefined;
+    const createdSites: Record<string, unknown>[] = [];
+    const deletedPaths: string[] = [];
+
+    global.fetch = createDataverseFetchMock({
+      "/systemusers?": () =>
+        jsonResponse({ value: [{ systemuserid: "owner-user-1" }] }),
+      "/drg_programs(program-1)": async (request) => {
+        programPayload = await request.json();
+        return new Response(null, { status: 204 });
+      },
+      "/drg_programsites?": () =>
+        jsonResponse({
+          value: [
+            { drg_programsiteid: "site-1" },
+            { drg_programsiteid: "site-2" },
+          ],
+        }),
+      "/drg_programsites(site-1)": (request) => {
+        deletedPaths.push(new URL(request.url).pathname);
+        return new Response(null, { status: 204 });
+      },
+      "/drg_programsites(site-2)": (request) => {
+        deletedPaths.push(new URL(request.url).pathname);
+        return new Response(null, { status: 204 });
+      },
+      "/drg_programsites": async (request) => {
+        createdSites.push(await request.json());
+        return jsonResponse({ drg_programsiteid: `site-${createdSites.length + 2}` }, { status: 201 });
+      },
+    });
+
+    const { updateProgram } = await import("@/lib/dataverse/programs");
+
+    await updateProgram({
+      programId: "program-1",
+      name: "Logistics Modernization Pilot",
+      programNumber: "PRG-009",
+      contractRef: "W912-009",
+      description: "Updated program",
+      sites: ["Norfolk, VA", "Tinker AFB, OK"],
+      startDate: "2026-05-01",
+      endDate: "2026-12-31",
+      ownerUpn: "owner@drg.test",
+    });
+
+    expect(programPayload).toMatchObject({
+      drg_name: "Logistics Modernization Pilot",
+      drg_programnumber: "PRG-009",
+      drg_contractref: "W912-009",
+      drg_description: "Updated program",
+      drg_startdate: "2026-05-01",
+      drg_enddate: "2026-12-31",
+      drg_ownerupn: "owner@drg.test",
+      "drg_owneruser@odata.bind": "/systemusers(owner-user-1)",
+      drg_primarysitecount: 2,
+    });
+    expect(deletedPaths).toEqual([
+      "/api/data/v9.2/drg_programsites(site-1)",
+      "/api/data/v9.2/drg_programsites(site-2)",
+    ]);
+    expect(createdSites).toEqual([
+      {
+        drg_name: "Norfolk, VA",
+        "drg_program@odata.bind": "/drg_programs(program-1)",
+        drg_isprimary: true,
+      },
+      {
+        drg_name: "Tinker AFB, OK",
+        "drg_program@odata.bind": "/drg_programs(program-1)",
+        drg_isprimary: false,
+      },
+    ]);
+  });
+
   it("blocks non-PDF uploads before SharePoint is called", async () => {
     vi.resetModules();
     vi.stubEnv("SHAREPOINT_TENANT_ID", "tenant-id");
@@ -441,7 +520,8 @@ describe("production integration layer", () => {
 
     await expect(
       uploadPdfToSharePoint({
-        programId: "PRG-001",
+        programId: "program-guid-1",
+        programNumber: "PRG-001",
         programName: "Surface Comms",
         deliverableId: "CDRL-005",
         deliverableName: "Monthly Report",
@@ -546,6 +626,109 @@ describe("production integration layer", () => {
       "DRG Submissions/PRG-001 - Surface Comms",
       "DRG Submissions/aa82b438-b749-f111-bec6-000d3a3837db - Surface Comms",
     ]);
+  });
+
+  it("renames SharePoint program folders when program names change", async () => {
+    vi.resetModules();
+    vi.stubEnv("SHAREPOINT_TENANT_ID", "tenant-id");
+    vi.stubEnv("SHAREPOINT_CLIENT_ID", "client-id");
+    vi.stubEnv("SHAREPOINT_CLIENT_SECRET", "client-secret");
+    vi.stubEnv("SHAREPOINT_SITE_ID", "site-id");
+    vi.stubEnv("SHAREPOINT_DRIVE_ID", "drive-id");
+    vi.stubEnv("SHAREPOINT_DOCUMENT_FOLDER", "DRG Submissions");
+
+    let lookupPath = "";
+    let renamePayload: Record<string, unknown> | undefined;
+    global.fetch = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const request = new Request(input, init);
+      const url = request.url;
+
+      if (url.includes("login.microsoftonline.com")) {
+        return jsonResponse({ access_token: "graph-token" });
+      }
+
+      if (request.method === "GET" && url.includes("/root:/")) {
+        lookupPath = decodeURIComponent(url.split("/root:/")[1] ?? "");
+        return jsonResponse({ id: "folder-item-1" });
+      }
+
+      if (request.method === "PATCH" && url.includes("/items/folder-item-1")) {
+        renamePayload = await request.json();
+        return jsonResponse({ id: "folder-item-1" });
+      }
+
+      throw new Error(`Unhandled fetch URL: ${url}`);
+    });
+
+    const { renameProgramFolder } = await import("@/lib/sharepoint/files");
+
+    await renameProgramFolder({
+      oldProgramNumber: "PRG-001",
+      oldProgramName: "Old Name",
+      programNumber: "PRG-001",
+      programName: "New Name",
+    });
+
+    expect(lookupPath).toBe("DRG Submissions/PRG-001 - Old Name");
+    expect(renamePayload).toEqual({ name: "PRG-001 - New Name" });
+  });
+
+  it("renames legacy GUID-named SharePoint program folders before creating replacements", async () => {
+    vi.resetModules();
+    vi.stubEnv("SHAREPOINT_TENANT_ID", "tenant-id");
+    vi.stubEnv("SHAREPOINT_CLIENT_ID", "client-id");
+    vi.stubEnv("SHAREPOINT_CLIENT_SECRET", "client-secret");
+    vi.stubEnv("SHAREPOINT_SITE_ID", "site-id");
+    vi.stubEnv("SHAREPOINT_DRIVE_ID", "drive-id");
+    vi.stubEnv("SHAREPOINT_DOCUMENT_FOLDER", "DRG Submissions");
+
+    const lookupPaths: string[] = [];
+    let renamePayload: Record<string, unknown> | undefined;
+    global.fetch = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const request = new Request(input, init);
+      const url = request.url;
+
+      if (url.includes("login.microsoftonline.com")) {
+        return jsonResponse({ access_token: "graph-token" });
+      }
+
+      if (request.method === "GET" && url.includes("/root:/")) {
+        const path = decodeURIComponent(url.split("/root:/")[1] ?? "");
+        lookupPaths.push(path);
+
+        if (path === "DRG Submissions/PRG-001 - Old Name") {
+          return new Response(null, { status: 404 });
+        }
+
+        return jsonResponse({ id: "legacy-folder-item-1" });
+      }
+
+      if (
+        request.method === "PATCH" &&
+        url.includes("/items/legacy-folder-item-1")
+      ) {
+        renamePayload = await request.json();
+        return jsonResponse({ id: "legacy-folder-item-1" });
+      }
+
+      throw new Error(`Unhandled fetch URL: ${url}`);
+    });
+
+    const { renameProgramFolder } = await import("@/lib/sharepoint/files");
+
+    await renameProgramFolder({
+      oldProgramNumber: "PRG-001",
+      oldProgramName: "Old Name",
+      programNumber: "PRG-001",
+      programName: "New Name",
+      legacyProgramId: "aa82b438-b749-f111-bec6-000d3a3837db",
+    });
+
+    expect(lookupPaths).toEqual([
+      "DRG Submissions/PRG-001 - Old Name",
+      "DRG Submissions/aa82b438-b749-f111-bec6-000d3a3837db - Old Name",
+    ]);
+    expect(renamePayload).toEqual({ name: "PRG-001 - New Name" });
   });
 
   it("blocks upload actions for archived programs", async () => {

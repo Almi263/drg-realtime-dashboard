@@ -13,12 +13,17 @@ import DialogContentText from "@mui/material/DialogContentText";
 import DialogTitle from "@mui/material/DialogTitle";
 import Tab from "@mui/material/Tab";
 import Tabs from "@mui/material/Tabs";
+import TextField from "@mui/material/TextField";
 import Typography from "@mui/material/Typography";
 import CalendarTodayIcon from "@mui/icons-material/CalendarToday";
 import DeleteOutlineIcon from "@mui/icons-material/DeleteOutline";
+import EditOutlinedIcon from "@mui/icons-material/EditOutlined";
 import LocationOnIcon from "@mui/icons-material/LocationOn";
 import AccessRestrictedNotice from "@/components/AccessRestrictedNotice";
 import DocumentsTable from "@/components/DocumentsTable";
+import ProgramOwnerAutocomplete, {
+  type ProgramOwnerOption,
+} from "@/components/ProgramOwnerAutocomplete";
 import ProgramAccessManager from "@/components/ProgramAccessManager";
 import RecordsTable from "@/components/RecordsTable";
 import { useRole } from "@/lib/context/role-context";
@@ -26,11 +31,17 @@ import type { Deliverable } from "@/lib/models/deliverable";
 import type { DeliverableDocument, DocumentAccessLog } from "@/lib/models/document";
 
 function formatDate(iso: string) {
+  if (!iso) return "Not set";
+
   return new Date(iso).toLocaleDateString("en-US", {
     month: "short",
     day: "numeric",
     year: "numeric",
   });
+}
+
+function toDateInputValue(iso: string) {
+  return iso ? iso.slice(0, 10) : "";
 }
 
 interface ProgramDetailViewProps {
@@ -47,11 +58,26 @@ export default function ProgramDetailView({
   accessLogsByDocumentId = {},
 }: ProgramDetailViewProps) {
   const [activeTab, setActiveTab] = useState(0);
+  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+  const [isSavingEdit, setIsSavingEdit] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
-  const [deleteError, setDeleteError] = useState<string | null>(null);
+  const [actionError, setActionError] = useState<string | null>(null);
+  const [editName, setEditName] = useState("");
+  const [editProgramNumber, setEditProgramNumber] = useState("");
+  const [editContractRef, setEditContractRef] = useState("");
+  const [editDescription, setEditDescription] = useState("");
+  const [editSites, setEditSites] = useState("");
+  const [editStartDate, setEditStartDate] = useState("");
+  const [editEndDate, setEditEndDate] = useState("");
+  const [editOwnerUpn, setEditOwnerUpn] = useState("");
+  const [ownerInput, setOwnerInput] = useState("");
+  const [selectedOwner, setSelectedOwner] = useState<ProgramOwnerOption | null>(
+    null
+  );
   const router = useRouter();
-  const { getProgramById, refreshPrograms, role } = useRole();
+  const { canManageProgramAccess, getProgramById, refreshPrograms, role } =
+    useRole();
   const program = getProgramById(programId);
 
   if (!program) {
@@ -60,13 +86,78 @@ export default function ProgramDetailView({
     );
   }
 
+  const activeProgram = program;
   const deliverableMap = Object.fromEntries(deliverables.map((d) => [d.id, d.title]));
   const overdue = deliverables.filter((d) => d.status.startsWith("Overdue")).length;
+  const mayEditProgram = canManageProgramAccess(activeProgram.id);
   const mayDeleteProgram = role === "drg-admin";
+  const mayChangeOwner = role === "drg-admin";
+
+  function openEditDialog() {
+    const ownerOption = activeProgram.ownerUpn
+      ? {
+          id: activeProgram.ownerUpn,
+          email: activeProgram.ownerUpn,
+          displayName: activeProgram.ownerUpn,
+        }
+      : null;
+
+    setActionError(null);
+    setEditName(activeProgram.name);
+    setEditProgramNumber(activeProgram.programNumber);
+    setEditContractRef(activeProgram.contractRef);
+    setEditDescription(activeProgram.description);
+    setEditSites(activeProgram.sites.map((site) => site.name).join(", "));
+    setEditStartDate(toDateInputValue(activeProgram.startDate));
+    setEditEndDate(toDateInputValue(activeProgram.endDate));
+    setEditOwnerUpn(activeProgram.ownerUpn);
+    setOwnerInput(activeProgram.ownerUpn);
+    setSelectedOwner(ownerOption);
+    setIsEditDialogOpen(true);
+  }
+
+  async function handleSaveProgram() {
+    setIsSavingEdit(true);
+    setActionError(null);
+
+    try {
+      const response = await fetch(`/api/programs/${programId}`, {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          name: editName,
+          programNumber: editProgramNumber,
+          contractRef: editContractRef,
+          description: editDescription,
+          sites: editSites.split(",").map((site) => site.trim()).filter(Boolean),
+          startDate: editStartDate,
+          endDate: editEndDate,
+          ...(mayChangeOwner ? { ownerUpn: editOwnerUpn } : {}),
+        }),
+      });
+
+      if (!response.ok) {
+        const json = await response.json().catch(() => null);
+        throw new Error(json?.error ?? "Failed to update program.");
+      }
+
+      await refreshPrograms();
+      setIsEditDialogOpen(false);
+      router.refresh();
+    } catch (error) {
+      setActionError(
+        error instanceof Error ? error.message : "Failed to update program."
+      );
+    } finally {
+      setIsSavingEdit(false);
+    }
+  }
 
   async function handleDeleteProgram() {
     setIsDeleting(true);
-    setDeleteError(null);
+    setActionError(null);
 
     try {
       const response = await fetch(`/api/programs/${programId}`, {
@@ -83,7 +174,7 @@ export default function ProgramDetailView({
       router.push("/programs");
       router.refresh();
     } catch (error) {
-      setDeleteError(
+      setActionError(
         error instanceof Error ? error.message : "Failed to delete program."
       );
     } finally {
@@ -102,9 +193,9 @@ export default function ProgramDetailView({
           p: 2.5,
         }}
       >
-        {deleteError && (
+        {actionError && (
           <Alert severity="error" sx={{ mb: 2 }}>
-            {deleteError}
+            {actionError}
           </Alert>
         )}
 
@@ -121,18 +212,14 @@ export default function ProgramDetailView({
             {overdue > 0 && (
               <Chip label={`${overdue} overdue`} sx={{ bgcolor: "error.main", color: "#fff", fontWeight: 700 }} />
             )}
-            {mayDeleteProgram && (
+            {mayEditProgram && (
               <Button
-                color="error"
                 variant="outlined"
                 size="small"
-                startIcon={<DeleteOutlineIcon />}
-                onClick={() => {
-                  setDeleteError(null);
-                  setIsDeleteDialogOpen(true);
-                }}
+                startIcon={<EditOutlinedIcon />}
+                onClick={openEditDialog}
               >
-                Delete
+                Edit
               </Button>
             )}
           </Box>
@@ -200,6 +287,122 @@ export default function ProgramDetailView({
       </Box>
 
       <Dialog
+        open={isEditDialogOpen}
+        onClose={() => {
+          if (!isSavingEdit) setIsEditDialogOpen(false);
+        }}
+        maxWidth="sm"
+        fullWidth
+      >
+        <DialogTitle>Edit Program</DialogTitle>
+        <DialogContent dividers>
+          <Box sx={{ display: "flex", flexDirection: "column", gap: 2, pt: 0.5 }}>
+            <TextField
+              label="Program name"
+              value={editName}
+              onChange={(event) => setEditName(event.target.value)}
+              fullWidth
+              required
+            />
+            <TextField
+              label="Program number"
+              value={editProgramNumber}
+              onChange={(event) => setEditProgramNumber(event.target.value)}
+              fullWidth
+              required
+            />
+            <TextField
+              label="Contract reference"
+              value={editContractRef}
+              onChange={(event) => setEditContractRef(event.target.value)}
+              fullWidth
+              required
+            />
+            {mayChangeOwner && (
+              <ProgramOwnerAutocomplete
+                value={selectedOwner}
+                inputValue={ownerInput}
+                required
+                onChange={(value) => {
+                  setSelectedOwner(value);
+                  setEditOwnerUpn(value?.email ?? "");
+                }}
+                onInputChange={setOwnerInput}
+                onError={setActionError}
+              />
+            )}
+            <TextField
+              label="Sites"
+              placeholder="Norfolk, VA, Tinker AFB, OK"
+              value={editSites}
+              onChange={(event) => setEditSites(event.target.value)}
+              fullWidth
+            />
+            <TextField
+              label="Description"
+              value={editDescription}
+              onChange={(event) => setEditDescription(event.target.value)}
+              fullWidth
+              multiline
+              minRows={3}
+            />
+            <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", sm: "1fr 1fr" }, gap: 2 }}>
+              <TextField
+                label="Start date"
+                type="date"
+                value={editStartDate}
+                onChange={(event) => setEditStartDate(event.target.value)}
+                fullWidth
+                InputLabelProps={{ shrink: true }}
+              />
+              <TextField
+                label="End date"
+                type="date"
+                value={editEndDate}
+                onChange={(event) => setEditEndDate(event.target.value)}
+                fullWidth
+                InputLabelProps={{ shrink: true }}
+              />
+            </Box>
+          </Box>
+        </DialogContent>
+        <DialogActions>
+          {mayDeleteProgram && (
+            <Button
+              color="error"
+              variant="outlined"
+              startIcon={<DeleteOutlineIcon />}
+              onClick={() => {
+                setActionError(null);
+                setIsEditDialogOpen(false);
+                setIsDeleteDialogOpen(true);
+              }}
+              disabled={isSavingEdit}
+              sx={{ mr: "auto" }}
+            >
+              Delete Program
+            </Button>
+          )}
+          <Button onClick={() => setIsEditDialogOpen(false)} disabled={isSavingEdit}>
+            Cancel
+          </Button>
+          <Button
+            variant="contained"
+            disabled={
+              isSavingEdit ||
+              !editName.trim() ||
+              !editProgramNumber.trim() ||
+              !editContractRef.trim() ||
+              (mayChangeOwner && !editOwnerUpn.trim())
+            }
+            onClick={handleSaveProgram}
+          >
+            {isSavingEdit ? "Saving..." : "Save"}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      <Dialog
         open={isDeleteDialogOpen}
         onClose={() => {
           if (!isDeleting) setIsDeleteDialogOpen(false);
@@ -225,7 +428,7 @@ export default function ProgramDetailView({
             onClick={handleDeleteProgram}
             disabled={isDeleting}
           >
-            {isDeleting ? "Deleting..." : "Delete"}
+            {isDeleting ? "Deleting..." : "Delete Program"}
           </Button>
         </DialogActions>
       </Dialog>
