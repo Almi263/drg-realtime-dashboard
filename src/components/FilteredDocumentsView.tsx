@@ -2,7 +2,6 @@
 
 import Typography from "@mui/material/Typography";
 import DocumentsTable from "@/components/DocumentsTable";
-import { useRole } from "@/lib/context/role-context";
 import type { Deliverable } from "@/lib/models/deliverable";
 import type { DeliverableDocument, DocumentAccessLog } from "@/lib/models/document";
 import type { Program } from "@/lib/models/program";
@@ -20,8 +19,7 @@ export default function FilteredDocumentsView({
   programs,
   accessLogsByDocumentId = {},
 }: FilteredDocumentsViewProps) {
-  const { canViewProgram } = useRole();
-  const visiblePrograms = programs.filter((program) => canViewProgram(program.id));
+  const visiblePrograms = programs;
   const visibleProgramIds = new Set(visiblePrograms.map((program) => program.id));
   const visibleDocuments = documents.filter((document) =>
     visibleProgramIds.has(document.programId)
@@ -46,6 +44,8 @@ export default function FilteredDocumentsView({
       programs={visiblePrograms}
       accessLogsByDocumentId={accessLogsByDocumentId}
       detailSource="documents"
+      showUploadAction={false}
+      showSearch
     />
   );
 }

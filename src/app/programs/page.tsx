@@ -11,7 +11,7 @@ async function ProgramsContent() {
   const user = await requireUser();
   const deliverables = await listVisibleDeliverables(user);
 
-  return <ProgramsOverview deliverables={deliverables} />;
+  return <ProgramsOverview deliverables={deliverables} showSearch />;
 }
 
 export default function ProgramsPage() {

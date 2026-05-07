@@ -8,6 +8,14 @@ import SubmitReportWizard from "@/components/SubmitReportWizard";
 import BackButton from "@/components/BackButton";
 import { requireInternalRole } from "@/lib/auth/guards";
 
+function getBackConfig(from?: string) {
+  if (from === "documents") {
+    return { href: "/documents", label: "DOCUMENTS" };
+  }
+
+  return { href: "/", label: "Dashboard" };
+}
+
 async function SubmitContent({
   initialProgramId,
   initialDeliverableId,
@@ -35,13 +43,14 @@ async function SubmitContent({
 export default async function SubmitPage({
   searchParams,
 }: {
-  searchParams: Promise<{ programId?: string; deliverableId?: string }>;
+  searchParams: Promise<{ programId?: string; deliverableId?: string; from?: string }>;
 }) {
-  const { programId, deliverableId } = await searchParams;
+  const { programId, deliverableId, from } = await searchParams;
+  const backConfig = getBackConfig(from);
 
   return (
     <Container maxWidth="md" sx={{ py: { xs: 3, sm: 4 } }}>
-      <BackButton href="/">Dashboard</BackButton>
+      <BackButton href={backConfig.href}>{backConfig.label}</BackButton>
       <Box sx={{ mb: 3 }}>
         <Typography variant="h5">Submit Report</Typography>
         <Typography variant="body2" sx={{ color: "text.secondary", mt: 0.25 }}>

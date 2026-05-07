@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, Fragment } from "react";
+import { useMemo, useState, Fragment } from "react";
 import Table from "@mui/material/Table";
 import TableBody from "@mui/material/TableBody";
 import TableCell from "@mui/material/TableCell";
@@ -15,15 +15,21 @@ import IconButton from "@mui/material/IconButton";
 import Collapse from "@mui/material/Collapse";
 import Typography from "@mui/material/Typography";
 import FormControl from "@mui/material/FormControl";
+import FormControlLabel from "@mui/material/FormControlLabel";
 import InputLabel from "@mui/material/InputLabel";
 import Select from "@mui/material/Select";
 import MenuItem from "@mui/material/MenuItem";
 import Tooltip from "@mui/material/Tooltip";
+import TextField from "@mui/material/TextField";
+import InputAdornment from "@mui/material/InputAdornment";
+import Switch from "@mui/material/Switch";
 import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
 import ExpandLessIcon from "@mui/icons-material/ExpandLess";
 import DownloadIcon from "@mui/icons-material/Download";
 import DeleteIcon from "@mui/icons-material/Delete";
 import VisibilityIcon from "@mui/icons-material/Visibility";
+import UploadFileIcon from "@mui/icons-material/UploadFile";
+import SearchIcon from "@mui/icons-material/Search";
 import MuiLink from "@mui/material/Link";
 import NextLink from "next/link";
 import type { SelectChangeEvent } from "@mui/material/Select";
@@ -33,6 +39,7 @@ import type {
   DocumentAccessLog,
   FileType,
 } from "@/lib/models/document";
+import { DOCUMENT_STATUSES, FILE_TYPES } from "@/lib/models/document";
 import type { Program } from "@/lib/models/program";
 import { useRole } from "@/lib/context/role-context";
 
@@ -129,6 +136,9 @@ interface DocumentsTableProps {
   programs: Program[];
   accessLogsByDocumentId?: Record<string, DocumentAccessLog[]>;
   detailSource?: "documents";
+  showUploadAction?: boolean;
+  showSearch?: boolean;
+  showArchivedToggle?: boolean;
 }
 
 export default function DocumentsTable({
@@ -137,25 +147,61 @@ export default function DocumentsTable({
   programs,
   accessLogsByDocumentId = {},
   detailSource,
+  showUploadAction = true,
+  showSearch = false,
+  showArchivedToggle = false,
 }: DocumentsTableProps) {
-  const { role } = useRole();
+  const { role, canUploadToProgram } = useRole();
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [programFilter, setProgramFilter] = useState<string>("All");
+  const [statusFilter, setStatusFilter] = useState<string>("All");
+  const [typeFilter, setTypeFilter] = useState<string>("All");
+  const [searchQuery, setSearchQuery] = useState("");
+  const [includeArchivedPrograms, setIncludeArchivedPrograms] = useState(false);
 
-  const showProgramFilter = programs.length > 1;
-  const canUpload =
-    role === "drg-admin" ||
-    role === "drg-program-owner" ||
-    role === "drg-staff" ||
-    role === "external-reviewer";
+  const availablePrograms = useMemo(
+    () =>
+      includeArchivedPrograms || !showArchivedToggle
+        ? programs
+        : programs.filter((program) => program.status !== "Archived"),
+    [includeArchivedPrograms, programs, showArchivedToggle]
+  );
+  const availableProgramIds = useMemo(
+    () => new Set(availablePrograms.map((program) => program.id)),
+    [availablePrograms]
+  );
+  const showProgramFilter = availablePrograms.length > 1;
+  const hasArchivedPrograms = programs.some((program) => program.status === "Archived");
+  const canUpload = programs.some((program) => canUploadToProgram(program.id));
   const canDelete = role === "drg-admin";
   // Access log only visible to internal roles
   const canSeeAccessLog =
     role === "drg-admin" || role === "drg-program-owner" || role === "drg-staff";
 
-  const filtered = programFilter === "All"
-    ? documents
-    : documents.filter((d) => d.programId === programFilter);
+  const effectiveProgramFilter =
+    programFilter !== "All" && availableProgramIds.has(programFilter)
+      ? programFilter
+      : "All";
+  const normalizedSearchQuery = searchQuery.trim().toLowerCase();
+  const filtered = documents.filter((document) => {
+    if (!availableProgramIds.has(document.programId)) return false;
+    if (effectiveProgramFilter !== "All" && document.programId !== effectiveProgramFilter) {
+      return false;
+    }
+    if (statusFilter !== "All" && document.status !== statusFilter) return false;
+    if (typeFilter !== "All" && document.fileType !== typeFilter) return false;
+
+    if (!normalizedSearchQuery) return true;
+
+    const associatedRecord = [
+      document.deliverableId,
+      deliverableMap[document.deliverableId] ?? "",
+    ].join(" ");
+
+    return [document.fileName, document.fileType, associatedRecord].some((value) =>
+      value.toLowerCase().includes(normalizedSearchQuery)
+    );
+  });
 
   // Has to match real column count or the access log row breaks
   const colSpan = 6 + (canSeeAccessLog ? 1 : 0) + (canDelete ? 1 : 0);
@@ -166,38 +212,113 @@ export default function DocumentsTable({
 
   return (
     <Box>
-      {/* Action buttons */}
-      <Box sx={{ display: "flex", gap: 2, mb: 2, flexWrap: "wrap", alignItems: "center" }}>
-        {canUpload && (
-          <Tooltip title="Upload — available once Azure Storage is connected">
-            <span>
-              <Button variant="contained" size="small" disabled>
-                Upload Document
-              </Button>
-            </span>
-          </Tooltip>
-        )}
-        {showProgramFilter && (
-          <FormControl size="small" sx={{ minWidth: 180 }}>
-            <InputLabel id="doc-program-filter-label">Program</InputLabel>
+      {/* Filter controls */}
+      <Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 2, mb: 2, flexWrap: "wrap" }}>
+        <Box sx={{ display: "flex", gap: 2, flexWrap: "wrap", alignItems: "center" }}>
+          {showProgramFilter && (
+            <FormControl size="small" sx={{ minWidth: 180 }}>
+              <InputLabel id="doc-program-filter-label">Program</InputLabel>
+              <Select
+                labelId="doc-program-filter-label"
+                value={effectiveProgramFilter}
+                label="Program"
+                onChange={(e: SelectChangeEvent) => setProgramFilter(e.target.value)}
+              >
+                <MenuItem value="All">All Programs</MenuItem>
+                {availablePrograms.map((p) => (
+                  <MenuItem key={p.id} value={p.id}>{p.name}</MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+          )}
+
+          <FormControl size="small" sx={{ minWidth: 160 }}>
+            <InputLabel id="doc-status-filter-label">Status</InputLabel>
             <Select
-              labelId="doc-program-filter-label"
-              value={programFilter}
-              label="Program"
-              onChange={(e: SelectChangeEvent) => setProgramFilter(e.target.value)}
+              labelId="doc-status-filter-label"
+              value={statusFilter}
+              label="Status"
+              onChange={(e: SelectChangeEvent) => setStatusFilter(e.target.value)}
             >
-              <MenuItem value="All">All Programs</MenuItem>
-              {programs.map((p) => (
-                <MenuItem key={p.id} value={p.id}>{p.name}</MenuItem>
+              <MenuItem value="All">All Statuses</MenuItem>
+              {DOCUMENT_STATUSES.map((status) => (
+                <MenuItem key={status} value={status}>{status}</MenuItem>
               ))}
             </Select>
           </FormControl>
-        )}
-        {role === "gov-reviewer" && (
-          <Typography variant="caption" sx={{ color: "text.secondary", ml: "auto" }}>
-            Read-only access — download only
-          </Typography>
-        )}
+
+          <FormControl size="small" sx={{ minWidth: 130 }}>
+            <InputLabel id="doc-type-filter-label">Type</InputLabel>
+            <Select
+              labelId="doc-type-filter-label"
+              value={typeFilter}
+              label="Type"
+              onChange={(e: SelectChangeEvent) => setTypeFilter(e.target.value)}
+            >
+              <MenuItem value="All">All Types</MenuItem>
+              {FILE_TYPES.map((type) => (
+                <MenuItem key={type} value={type}>{type}</MenuItem>
+              ))}
+            </Select>
+          </FormControl>
+
+          {showArchivedToggle && (
+            <FormControlLabel
+              control={
+                <Switch
+                  checked={includeArchivedPrograms}
+                  onChange={(event) => setIncludeArchivedPrograms(event.target.checked)}
+                  disabled={!hasArchivedPrograms}
+                  size="small"
+                />
+              }
+              label="Include archived programs"
+              sx={{
+                color: "text.secondary",
+                "& .MuiFormControlLabel-label": { fontSize: "0.875rem" },
+              }}
+            />
+          )}
+        </Box>
+
+        <Box sx={{ display: "flex", gap: 2, alignItems: "center", ml: "auto", flexWrap: "wrap" }}>
+          {showSearch && (
+            <TextField
+              value={searchQuery}
+              onChange={(event) => setSearchQuery(event.target.value)}
+              placeholder="Search documents"
+              size="small"
+              sx={{ minWidth: { xs: "100%", sm: 280 } }}
+              slotProps={{
+                input: {
+                  startAdornment: (
+                    <InputAdornment position="start">
+                      <SearchIcon fontSize="small" />
+                    </InputAdornment>
+                  ),
+                },
+              }}
+            />
+          )}
+          {showUploadAction && canUpload && (
+            <Tooltip title="Upload a PDF deliverable document">
+              <Button
+                component={NextLink}
+                href="/submit"
+                variant="contained"
+                size="small"
+                startIcon={<UploadFileIcon />}
+              >
+                Upload Document
+              </Button>
+            </Tooltip>
+          )}
+          {role === "gov-reviewer" && (
+            <Typography variant="caption" sx={{ color: "text.secondary" }}>
+              Read-only access — download only
+            </Typography>
+          )}
+        </Box>
       </Box>
 
       {/* Table */}

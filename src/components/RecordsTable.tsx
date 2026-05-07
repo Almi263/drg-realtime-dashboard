@@ -14,10 +14,13 @@ import Paper from "@mui/material/Paper";
 import Chip from "@mui/material/Chip";
 import Box from "@mui/material/Box";
 import FormControl from "@mui/material/FormControl";
+import InputAdornment from "@mui/material/InputAdornment";
 import InputLabel from "@mui/material/InputLabel";
 import Select from "@mui/material/Select";
 import MenuItem from "@mui/material/MenuItem";
+import TextField from "@mui/material/TextField";
 import Typography from "@mui/material/Typography";
+import SearchIcon from "@mui/icons-material/Search";
 import type { SelectChangeEvent } from "@mui/material/Select";
 import type { Deliverable, DeliverableStatus } from "@/lib/models/deliverable";
 import { DELIVERABLE_STATUSES } from "@/lib/models/deliverable";
@@ -80,6 +83,7 @@ interface RecordsTableProps {
   programs: Program[];
   detailSource?: "records";
   toolbarAction?: ReactNode;
+  showSearch?: boolean;
 }
 
 export default function RecordsTable({
@@ -87,24 +91,45 @@ export default function RecordsTable({
   programs,
   detailSource,
   toolbarAction,
+  showSearch = false,
 }: RecordsTableProps) {
   const router = useRouter();
   const [statusFilter, setStatusFilter] = useState<string>("All");
   const [typeFilter, setTypeFilter] = useState<string>("All");
   const [programFilter, setProgramFilter] = useState<string>("All");
+  const [searchQuery, setSearchQuery] = useState("");
   const [orderBy, setOrderBy] = useState<SortableKey>("dueDate");
   const [order, setOrder] = useState<Order>("asc");
 
-  const programMap = Object.fromEntries(programs.map((p) => [p.id, p.name]));
-  const deliverableTypes = [...new Set(deliverables.map((d) => d.type))].sort();
+  const programMap = useMemo(
+    () => Object.fromEntries(programs.map((p) => [p.id, p.name])),
+    [programs]
+  );
+  const deliverableTypes = useMemo(
+    () => [...new Set(deliverables.map((d) => d.type))].sort(),
+    [deliverables]
+  );
 
   const filtered = useMemo(() => {
+    const normalizedSearchQuery = searchQuery.trim().toLowerCase();
     let rows = deliverables;
     if (statusFilter !== "All") rows = rows.filter((d) => d.status === statusFilter);
     if (typeFilter !== "All") rows = rows.filter((d) => d.type === typeFilter);
     if (programFilter !== "All") rows = rows.filter((d) => d.programId === programFilter);
+    if (normalizedSearchQuery) {
+      rows = rows.filter((d) =>
+        [
+          d.deliverableNumber,
+          d.title,
+          d.type,
+          d.status,
+          d.assignedTo,
+          programMap[d.programId] ?? d.programId,
+        ].some((value) => value.toLowerCase().includes(normalizedSearchQuery))
+      );
+    }
     return rows.slice().sort(getComparator(order, orderBy));
-  }, [deliverables, statusFilter, typeFilter, programFilter, order, orderBy]);
+  }, [deliverables, statusFilter, typeFilter, programFilter, searchQuery, order, orderBy, programMap]);
 
   const handleSort = (column: SortableKey) => {
     const isAsc = orderBy === column && order === "asc";
@@ -169,7 +194,29 @@ export default function RecordsTable({
             </Select>
           </FormControl>
         </Box>
-        {toolbarAction && <Box sx={{ ml: "auto" }}>{toolbarAction}</Box>}
+        {(showSearch || toolbarAction) && (
+          <Box sx={{ display: "flex", gap: 2, alignItems: "center", ml: "auto", flexWrap: "wrap" }}>
+            {showSearch && (
+              <TextField
+                value={searchQuery}
+                onChange={(event) => setSearchQuery(event.target.value)}
+                placeholder="Search deliverables"
+                size="small"
+                sx={{ minWidth: { xs: "100%", sm: 280 } }}
+                slotProps={{
+                  input: {
+                    startAdornment: (
+                      <InputAdornment position="start">
+                        <SearchIcon fontSize="small" />
+                      </InputAdornment>
+                    ),
+                  },
+                }}
+              />
+            )}
+            {toolbarAction}
+          </Box>
+        )}
       </Box>
 
       {/* Table */}
