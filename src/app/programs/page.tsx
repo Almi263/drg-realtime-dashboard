@@ -18,7 +18,7 @@ export default function ProgramsPage() {
   return (
     <Container maxWidth="lg" sx={{ py: { xs: 3, sm: 4 } }}>
       <Box sx={{ mb: 2.5 }}>
-        <Typography variant="h5">Programs</Typography>
+        <Typography variant="h5">Active Programs</Typography>
         <Typography variant="body2" sx={{ color: "text.secondary", mt: 0.25 }}>
           All active contracts and programs managed by DRG
         </Typography>

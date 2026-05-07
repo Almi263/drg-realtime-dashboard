@@ -59,8 +59,7 @@ export default function ProgramAccessManager({ program }: { program: Program }) 
   const {
     currentUser,
     canManageProgramAccess,
-    canGrantProgramAccess,
-    canRevokeProgramAccess,
+    role,
     refreshPrograms,
   } = useRole();
   const [accessList, setAccessList] = useState<ProgramAccess[]>(program.access);
@@ -78,7 +77,16 @@ export default function ProgramAccessManager({ program }: { program: Program }) 
   const [accessError, setAccessError] = useState<string | null>(null);
   const [pendingRevokeEmail, setPendingRevokeEmail] = useState<string | null>(null);
 
-  const mayManageAccess = canManageProgramAccess(program.id);
+  const mayManageAccess =
+    canManageProgramAccess(program.id) ||
+    role === "drg-admin" ||
+    (role === "drg-program-owner" &&
+      accessList.some(
+        (entry) =>
+          entry.isActive &&
+          entry.accessRole === "Program Owner" &&
+          normalizeEmail(entry.email) === normalizeEmail(currentUser?.email)
+      ));
   const ownerDisplayName = getDisplayName(
     program.ownerUpn,
     collaboratorOptions,
@@ -289,7 +297,7 @@ export default function ProgramAccessManager({ program }: { program: Program }) 
             <Button
               variant="contained"
               size="small"
-              disabled={!canGrantProgramAccess(program.id, selectedEmail) || isSavingAccess}
+              disabled={!mayManageAccess || !normalizeEmail(selectedEmail) || isSavingAccess}
               onClick={handleGrantAccess}
             >
               {isSavingAccess ? "Sending Invite..." : "Grant Access"}
@@ -317,7 +325,10 @@ export default function ProgramAccessManager({ program }: { program: Program }) 
             </TableHead>
             <TableBody>
               {accessList.map((entry) => {
-                const mayRevoke = entry.isActive && canRevokeProgramAccess(program.id, entry.email);
+                const mayRevoke =
+                  mayManageAccess &&
+                  entry.isActive &&
+                  normalizeEmail(entry.email) !== normalizeEmail(currentUser?.email);
                 const displayName = getDisplayName(
                   entry.email,
                   collaboratorOptions,

@@ -1,4 +1,5 @@
 import { Suspense } from "react";
+import { notFound } from "next/navigation";
 import Box from "@mui/material/Box";
 import Container from "@mui/material/Container";
 import CircularProgress from "@mui/material/CircularProgress";
@@ -10,11 +11,21 @@ import { listDocumentAccessLogs } from "@/lib/dataverse/document-access-logs";
 import { listVisibleDeliverables } from "@/lib/dataverse/deliverables";
 import { listVisibleDocuments } from "@/lib/dataverse/documents";
 import { getProgramById } from "@/lib/dataverse/programs";
+import type { Program } from "@/lib/models/program";
 
-async function ProgramDetailContent({ id, user }: { id: string; user: Awaited<ReturnType<typeof requireUser>> }) {
+async function ProgramDetailContent({
+  id,
+  user,
+  program,
+}: {
+  id: string;
+  user: Awaited<ReturnType<typeof requireUser>>;
+  program: Program;
+}) {
+  const includeArchivedPrograms = program.status === "Archived";
   const [deliverables, documents, deliverableTypes] = await Promise.all([
-    listVisibleDeliverables(user),
-    listVisibleDocuments(user),
+    listVisibleDeliverables(user, { includeArchivedPrograms }),
+    listVisibleDocuments(user, { includeArchivedPrograms }),
     listDeliverableTypes(),
   ]);
 
@@ -28,6 +39,7 @@ async function ProgramDetailContent({ id, user }: { id: string; user: Awaited<Re
   return (
     <ProgramDetailView
       programId={id}
+      initialProgram={program}
       deliverables={programDeliverables}
       deliverableTypes={deliverableTypes}
       documents={programDocuments}
@@ -46,10 +58,13 @@ export default async function ProgramPage({
   const program = await getProgramById(id, user);
 
   assertCanViewProgram(user, program);
+  if (!program) notFound();
 
   return (
     <Container maxWidth="lg" sx={{ py: { xs: 3, sm: 4 } }}>
-      <BackButton href="/programs">All Programs</BackButton>
+      <BackButton href={program.status === "Archived" ? "/programs/archived" : "/programs"}>
+        {program.status === "Archived" ? "Archived Programs" : "Active Programs"}
+      </BackButton>
       <Suspense
         fallback={
           <Box sx={{ display: "flex", justifyContent: "center", py: 8 }}>
@@ -57,7 +72,7 @@ export default async function ProgramPage({
           </Box>
         }
       >
-        <ProgramDetailContent id={id} user={user} />
+        <ProgramDetailContent id={id} user={user} program={program} />
       </Suspense>
     </Container>
   );

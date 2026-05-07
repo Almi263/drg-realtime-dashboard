@@ -28,8 +28,10 @@ import ProgramOwnerAutocomplete, {
 import ProgramAccessManager from "@/components/ProgramAccessManager";
 import RecordsTable from "@/components/RecordsTable";
 import { useRole } from "@/lib/context/role-context";
+import { normalizeEmail } from "@/lib/auth/roles";
 import type { Deliverable, DeliverableType } from "@/lib/models/deliverable";
 import type { DeliverableDocument, DocumentAccessLog } from "@/lib/models/document";
+import type { Program } from "@/lib/models/program";
 
 function formatDate(iso: string) {
   if (!iso) return "Not set";
@@ -47,6 +49,7 @@ function toDateInputValue(iso: string) {
 
 interface ProgramDetailViewProps {
   programId: string;
+  initialProgram: Program;
   deliverables: Deliverable[];
   deliverableTypes: DeliverableType[];
   documents: DeliverableDocument[];
@@ -55,6 +58,7 @@ interface ProgramDetailViewProps {
 
 export default function ProgramDetailView({
   programId,
+  initialProgram,
   deliverables,
   deliverableTypes,
   documents,
@@ -79,9 +83,9 @@ export default function ProgramDetailView({
     null
   );
   const router = useRouter();
-  const { canManageProgramAccess, getProgramById, refreshPrograms, role } =
+  const { canManageProgramAccess, currentUser, getProgramById, refreshPrograms, role } =
     useRole();
-  const program = getProgramById(programId);
+  const program = getProgramById(programId) ?? initialProgram;
 
   if (!program) {
     return (
@@ -92,7 +96,17 @@ export default function ProgramDetailView({
   const activeProgram = program;
   const deliverableMap = Object.fromEntries(deliverables.map((d) => [d.id, d.title]));
   const overdue = deliverables.filter((d) => d.status.startsWith("Overdue")).length;
-  const mayEditProgram = canManageProgramAccess(activeProgram.id);
+  const mayManageProgram =
+    canManageProgramAccess(activeProgram.id) ||
+    role === "drg-admin" ||
+    (role === "drg-program-owner" &&
+      activeProgram.access.some(
+        (entry) =>
+          entry.isActive &&
+          entry.accessRole === "Program Owner" &&
+          normalizeEmail(entry.email) === normalizeEmail(currentUser?.email)
+      ));
+  const mayEditProgram = mayManageProgram;
   const mayDeleteProgram = role === "drg-admin";
   const mayChangeOwner = role === "drg-admin";
 

@@ -3,7 +3,6 @@ import Box from "@mui/material/Box";
 import CircularProgress from "@mui/material/CircularProgress";
 import Container from "@mui/material/Container";
 import Typography from "@mui/material/Typography";
-import BackButton from "@/components/BackButton";
 import ProgramsOverview from "@/components/ProgramsOverview";
 import { requireUser } from "@/lib/auth/guards";
 import { listVisibleDeliverables } from "@/lib/dataverse/deliverables";
@@ -31,11 +30,10 @@ async function ArchivedProgramsContent() {
 export default function ArchivedProgramsPage() {
   return (
     <Container maxWidth="lg" sx={{ py: { xs: 3, sm: 4 } }}>
-      <BackButton href="/programs">Active Programs</BackButton>
       <Box sx={{ mb: 2.5 }}>
         <Typography variant="h5">Archived Programs</Typography>
         <Typography variant="body2" sx={{ color: "text.secondary", mt: 0.25 }}>
-          Read-only program history, document downloads, and audit records
+          Program history, document downloads, audit records, and access management
         </Typography>
       </Box>
       <Suspense
