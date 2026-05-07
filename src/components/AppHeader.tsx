@@ -17,6 +17,8 @@ export default function AppHeader() {
   const { role, currentUser } = useRole();
   const [accountMenuAnchor, setAccountMenuAnchor] = useState<HTMLElement | null>(null);
   const isAccountMenuOpen = Boolean(accountMenuAnchor);
+  const accountDisplayName = currentUser?.name || currentUser?.email || "Signed in";
+  const accountRoleLabel = role ? ROLE_LABELS[role] : "No role";
 
   async function handleSwitchAccount() {
     setAccountMenuAnchor(null);
@@ -67,7 +69,7 @@ export default function AppHeader() {
           {currentUser ? (
             <>
               <Chip
-                label={`${currentUser.email}${role ? ` · ${ROLE_LABELS[role]}` : ""}`}
+                label={`${accountDisplayName} • ${accountRoleLabel}`}
                 size="small"
                 onClick={(event) => setAccountMenuAnchor(event.currentTarget)}
                 sx={{

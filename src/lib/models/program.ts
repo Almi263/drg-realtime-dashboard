@@ -29,6 +29,7 @@ export interface ProgramAccess {
   programId: string;
   userId?: string;
   email: string;
+  displayName?: string;
   accessRole: ProgramAccessRole;
   isActive: boolean;
   grantedAt: string;
@@ -52,6 +53,7 @@ export interface Program {
   creatorUpn: string;
   ownerUserId?: string;
   ownerUpn: string;
+  ownerName?: string;
   primarySiteCount: number;
   archivedByUserId?: string;
   archivedOn?: string;

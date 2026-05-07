@@ -98,7 +98,7 @@ export default function ProgramDetailView({
       ? {
           id: activeProgram.ownerUpn,
           email: activeProgram.ownerUpn,
-          displayName: activeProgram.ownerUpn,
+          displayName: activeProgram.ownerName || activeProgram.ownerUpn,
         }
       : null;
 
@@ -111,7 +111,7 @@ export default function ProgramDetailView({
     setEditStartDate(toDateInputValue(activeProgram.startDate));
     setEditEndDate(toDateInputValue(activeProgram.endDate));
     setEditOwnerUpn(activeProgram.ownerUpn);
-    setOwnerInput(activeProgram.ownerUpn);
+    setOwnerInput(activeProgram.ownerName || activeProgram.ownerUpn);
     setSelectedOwner(ownerOption);
     setIsEditDialogOpen(true);
   }

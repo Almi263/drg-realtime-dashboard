@@ -5,7 +5,7 @@ import { normalizeEmail } from "@/lib/auth/roles";
 import { createProgramAccess, listProgramAccess, revokeProgramAccess } from "@/lib/dataverse/program-access";
 import { getProgramById } from "@/lib/dataverse/programs";
 import { businessRuleResponse, errorResponse } from "@/lib/errors/business-rules";
-import { getExternalReviewerPrincipal } from "@/lib/graph/invitations";
+import { getProgramCollaboratorPrincipal } from "@/lib/graph/invitations";
 import { triggerFlow } from "@/lib/power-automate/flows";
 
 function isValidEmail(email: string) {
@@ -66,24 +66,26 @@ export async function POST(
   }
 
   try {
-    const reviewer = await getExternalReviewerPrincipal(email);
+    const collaborator = await getProgramCollaboratorPrincipal(email);
 
-    if (!reviewer) {
+    if (!collaborator) {
       return businessRuleResponse("externalUserNotReady");
     }
 
     const access = await createProgramAccess({
       programId,
-      programNumber: program.contractRef,
-      email: reviewer.email,
+      programNumber: program.programNumber,
+      email: collaborator.email,
+      displayName: collaborator.displayName,
       grantedByEmail: session.user.email ?? "",
-      accessRole: "External Reviewer",
-      entraObjectId: reviewer.id,
+      accessRole: collaborator.accessRole,
+      entraObjectId: collaborator.id,
     });
     await triggerFlow("programAccessChanged", {
       action: "granted",
       programId,
       email: access.email,
+      accessRole: access.accessRole,
       grantedByEmail: session.user.email,
     });
 

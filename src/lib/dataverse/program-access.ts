@@ -27,7 +27,39 @@ interface DataverseProgramAccessRow extends Record<string, unknown> {
 
 export type ProgramAccessRecord = ProgramAccess;
 
-function toProgramAccessRole(value: string | undefined): ProgramAccessRole {
+const PROGRAM_ACCESS_ROLE_ENV: Record<ProgramAccessRole, string> = {
+  "Program Owner": "DATAVERSE_PROGRAM_ACCESS_ROLE_PROGRAM_OWNER_VALUE",
+  "DRG Staff": "DATAVERSE_PROGRAM_ACCESS_ROLE_DRG_STAFF_VALUE",
+  "External Reviewer": "DATAVERSE_PROGRAM_ACCESS_ROLE_EXTERNAL_REVIEWER_VALUE",
+  "Read Only": "DATAVERSE_PROGRAM_ACCESS_ROLE_READ_ONLY_VALUE",
+};
+
+type DataverseChoiceOption = {
+  Value?: number;
+  Label?: {
+    UserLocalizedLabel?: {
+      Label?: string;
+    } | null;
+    LocalizedLabels?: Array<{
+      Label?: string;
+    }>;
+  };
+};
+
+type DataverseChoiceMetadata = {
+  OptionSet?: {
+    Options?: DataverseChoiceOption[];
+  } | null;
+  GlobalOptionSet?: {
+    Options?: DataverseChoiceOption[];
+  } | null;
+};
+
+let programAccessRoleOptionValuesPromise:
+  | Promise<Map<ProgramAccessRole, number>>
+  | undefined;
+
+function parseProgramAccessRole(value: string | undefined) {
   switch (value) {
     case "Program Owner":
     case "DRG Staff":
@@ -35,8 +67,76 @@ function toProgramAccessRole(value: string | undefined): ProgramAccessRole {
     case "Read Only":
       return value;
     default:
-      return "External Reviewer";
+      return undefined;
   }
+}
+
+function toProgramAccessRole(value: string | undefined): ProgramAccessRole {
+  return parseProgramAccessRole(value) ?? "External Reviewer";
+}
+
+function getChoiceOptionLabel(option: DataverseChoiceOption) {
+  return (
+    option.Label?.UserLocalizedLabel?.Label ??
+    option.Label?.LocalizedLabels?.find((label) => label.Label)?.Label ??
+    ""
+  );
+}
+
+function getConfiguredProgramAccessRoleValue(role: ProgramAccessRole) {
+  const raw = process.env[PROGRAM_ACCESS_ROLE_ENV[role]]?.trim();
+  if (!raw) return undefined;
+
+  const value = Number(raw);
+  if (!Number.isInteger(value)) {
+    throw new Error(
+      `${PROGRAM_ACCESS_ROLE_ENV[role]} must be a Dataverse integer choice value.`
+    );
+  }
+
+  return value;
+}
+
+async function loadProgramAccessRoleOptionValues() {
+  const configuredValues = new Map<ProgramAccessRole, number>();
+  for (const role of Object.keys(PROGRAM_ACCESS_ROLE_ENV) as ProgramAccessRole[]) {
+    const configuredValue = getConfiguredProgramAccessRoleValue(role);
+    if (configuredValue !== undefined) configuredValues.set(role, configuredValue);
+  }
+
+  if (configuredValues.size === Object.keys(PROGRAM_ACCESS_ROLE_ENV).length) {
+    return configuredValues;
+  }
+
+  const metadata = await dataverseFetch<DataverseChoiceMetadata>(
+    "/EntityDefinitions(LogicalName='drg_programaccess')/Attributes(LogicalName='drg_accessrole')/Microsoft.Dynamics.CRM.PicklistAttributeMetadata?$select=LogicalName&$expand=OptionSet($select=Options),GlobalOptionSet($select=Options)"
+  );
+  const options =
+    metadata.OptionSet?.Options ?? metadata.GlobalOptionSet?.Options ?? [];
+  const values = new Map(configuredValues);
+
+  for (const option of options) {
+    if (typeof option.Value !== "number") continue;
+    const role = parseProgramAccessRole(getChoiceOptionLabel(option));
+    if (!role) continue;
+    values.set(role, option.Value);
+  }
+
+  return values;
+}
+
+async function getProgramAccessRoleOptionValue(role: ProgramAccessRole) {
+  programAccessRoleOptionValuesPromise ??= loadProgramAccessRoleOptionValues();
+  const values = await programAccessRoleOptionValuesPromise;
+  const value = values.get(role);
+
+  if (value === undefined) {
+    throw new Error(
+      `Could not resolve Dataverse drg_accessrole choice value for "${role}".`
+    );
+  }
+
+  return value;
 }
 
 function mapAccessRow(row: DataverseProgramAccessRow): ProgramAccessRecord {
@@ -45,6 +145,7 @@ function mapAccessRow(row: DataverseProgramAccessRow): ProgramAccessRecord {
     programId: row._drg_program_value ?? "",
     userId: row._drg_user_value,
     email: normalizeEmail(row.drg_email),
+    displayName: getFormattedValue(row, "_drg_user_value"),
     accessRole: toProgramAccessRole(getFormattedValue(row, "drg_accessrole")),
     grantedAt: row.drg_grantedon ?? new Date().toISOString(),
     grantedByEmail: normalizeEmail(row.drg_grantedbyemail),
@@ -120,6 +221,7 @@ export async function createProgramAccess(input: {
   programId: string;
   programNumber?: string;
   email: string;
+  displayName?: string;
   grantedByEmail: string;
   accessRole?: ProgramAccessRole;
   entraObjectId?: string;
@@ -138,6 +240,7 @@ export async function createProgramAccess(input: {
       id: `${input.programId}-${email}`,
       programId: input.programId,
       email,
+      displayName: input.displayName,
       accessRole: input.accessRole ?? "External Reviewer",
       grantedAt: new Date().toISOString(),
       grantedByEmail,
@@ -155,7 +258,9 @@ export async function createProgramAccess(input: {
     drg_name: `${input.programNumber ?? input.programId} | ${email}`,
     "drg_program@odata.bind": lookupBind("drg_programs", input.programId),
     drg_email: email,
-    drg_accessrole: input.accessRole ?? "External Reviewer",
+    drg_accessrole: await getProgramAccessRoleOptionValue(
+      input.accessRole ?? "External Reviewer"
+    ),
     drg_isactive: true,
     drg_grantedon: new Date().toISOString(),
     drg_grantedbyemail: grantedByEmail,
@@ -181,8 +286,9 @@ export async function createProgramAccess(input: {
   return {
     id: `${input.programId}-${email}`,
     programId: input.programId,
-    email,
-    accessRole: input.accessRole ?? "External Reviewer",
+      email,
+      displayName: input.displayName,
+      accessRole: input.accessRole ?? "External Reviewer",
     grantedAt: new Date().toISOString(),
     grantedByEmail,
     isActive: true,

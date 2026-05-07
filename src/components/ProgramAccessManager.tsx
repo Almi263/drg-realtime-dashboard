@@ -1,7 +1,8 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import Alert from "@mui/material/Alert";
+import Autocomplete from "@mui/material/Autocomplete";
 import Box from "@mui/material/Box";
 import Button from "@mui/material/Button";
 import Card from "@mui/material/Card";
@@ -26,8 +27,11 @@ import type { Program } from "@/lib/models/program";
 import type { ProgramAccess } from "@/lib/models/program";
 import { useRole } from "@/lib/context/role-context";
 
-function getAccessBadgeLabel(email: string) {
-  return email.endsWith("@drgok.com") ? "Internal" : "External";
+interface ProgramCollaboratorOption {
+  id: string;
+  email: string;
+  displayName: string;
+  accessRole: ProgramAccess["accessRole"];
 }
 
 function formatDateTime(iso: string) {
@@ -40,6 +44,17 @@ function formatDateTime(iso: string) {
   });
 }
 
+function getDisplayName(
+  email: string,
+  options: ProgramCollaboratorOption[],
+  fallback?: string
+) {
+  const match = options.find(
+    (option) => normalizeEmail(option.email) === normalizeEmail(email)
+  );
+  return fallback || match?.displayName || email;
+}
+
 export default function ProgramAccessManager({ program }: { program: Program }) {
   const {
     currentUser,
@@ -50,15 +65,27 @@ export default function ProgramAccessManager({ program }: { program: Program }) 
   } = useRole();
   const [accessList, setAccessList] = useState<ProgramAccess[]>(program.access);
   const [selectedEmail, setSelectedEmail] = useState("");
+  const [selectedCollaborator, setSelectedCollaborator] =
+    useState<ProgramCollaboratorOption | null>(null);
+  const [collaboratorInput, setCollaboratorInput] = useState("");
+  const [collaboratorOptions, setCollaboratorOptions] = useState<
+    ProgramCollaboratorOption[]
+  >([]);
   const [isSavingAccess, setIsSavingAccess] = useState(false);
   const [isRevokingAccess, setIsRevokingAccess] = useState(false);
   const [isLoadingAccess, setIsLoadingAccess] = useState(false);
+  const [isLoadingCollaborators, setIsLoadingCollaborators] = useState(false);
   const [accessError, setAccessError] = useState<string | null>(null);
   const [pendingRevokeEmail, setPendingRevokeEmail] = useState<string | null>(null);
 
   const mayManageAccess = canManageProgramAccess(program.id);
+  const ownerDisplayName = getDisplayName(
+    program.ownerUpn,
+    collaboratorOptions,
+    program.ownerName
+  );
 
-  async function refreshAccessList() {
+  const refreshAccessList = useCallback(async () => {
     setIsLoadingAccess(true);
     setAccessError(null);
 
@@ -76,11 +103,51 @@ export default function ProgramAccessManager({ program }: { program: Program }) 
     } finally {
       setIsLoadingAccess(false);
     }
-  }
+  }, [program.id]);
 
   useEffect(() => {
     void refreshAccessList();
-  }, [program.id]);
+  }, [refreshAccessList]);
+
+  useEffect(() => {
+    if (!mayManageAccess) return;
+
+    const controller = new AbortController();
+    const timeout = window.setTimeout(async () => {
+      setIsLoadingCollaborators(true);
+
+      try {
+        const params = new URLSearchParams();
+        if (collaboratorInput.trim()) params.set("q", collaboratorInput.trim());
+        const response = await fetch(`/api/users/program-collaborators?${params}`, {
+          signal: controller.signal,
+        });
+        const json = (await response.json().catch(() => null)) as {
+          users?: ProgramCollaboratorOption[];
+          error?: string;
+        } | null;
+
+        if (!response.ok) {
+          throw new Error(json?.error ?? "Failed to load collaborators.");
+        }
+
+        setCollaboratorOptions(json?.users ?? []);
+      } catch (error) {
+        if (controller.signal.aborted) return;
+        setCollaboratorOptions([]);
+        setAccessError(
+          error instanceof Error ? error.message : "Failed to load collaborators."
+        );
+      } finally {
+        if (!controller.signal.aborted) setIsLoadingCollaborators(false);
+      }
+    }, 200);
+
+    return () => {
+      window.clearTimeout(timeout);
+      controller.abort();
+    };
+  }, [collaboratorInput, mayManageAccess]);
 
   async function handleGrantAccess() {
     const email = selectedEmail.trim().toLowerCase();
@@ -105,6 +172,8 @@ export default function ProgramAccessManager({ program }: { program: Program }) 
 
       await Promise.all([refreshAccessList(), refreshPrograms()]);
       setSelectedEmail("");
+      setSelectedCollaborator(null);
+      setCollaboratorInput("");
     } catch (error) {
       setAccessError(error instanceof Error ? error.message : "Failed to grant access.");
     } finally {
@@ -157,7 +226,7 @@ export default function ProgramAccessManager({ program }: { program: Program }) 
         </Typography>
 
         <Alert severity="info" sx={{ mb: 2 }}>
-          Program creator: {program.creatorUpn}
+          Program owner: {program.ownerUpn ? ownerDisplayName : "Unassigned"}
         </Alert>
 
         {mayManageAccess ? (
@@ -170,12 +239,51 @@ export default function ProgramAccessManager({ program }: { program: Program }) 
               mb: 2,
             }}
           >
-            <TextField
+            <Autocomplete
               size="small"
-              label="Invite reviewer by email"
-              placeholder="name@example.com"
-              value={selectedEmail}
-              onChange={(event) => setSelectedEmail(event.target.value)}
+              options={collaboratorOptions}
+              value={selectedCollaborator}
+              inputValue={collaboratorInput}
+              loading={isLoadingCollaborators}
+              getOptionLabel={(option) =>
+                option.displayName
+                  ? `${option.displayName} (${option.email})`
+                  : option.email
+              }
+              isOptionEqualToValue={(option, selectedValue) =>
+                option.id === selectedValue.id
+              }
+              onChange={(_, selectedValue) => {
+                setSelectedCollaborator(selectedValue);
+                setSelectedEmail(selectedValue?.email ?? "");
+              }}
+              onInputChange={(_, nextValue) => {
+                setCollaboratorInput(nextValue);
+                if (!nextValue.trim()) {
+                  setSelectedCollaborator(null);
+                  setSelectedEmail("");
+                }
+              }}
+              renderOption={(props, option) => (
+                <Box component="li" {...props} sx={{ gap: 1.5 }}>
+                  <Box sx={{ minWidth: 0, flex: 1 }}>
+                    <Typography variant="body2" sx={{ fontWeight: 600 }}>
+                      {option.displayName}
+                    </Typography>
+                    <Typography variant="caption" sx={{ color: "text.secondary" }}>
+                      {option.email}
+                    </Typography>
+                  </Box>
+                  <Chip label={option.accessRole} size="small" variant="outlined" />
+                </Box>
+              )}
+              renderInput={(params) => (
+                <TextField
+                  {...params}
+                  label="Invite collaborator or reviewer"
+                  placeholder="Search by name or email"
+                />
+              )}
               sx={{ minWidth: 320, maxWidth: "100%", flex: 1 }}
             />
             <Button
@@ -189,7 +297,7 @@ export default function ProgramAccessManager({ program }: { program: Program }) 
           </Box>
         ) : (
           <Alert severity="info" sx={{ mb: 2 }}>
-            Only DRG admins or assigned DRG staff can manage this access list.
+            Only DRG admins or the assigned program owner can manage this access list.
           </Alert>
         )}
 
@@ -210,10 +318,15 @@ export default function ProgramAccessManager({ program }: { program: Program }) 
             <TableBody>
               {accessList.map((entry) => {
                 const mayRevoke = entry.isActive && canRevokeProgramAccess(program.id, entry.email);
+                const displayName = getDisplayName(
+                  entry.email,
+                  collaboratorOptions,
+                  entry.displayName
+                );
                 return (
                   <TableRow key={entry.email} hover>
                     <TableCell sx={{ fontWeight: 600 }}>
-                      {entry.email}
+                      {displayName}
                       {normalizeEmail(entry.email) === normalizeEmail(currentUser?.email) && (
                         <Typography component="span" variant="caption" sx={{ color: "text.secondary", ml: 0.75 }}>
                           (You)
@@ -223,7 +336,7 @@ export default function ProgramAccessManager({ program }: { program: Program }) 
                     <TableCell>{entry.email}</TableCell>
                     <TableCell>
                       <Chip
-                        label={entry.isActive ? getAccessBadgeLabel(entry.email) : "Inactive"}
+                        label={entry.isActive ? entry.accessRole : "Inactive"}
                         size="small"
                         variant="outlined"
                         color={entry.isActive ? "default" : "warning"}

@@ -49,6 +49,15 @@ export interface EntraUserPrincipal {
   displayName: string;
 }
 
+export type ProgramCollaboratorRole =
+  | "Program Owner"
+  | "DRG Staff"
+  | "External Reviewer";
+
+export interface ProgramCollaboratorPrincipal extends EntraUserPrincipal {
+  accessRole: ProgramCollaboratorRole;
+}
+
 function getPrincipalEmail(user: {
   mail?: string | null;
   userPrincipalName?: string | null;
@@ -66,18 +75,35 @@ function matchesUserQuery(user: EntraUserPrincipal, query: string) {
   );
 }
 
-export async function listProgramOwnerPrincipals(
-  query = ""
+function escapeGraphFilterValue(value: string) {
+  return value.trim().toLowerCase().replace(/'/g, "''");
+}
+
+function getConfiguredProgramAccessGroups() {
+  return [
+    {
+      groupId: process.env.ENTRA_DRG_PROGRAM_OWNER_GROUP_ID,
+      accessRole: "Program Owner" as const,
+    },
+    {
+      groupId: process.env.ENTRA_DRG_STAFF_GROUP_ID,
+      accessRole: "DRG Staff" as const,
+    },
+    {
+      groupId: process.env.ENTRA_EXTERNAL_REVIEWER_GROUP_ID,
+      accessRole: "External Reviewer" as const,
+    },
+  ].filter((group): group is { groupId: string; accessRole: ProgramCollaboratorRole } =>
+    Boolean(group.groupId)
+  );
+}
+
+async function listGroupUserMembers(
+  token: string,
+  groupId: string
 ): Promise<EntraUserPrincipal[]> {
-  const programOwnerGroupId = process.env.ENTRA_DRG_PROGRAM_OWNER_GROUP_ID;
-
-  if (!programOwnerGroupId) {
-    throw new Error("Missing ENTRA_DRG_PROGRAM_OWNER_GROUP_ID.");
-  }
-
-  const token = await getGraphToken();
   const res = await fetch(
-    `https://graph.microsoft.com/v1.0/groups/${programOwnerGroupId}/transitiveMembers/microsoft.graph.user?$select=id,mail,userPrincipalName,displayName&$top=999`,
+    `https://graph.microsoft.com/v1.0/groups/${groupId}/transitiveMembers/microsoft.graph.user?$select=id,mail,userPrincipalName,displayName&$top=999`,
     {
       headers: {
         Authorization: `Bearer ${token}`,
@@ -87,7 +113,7 @@ export async function listProgramOwnerPrincipals(
   );
 
   if (!res.ok) {
-    throw new Error(`Failed to load program owners: ${await res.text()}`);
+    throw new Error(`Failed to load group members: ${await res.text()}`);
   }
 
   const json = (await res.json()) as {
@@ -106,11 +132,132 @@ export async function listProgramOwnerPrincipals(
         email: getPrincipalEmail(user),
         displayName: user.displayName ?? getPrincipalEmail(user),
       }))
-      .filter((user) => user.email)
-      .filter((user) => matchesUserQuery(user, query))
-      .sort((a, b) => a.displayName.localeCompare(b.displayName))
-      .slice(0, 50) ?? []
+      .filter((user) => user.email) ?? []
   );
+}
+
+async function listUserGroupIds(token: string, userId: string) {
+  const memberOfRes = await fetch(
+    `https://graph.microsoft.com/v1.0/users/${userId}/transitiveMemberOf/microsoft.graph.group?$select=id`,
+    {
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+      cache: "no-store",
+    }
+  );
+
+  if (!memberOfRes.ok) {
+    throw new Error(
+      `Failed to verify group membership: ${await memberOfRes.text()}`
+    );
+  }
+
+  const memberOfJson = (await memberOfRes.json()) as {
+    value?: Array<{ id: string }>;
+  };
+  return new Set(memberOfJson.value?.map((group) => group.id) ?? []);
+}
+
+function resolveProgramAccessRole(groupIds: Set<string>) {
+  for (const group of getConfiguredProgramAccessGroups()) {
+    if (groupIds.has(group.groupId)) return group.accessRole;
+  }
+
+  return undefined;
+}
+
+export async function listProgramOwnerPrincipals(
+  query = ""
+): Promise<EntraUserPrincipal[]> {
+  const programOwnerGroupId = process.env.ENTRA_DRG_PROGRAM_OWNER_GROUP_ID;
+
+  if (!programOwnerGroupId) {
+    throw new Error("Missing ENTRA_DRG_PROGRAM_OWNER_GROUP_ID.");
+  }
+
+  const token = await getGraphToken();
+  const users = await listGroupUserMembers(token, programOwnerGroupId);
+
+  return users
+    .filter((user) => matchesUserQuery(user, query))
+    .sort((a, b) => a.displayName.localeCompare(b.displayName))
+    .slice(0, 50);
+}
+
+export async function searchProgramCollaboratorPrincipals(
+  query = ""
+): Promise<ProgramCollaboratorPrincipal[]> {
+  const token = await getGraphToken();
+  const groups = getConfiguredProgramAccessGroups();
+
+  if (groups.length === 0) {
+    throw new Error("Missing Entra program access group IDs.");
+  }
+
+  const byId = new Map<string, ProgramCollaboratorPrincipal>();
+
+  for (const group of groups) {
+    const members = await listGroupUserMembers(token, group.groupId);
+    for (const member of members) {
+      if (!matchesUserQuery(member, query) || byId.has(member.id)) continue;
+
+      byId.set(member.id, {
+        ...member,
+        accessRole: group.accessRole,
+      });
+    }
+  }
+
+  return [...byId.values()]
+    .sort((a, b) => a.displayName.localeCompare(b.displayName))
+    .slice(0, 50);
+}
+
+export async function getProgramCollaboratorPrincipal(
+  email: string
+): Promise<ProgramCollaboratorPrincipal | null> {
+  const token = await getGraphToken();
+  const normalizedEmail = escapeGraphFilterValue(email);
+  const usersRes = await fetch(
+    `https://graph.microsoft.com/v1.0/users?$select=id,mail,userPrincipalName,displayName&$top=1&$filter=mail eq '${normalizedEmail}' or userPrincipalName eq '${normalizedEmail}'`,
+    {
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+      cache: "no-store",
+    }
+  );
+
+  if (!usersRes.ok) {
+    throw new Error(`Failed to verify collaborator: ${await usersRes.text()}`);
+  }
+
+  const usersJson = (await usersRes.json()) as {
+    value?: Array<{
+      id: string;
+      mail?: string | null;
+      userPrincipalName?: string | null;
+      displayName?: string | null;
+    }>;
+  };
+  const user = usersJson.value?.[0];
+
+  if (!user) return null;
+
+  const groupIds = await listUserGroupIds(token, user.id);
+  const accessRole = resolveProgramAccessRole(groupIds);
+  if (!accessRole) return null;
+
+  const emailAddress = getPrincipalEmail(user);
+  if (!emailAddress) return null;
+
+  return {
+    id: user.id,
+    email: emailAddress,
+    displayName: user.displayName ?? emailAddress,
+    accessRole,
+  };
 }
 
 export async function getExternalReviewerPrincipal(
@@ -123,7 +270,7 @@ export async function getExternalReviewerPrincipal(
   }
 
   const token = await getGraphToken();
-  const normalizedEmail = email.trim().toLowerCase().replace(/'/g, "''");
+  const normalizedEmail = escapeGraphFilterValue(email);
   const usersRes = await fetch(
     `https://graph.microsoft.com/v1.0/users?$select=id,mail,userPrincipalName,displayName&$top=1&$filter=mail eq '${normalizedEmail}' or userPrincipalName eq '${normalizedEmail}'`,
     {
@@ -152,30 +299,8 @@ export async function getExternalReviewerPrincipal(
     return null;
   }
 
-  const memberOfRes = await fetch(
-    `https://graph.microsoft.com/v1.0/users/${user.id}/transitiveMemberOf/microsoft.graph.group?$select=id&$filter=id eq '${externalReviewerGroupId}'`,
-    {
-      headers: {
-        Authorization: `Bearer ${token}`,
-      },
-      cache: "no-store",
-    }
-  );
-
-  if (!memberOfRes.ok) {
-    throw new Error(
-      `Failed to verify external reviewer group membership: ${await memberOfRes.text()}`
-    );
-  }
-
-  const memberOfJson = (await memberOfRes.json()) as { value?: Array<{ id: string }> };
-  const isExternalReviewer = memberOfJson.value?.some(
-    (group) => group.id === externalReviewerGroupId
-  );
-
-  if (!isExternalReviewer) {
-    return null;
-  }
+  const groupIds = await listUserGroupIds(token, user.id);
+  if (!groupIds.has(externalReviewerGroupId)) return null;
 
   return {
     id: user.id,

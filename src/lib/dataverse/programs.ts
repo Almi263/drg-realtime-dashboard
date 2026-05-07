@@ -158,6 +158,7 @@ function mapProgramRow(
     creatorUpn: normalizeEmail(row.drg_creatorupn),
     ownerUserId: row._drg_owneruser_value,
     ownerUpn: normalizeEmail(row.drg_ownerupn),
+    ownerName: getFormattedValue(row, "_drg_owneruser_value"),
     primarySiteCount: row.drg_primarysitecount ?? 0,
     archivedByUserId: row._drg_archivedby_value,
     archivedOn: row.drg_archivedon,

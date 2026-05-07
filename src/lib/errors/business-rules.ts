@@ -11,7 +11,7 @@ export const BUSINESS_RULE_MESSAGES = {
   duplicateProgramAccess:
     "This user already has program access. Update the existing access row instead of creating a duplicate.",
   externalUserNotReady:
-    "External reviewer must already exist as an Entra guest and be a member of the external reviewer group before program access can be granted.",
+    "Collaborator or reviewer must already exist in Entra and belong to the program owner, DRG staff, or external reviewer group before program access can be granted.",
   archivedProgramUploadBlocked:
     "This program is archived. Downloads remain available, but new uploads are blocked.",
   programDeleteBlocked:
@@ -70,7 +70,12 @@ const BUSINESS_RULE_PATTERNS: Array<{
   },
   {
     code: "externalUserNotReady",
-    patterns: [/external user not ready/i, /external reviewer.*entra guest/i, /external_user group/i],
+    patterns: [
+      /external user not ready/i,
+      /external reviewer.*entra guest/i,
+      /external_user group/i,
+      /collaborator.*reviewer.*entra/i,
+    ],
   },
   {
     code: "archivedProgramUploadBlocked",

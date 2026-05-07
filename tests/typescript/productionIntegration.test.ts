@@ -198,6 +198,9 @@ describe("production integration layer", () => {
               drg_name: "Visible Program",
               drg_programnumber: "PRG-001",
               drg_contractref: "W912-001",
+              _drg_owneruser_value: "owner-user-1",
+              [`_drg_owneruser_value@${FORMATTED_VALUE_ANNOTATION}`]:
+                "Pat Program Owner",
               [`drg_status@${FORMATTED_VALUE_ANNOTATION}`]: "Active",
             },
             {
@@ -225,6 +228,9 @@ describe("production integration layer", () => {
               drg_email: "reviewer@gov.test",
               drg_isactive: true,
               _drg_program_value: "program-1",
+              _drg_user_value: "reviewer-user-1",
+              [`_drg_user_value@${FORMATTED_VALUE_ANNOTATION}`]:
+                "Riley Reviewer",
               [`drg_accessrole@${FORMATTED_VALUE_ANNOTATION}`]:
                 "External Reviewer",
             },
@@ -260,10 +266,70 @@ describe("production integration layer", () => {
     });
 
     expect(reviewerPrograms.map((program) => program.id)).toEqual(["program-1"]);
+    expect(reviewerPrograms[0].ownerName).toBe("Pat Program Owner");
+    expect(reviewerPrograms[0].access[0].displayName).toBe("Riley Reviewer");
     expect(adminPrograms.map((program) => program.id)).toEqual([
       "program-1",
       "program-2",
     ]);
+  });
+
+  it("writes Dataverse program access choice values as integers", async () => {
+    vi.resetModules();
+    configureDataverseEnv();
+
+    let createdPayload: Record<string, unknown> | undefined;
+    global.fetch = createDataverseFetchMock({
+      "/drg_programaccesses?": () => jsonResponse({ value: [] }),
+      "/EntityDefinitions(LogicalName='drg_programaccess')/Attributes(LogicalName='drg_accessrole')": () =>
+        jsonResponse({
+          OptionSet: {
+            Options: [
+              {
+                Value: 799960000,
+                Label: { UserLocalizedLabel: { Label: "Program Owner" } },
+              },
+              {
+                Value: 799960001,
+                Label: { UserLocalizedLabel: { Label: "DRG Staff" } },
+              },
+              {
+                Value: 799960002,
+                Label: { UserLocalizedLabel: { Label: "External Reviewer" } },
+              },
+              {
+                Value: 799960003,
+                Label: { UserLocalizedLabel: { Label: "Read Only" } },
+              },
+            ],
+          },
+        }),
+      "/drg_programaccesses": async (request) => {
+        createdPayload = (await request.json()) as Record<string, unknown>;
+        return jsonResponse({}, { status: 201 });
+      },
+    });
+
+    const { createProgramAccess } = await import(
+      "@/lib/dataverse/program-access"
+    );
+
+    await createProgramAccess({
+      programId: "program-1",
+      programNumber: "PRG-001",
+      email: "staff@drg.test",
+      grantedByEmail: "admin@drg.test",
+      accessRole: "DRG Staff",
+    });
+
+    expect(createdPayload).toMatchObject({
+      drg_name: "PRG-001 | staff@drg.test",
+      "drg_program@odata.bind": "/drg_programs(program-1)",
+      drg_email: "staff@drg.test",
+      drg_accessrole: 799960001,
+      drg_isactive: true,
+      drg_grantedbyemail: "admin@drg.test",
+    });
   });
 
   it("blocks deleting programs with substantive child records", async () => {
