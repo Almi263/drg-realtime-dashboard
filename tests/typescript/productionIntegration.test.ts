@@ -534,6 +534,68 @@ describe("production integration layer", () => {
     expect(response.headers.get("content-type")).toBe("application/pdf");
   });
 
+  it("creates document metadata with Dataverse integer choice values", async () => {
+    vi.resetModules();
+    configureDataverseEnv();
+
+    let createdPayload: Record<string, unknown> | undefined;
+    global.fetch = createDataverseFetchMock({
+      "Attributes(LogicalName='drg_documentrole')": () =>
+        jsonResponse({
+          GlobalOptionSet: {
+            Options: [
+              {
+                Value: 100000000,
+                Label: { UserLocalizedLabel: { Label: "DRG Submission" } },
+              },
+              {
+                Value: 100000001,
+                Label: { UserLocalizedLabel: { Label: "Reviewer Response" } },
+              },
+            ],
+          },
+        }),
+      "Attributes(LogicalName='drg_status')": () =>
+        jsonResponse({
+          GlobalOptionSet: {
+            Options: [
+              {
+                Value: 100000010,
+                Label: { UserLocalizedLabel: { Label: "Submitted" } },
+              },
+            ],
+          },
+        }),
+      "/drg_documents": async (request) => {
+        createdPayload = await request.json();
+        return jsonResponse({ drg_documentid: "document-1" }, { status: 201 });
+      },
+    });
+
+    const { createDocumentMetadata } = await import("@/lib/dataverse/documents");
+    await expect(
+      createDocumentMetadata({
+        programId: "program-1",
+        deliverableId: "deliverable-1",
+        fileName: "submission.pdf",
+        sizeKb: 12,
+        uploadedByEmail: "staff@drg.test",
+        sharePointSiteUrl: "https://sharepoint.test/sites/drg",
+        sharePointDriveId: "drive-id",
+        sharePointItemId: "item-id",
+        sharePointUrl: `https://sharepoint.test/sites/drg/Shared%20Documents/${"nested-folder/".repeat(8)}submission.pdf`,
+        documentRole: "DRG Submission",
+      })
+    ).resolves.toBe("document-1");
+
+    expect(createdPayload).toMatchObject({
+      drg_documentrole: 100000000,
+      drg_status: 100000010,
+      drg_sharepointsiteurl: "https://sharepoint.test/sites/drg",
+    });
+    expect(createdPayload?.drg_sharepointurl).toBeUndefined();
+  });
+
   it("creates readable SharePoint folders before uploading PDFs", async () => {
     vi.resetModules();
     vi.stubEnv("SHAREPOINT_TENANT_ID", "tenant-id");
@@ -890,6 +952,29 @@ describe("production integration layer", () => {
     configureDataverseEnv();
     let accessLogPayload: Record<string, unknown> | undefined;
     global.fetch = createDataverseFetchMock({
+      "/systemusers?": () =>
+        jsonResponse({
+          value: [{ systemuserid: "dataverse-user-1" }],
+        }),
+      "Attributes(LogicalName='drg_action')": () =>
+        jsonResponse({
+          GlobalOptionSet: {
+            Options: [
+              {
+                Value: 100000000,
+                Label: { UserLocalizedLabel: { Label: "View" } },
+              },
+              {
+                Value: 100000001,
+                Label: { UserLocalizedLabel: { Label: "Download" } },
+              },
+              {
+                Value: 100000002,
+                Label: { UserLocalizedLabel: { Label: "Upload" } },
+              },
+            ],
+          },
+        }),
       "/drg_documentaccesslogs": async (request) => {
         accessLogPayload = await request.json();
         return new Response(null, { status: 204 });
@@ -902,7 +987,7 @@ describe("production integration layer", () => {
     await createDocumentAccessLog({
       documentId: "document-1",
       programId: "program-1",
-      actorUserId: "user-1",
+      actorUserId: "entra-object-id-1",
       actorName: "DRG Staff",
       actorEmail: "staff@drg.test",
       action: "Download",
@@ -912,10 +997,10 @@ describe("production integration layer", () => {
       drg_name: expect.stringContaining("Download | staff@drg.test |"),
       "drg_document@odata.bind": "/drg_documents(document-1)",
       "drg_program@odata.bind": "/drg_programs(program-1)",
-      "drg_actoruser@odata.bind": "/systemusers(user-1)",
+      "drg_actoruser@odata.bind": "/systemusers(dataverse-user-1)",
       drg_actorname: "DRG Staff",
       drg_actoremail: "staff@drg.test",
-      drg_action: "Download",
+      drg_action: 100000001,
     });
     expect(accessLogPayload?.drg_occurredon).toEqual(expect.any(String));
   });

@@ -38,7 +38,8 @@ export class PowerAutomateFlowError extends Error {
 
 export async function triggerFlow(
   flowName: FlowName,
-  payload: Record<string, unknown>
+  payload: Record<string, unknown>,
+  options: { signal?: AbortSignal } = {}
 ) {
   const url = FLOW_URLS[flowName];
   if (!url) return { skipped: true };
@@ -50,6 +51,7 @@ export async function triggerFlow(
     },
     body: JSON.stringify(payload),
     cache: "no-store",
+    signal: options.signal,
   });
 
   if (!response.ok) {

@@ -9,6 +9,30 @@ import { businessRuleResponse, errorResponse } from "@/lib/errors/business-rules
 import { uploadPdfToSharePoint } from "@/lib/sharepoint/files";
 import { triggerFlow } from "@/lib/power-automate/flows";
 
+const SUBMISSION_NOTIFICATION_TIMEOUT_MS = 8000;
+
+async function notifySubmissionCreated(payload: Record<string, unknown>) {
+  const controller = new AbortController();
+  const timeout = setTimeout(
+    () => controller.abort(),
+    SUBMISSION_NOTIFICATION_TIMEOUT_MS
+  );
+
+  try {
+    await triggerFlow("submissionCreated", payload, {
+      signal: controller.signal,
+    });
+    return undefined;
+  } catch (error) {
+    console.error("Submission notification flow failed after document creation", {
+      error,
+    });
+    return "Document submitted, but the notification flow did not complete. Reviewers may need to be notified manually.";
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
 export async function POST(request: Request) {
   const session = await auth();
 
@@ -96,7 +120,7 @@ export async function POST(request: Request) {
       action: "Upload",
     });
 
-    await triggerFlow("submissionCreated", {
+    const warning = await notifySubmissionCreated({
       programId,
       deliverableId,
       fileName: file.name,
@@ -110,6 +134,7 @@ export async function POST(request: Request) {
       documentId,
       submissionRef: sharePointFile.itemId,
       sharePointUrl: sharePointFile.webUrl,
+      ...(warning ? { warning } : {}),
     });
   } catch (error) {
     return errorResponse(error, {

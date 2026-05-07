@@ -445,6 +445,7 @@ function ConfirmationStep({
   file,
   submissionRef,
   submissionTime,
+  warning,
   onSubmitAnother,
 }: {
   deliverable: Deliverable;
@@ -452,6 +453,7 @@ function ConfirmationStep({
   file: File;
   submissionRef: string;
   submissionTime: string;
+  warning?: string | null;
   onSubmitAnother: () => void;
 }) {
   return (
@@ -489,9 +491,9 @@ function ConfirmationStep({
         </CardContent>
       </Card>
 
-      <Alert severity="success" sx={{ mb: 3 }}>
-        Government reviewers with access to <strong>{program.name}</strong> have been notified. This submission serves
-        as irrefutable proof of delivery — the access log will record every view and download.
+      <Alert severity={warning ? "warning" : "success"} sx={{ mb: 3 }}>
+        {warning ??
+          `Government reviewers with access to ${program.name} have been notified. This submission serves as irrefutable proof of delivery; the access log will record every view and download.`}
       </Alert>
 
       <Divider sx={{ mb: 3 }} />
@@ -538,6 +540,7 @@ export default function SubmitReportWizard({
   const [submissionRef, setSubmissionRef] = useState("");
   const [submissionTime, setSubmissionTime] = useState("");
   const [submissionError, setSubmissionError] = useState<string | null>(null);
+  const [submissionWarning, setSubmissionWarning] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const program = visiblePrograms.find((p) => p.id === programId) ?? null;
@@ -576,6 +579,7 @@ export default function SubmitReportWizard({
 
     setIsSubmitting(true);
     setSubmissionError(null);
+    setSubmissionWarning(null);
 
     try {
       const formData = new FormData();
@@ -596,6 +600,9 @@ export default function SubmitReportWizard({
 
       setFile(f);
       setSubmissionRef(json?.submissionRef ?? genSubmissionRef());
+      setSubmissionWarning(
+        typeof json?.warning === "string" ? json.warning : null
+      );
       setSubmissionTime(new Date().toISOString());
       setStep(3);
     } catch (error) {
@@ -609,6 +616,7 @@ export default function SubmitReportWizard({
     setProgramId(null);
     setDeliverableId(null);
     setFile(null);
+    setSubmissionWarning(null);
     setStep(0); // always go to program picker on "submit another"
   };
 
@@ -646,6 +654,7 @@ export default function SubmitReportWizard({
           file={file}
           submissionRef={submissionRef}
           submissionTime={submissionTime}
+          warning={submissionWarning}
           onSubmitAnother={handleReset}
         />
       )}

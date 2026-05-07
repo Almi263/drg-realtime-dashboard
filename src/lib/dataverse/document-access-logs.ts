@@ -4,11 +4,13 @@ import type {
 } from "@/lib/models/document";
 import {
   dataverseFetch,
+  escapeODataString,
   getFormattedValue,
   isDataverseConfigured,
   listRows,
   lookupBind,
 } from "@/lib/dataverse/client";
+import { normalizeEmail } from "@/lib/auth/roles";
 
 interface DataverseDocumentAccessLogRow extends Record<string, unknown> {
   drg_documentaccesslogid: string;
@@ -19,6 +21,43 @@ interface DataverseDocumentAccessLogRow extends Record<string, unknown> {
   _drg_program_value?: string;
   _drg_actoruser_value?: string;
 }
+
+interface DataverseSystemUserRow {
+  systemuserid: string;
+}
+
+type DataverseChoiceOption = {
+  Value?: number;
+  Label?: {
+    UserLocalizedLabel?: {
+      Label?: string;
+    } | null;
+    LocalizedLabels?: Array<{
+      Label?: string;
+    }>;
+  };
+};
+
+type DataverseChoiceMetadata = {
+  OptionSet?: {
+    Options?: DataverseChoiceOption[];
+  } | null;
+  GlobalOptionSet?: {
+    Options?: DataverseChoiceOption[];
+  } | null;
+};
+
+const DOCUMENT_ACCESS_ACTION_ENV: Record<DocumentAccessAction, string> = {
+  View: "DATAVERSE_DOCUMENT_ACCESS_ACTION_VIEW_VALUE",
+  Download: "DATAVERSE_DOCUMENT_ACCESS_ACTION_DOWNLOAD_VALUE",
+  Upload: "DATAVERSE_DOCUMENT_ACCESS_ACTION_UPLOAD_VALUE",
+  Delete: "DATAVERSE_DOCUMENT_ACCESS_ACTION_DELETE_VALUE",
+  Acknowledge: "DATAVERSE_DOCUMENT_ACCESS_ACTION_ACKNOWLEDGE_VALUE",
+};
+
+let documentAccessActionOptionValuesPromise:
+  | Promise<Map<DocumentAccessAction, number>>
+  | undefined;
 
 function toDocumentAccessAction(value: string | undefined): DocumentAccessAction {
   switch (value) {
@@ -31,6 +70,88 @@ function toDocumentAccessAction(value: string | undefined): DocumentAccessAction
     default:
       return "View";
   }
+}
+
+function getChoiceOptionLabel(option: DataverseChoiceOption) {
+  return (
+    option.Label?.UserLocalizedLabel?.Label ??
+    option.Label?.LocalizedLabels?.find((label) => label.Label)?.Label ??
+    ""
+  );
+}
+
+function parseDocumentAccessAction(value: string | undefined) {
+  return toDocumentAccessAction(value) === value ? value : undefined;
+}
+
+function getConfiguredActionValue(action: DocumentAccessAction) {
+  const envName = DOCUMENT_ACCESS_ACTION_ENV[action];
+  const raw = process.env[envName]?.trim();
+  if (!raw) return undefined;
+
+  const value = Number(raw);
+  if (!Number.isInteger(value)) {
+    throw new Error(`${envName} must be a Dataverse integer choice value.`);
+  }
+
+  return value;
+}
+
+async function loadDocumentAccessActionOptionValues() {
+  const values = new Map<DocumentAccessAction, number>();
+  for (const action of Object.keys(
+    DOCUMENT_ACCESS_ACTION_ENV
+  ) as DocumentAccessAction[]) {
+    const configuredValue = getConfiguredActionValue(action);
+    if (configuredValue !== undefined) {
+      values.set(action, configuredValue);
+    }
+  }
+
+  const metadata = await dataverseFetch<DataverseChoiceMetadata>(
+    "/EntityDefinitions(LogicalName='drg_documentaccesslog')/Attributes(LogicalName='drg_action')/Microsoft.Dynamics.CRM.PicklistAttributeMetadata?$select=LogicalName&$expand=OptionSet($select=Options),GlobalOptionSet($select=Options)"
+  );
+  const options =
+    metadata.OptionSet?.Options ?? metadata.GlobalOptionSet?.Options ?? [];
+
+  for (const option of options) {
+    if (typeof option.Value !== "number") continue;
+    const action = parseDocumentAccessAction(getChoiceOptionLabel(option));
+    if (!action) continue;
+    values.set(action, option.Value);
+  }
+
+  return values;
+}
+
+async function getDocumentAccessActionOptionValue(
+  action: DocumentAccessAction
+) {
+  documentAccessActionOptionValuesPromise ??=
+    loadDocumentAccessActionOptionValues();
+  const values = await documentAccessActionOptionValuesPromise;
+  const value = values.get(action);
+
+  if (value === undefined) {
+    throw new Error(
+      `Could not resolve Dataverse drg_action choice value for "${action}".`
+    );
+  }
+
+  return value;
+}
+
+async function findSystemUserIdByEmail(email: string) {
+  const normalizedEmail = normalizeEmail(email);
+  if (!normalizedEmail) return undefined;
+
+  const escapedEmail = escapeODataString(normalizedEmail);
+  const rows = await listRows<DataverseSystemUserRow>(
+    "systemusers",
+    `$select=systemuserid&$top=1&$filter=internalemailaddress eq '${escapedEmail}' or domainname eq '${escapedEmail}'`
+  );
+
+  return rows[0]?.systemuserid;
 }
 
 function mapAccessLogRow(row: DataverseDocumentAccessLogRow): DocumentAccessLog {
@@ -98,20 +219,21 @@ export async function createDocumentAccessLog(input: {
   if (!isDataverseConfigured()) return;
 
   const occurredOn = new Date().toISOString();
+  const actorSystemUserId = await findSystemUserIdByEmail(input.actorEmail);
   const payload: Record<string, unknown> = {
     drg_name: `${input.action} | ${input.actorEmail} | ${occurredOn}`,
     "drg_document@odata.bind": lookupBind("drg_documents", input.documentId),
     "drg_program@odata.bind": lookupBind("drg_programs", input.programId),
     drg_actorname: input.actorName,
     drg_actoremail: input.actorEmail,
-    drg_action: input.action,
+    drg_action: await getDocumentAccessActionOptionValue(input.action),
     drg_occurredon: occurredOn,
   };
 
-  if (input.actorUserId) {
+  if (actorSystemUserId) {
     payload["drg_actoruser@odata.bind"] = lookupBind(
       "systemusers",
-      input.actorUserId
+      actorSystemUserId
     );
   }
 

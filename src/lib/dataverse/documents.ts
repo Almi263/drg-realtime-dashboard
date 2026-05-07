@@ -43,6 +43,27 @@ interface DataverseDocumentRow extends Record<string, unknown> {
   drg_iscurrentversion?: boolean;
 }
 
+type DataverseChoiceOption = {
+  Value?: number;
+  Label?: {
+    UserLocalizedLabel?: {
+      Label?: string;
+    } | null;
+    LocalizedLabels?: Array<{
+      Label?: string;
+    }>;
+  };
+};
+
+type DataverseChoiceMetadata = {
+  OptionSet?: {
+    Options?: DataverseChoiceOption[];
+  } | null;
+  GlobalOptionSet?: {
+    Options?: DataverseChoiceOption[];
+  } | null;
+};
+
 export interface CreateDocumentMetadataInput {
   programId: string;
   deliverableId: string;
@@ -59,6 +80,25 @@ export interface CreateDocumentMetadataInput {
   parentDocumentId?: string;
   approvalId?: string;
 }
+
+const DOCUMENT_ROLE_ENV: Record<DocumentRole, string> = {
+  "DRG Submission": "DATAVERSE_DOCUMENT_ROLE_DRG_SUBMISSION_VALUE",
+  "Reviewer Response": "DATAVERSE_DOCUMENT_ROLE_REVIEWER_RESPONSE_VALUE",
+  "Signed Approval": "DATAVERSE_DOCUMENT_ROLE_SIGNED_APPROVAL_VALUE",
+};
+
+const DOCUMENT_STATUS_ENV: Partial<Record<DocumentStatus, string>> = {
+  Submitted: "DATAVERSE_DOCUMENT_STATUS_SUBMITTED_VALUE",
+};
+
+const DATAVERSE_URL_MAX_LENGTH = 100;
+
+let documentRoleOptionValuesPromise:
+  | Promise<Map<DocumentRole, number>>
+  | undefined;
+let documentStatusOptionValuesPromise:
+  | Promise<Map<DocumentStatus, number>>
+  | undefined;
 
 function toUiFileType(fileName: string): FileType {
   const extension = fileName.split(".").pop()?.toLowerCase();
@@ -103,6 +143,114 @@ function toDocumentRole(value: string | undefined): DocumentRole {
     default:
       return "DRG Submission";
   }
+}
+
+function getChoiceOptionLabel(option: DataverseChoiceOption) {
+  return (
+    option.Label?.UserLocalizedLabel?.Label ??
+    option.Label?.LocalizedLabels?.find((label) => label.Label)?.Label ??
+    ""
+  );
+}
+
+function parseDocumentRole(value: string | undefined) {
+  return toDocumentRole(value) === value ? value : undefined;
+}
+
+function parseDocumentStatus(value: string | undefined) {
+  return toUiStatus(value) === value ? value : undefined;
+}
+
+function getConfiguredChoiceValue(envName: string) {
+  const raw = process.env[envName]?.trim();
+  if (!raw) return undefined;
+
+  const value = Number(raw);
+  if (!Number.isInteger(value)) {
+    throw new Error(`${envName} must be a Dataverse integer choice value.`);
+  }
+
+  return value;
+}
+
+function toDataverseOptionalUrl(value: string) {
+  const trimmed = value.trim();
+  if (!trimmed || trimmed.length > DATAVERSE_URL_MAX_LENGTH) {
+    return undefined;
+  }
+
+  return trimmed;
+}
+
+async function loadChoiceOptionValues<T extends string>(input: {
+  entityLogicalName: string;
+  attributeLogicalName: string;
+  configuredEnv: Partial<Record<T, string>>;
+  parseLabel: (label: string | undefined) => T | undefined;
+}) {
+  const values = new Map<T, number>();
+  for (const [label, envName] of Object.entries(input.configuredEnv) as Array<
+    [T, string | undefined]
+  >) {
+    if (!envName) continue;
+    const configuredValue = getConfiguredChoiceValue(envName);
+    if (configuredValue !== undefined) {
+      values.set(label, configuredValue);
+    }
+  }
+
+  const metadata = await dataverseFetch<DataverseChoiceMetadata>(
+    `/EntityDefinitions(LogicalName='${input.entityLogicalName}')/Attributes(LogicalName='${input.attributeLogicalName}')/Microsoft.Dynamics.CRM.PicklistAttributeMetadata?$select=LogicalName&$expand=OptionSet($select=Options),GlobalOptionSet($select=Options)`
+  );
+  const options =
+    metadata.OptionSet?.Options ?? metadata.GlobalOptionSet?.Options ?? [];
+
+  for (const option of options) {
+    if (typeof option.Value !== "number") continue;
+    const label = input.parseLabel(getChoiceOptionLabel(option));
+    if (!label) continue;
+    values.set(label, option.Value);
+  }
+
+  return values;
+}
+
+async function getDocumentRoleOptionValue(role: DocumentRole) {
+  documentRoleOptionValuesPromise ??= loadChoiceOptionValues({
+    entityLogicalName: "drg_document",
+    attributeLogicalName: "drg_documentrole",
+    configuredEnv: DOCUMENT_ROLE_ENV,
+    parseLabel: parseDocumentRole,
+  });
+  const values = await documentRoleOptionValuesPromise;
+  const value = values.get(role);
+
+  if (value === undefined) {
+    throw new Error(
+      `Could not resolve Dataverse drg_documentrole choice value for "${role}".`
+    );
+  }
+
+  return value;
+}
+
+async function getDocumentStatusOptionValue(status: DocumentStatus) {
+  documentStatusOptionValuesPromise ??= loadChoiceOptionValues({
+    entityLogicalName: "drg_document",
+    attributeLogicalName: "drg_status",
+    configuredEnv: DOCUMENT_STATUS_ENV,
+    parseLabel: parseDocumentStatus,
+  });
+  const values = await documentStatusOptionValuesPromise;
+  const value = values.get(status);
+
+  if (value === undefined) {
+    throw new Error(
+      `Could not resolve Dataverse drg_status choice value for "${status}".`
+    );
+  }
+
+  return value;
 }
 
 function normalizeMockDocument(document: DeliverableDocument): DeliverableDocument {
@@ -238,20 +386,21 @@ export async function createDocumentMetadata(input: CreateDocumentMetadataInput)
     throw new Error("Dataverse is not configured for document metadata writes.");
   }
 
+  const documentRole = input.documentRole ?? "DRG Submission";
   const payload: Record<string, unknown> = {
     drg_name: input.fileName,
     "drg_program@odata.bind": lookupBind("drg_programs", input.programId),
     "drg_deliverable@odata.bind": lookupBind("drg_deliverables", input.deliverableId),
     drg_filename: input.fileName,
     drg_filesizekb: input.sizeKb,
-    drg_sharepointsiteurl: input.sharePointSiteUrl,
+    drg_sharepointsiteurl: toDataverseOptionalUrl(input.sharePointSiteUrl),
     drg_sharepointdriveid: input.sharePointDriveId,
     drg_sharepointitemid: input.sharePointItemId,
-    drg_sharepointurl: input.sharePointUrl,
+    drg_sharepointurl: toDataverseOptionalUrl(input.sharePointUrl),
     drg_uploadedbyemail: input.uploadedByEmail,
     drg_uploadedon: new Date().toISOString(),
-    drg_documentrole: input.documentRole ?? "DRG Submission",
-    drg_status: "Submitted",
+    drg_documentrole: await getDocumentRoleOptionValue(documentRole),
+    drg_status: await getDocumentStatusOptionValue("Submitted"),
     drg_iscurrentversion: true,
     drg_checksum: input.checksum,
     drg_reviewduedate: input.reviewDueDate || undefined,

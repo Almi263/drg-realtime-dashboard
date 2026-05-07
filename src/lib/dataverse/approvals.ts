@@ -29,6 +29,27 @@ interface DataverseApprovalRow extends Record<string, unknown> {
   drg_iscurrent?: boolean;
 }
 
+type DataverseChoiceOption = {
+  Value?: number;
+  Label?: {
+    UserLocalizedLabel?: {
+      Label?: string;
+    } | null;
+    LocalizedLabels?: Array<{
+      Label?: string;
+    }>;
+  };
+};
+
+type DataverseChoiceMetadata = {
+  OptionSet?: {
+    Options?: DataverseChoiceOption[];
+  } | null;
+  GlobalOptionSet?: {
+    Options?: DataverseChoiceOption[];
+  } | null;
+};
+
 export interface SubmitApprovalDecisionInput {
   approvalId: string;
   decision: Exclude<ApprovalDecision, "Pending">;
@@ -43,6 +64,16 @@ export interface SubmitApprovalDecisionForUserInput
   approval: Approval;
 }
 
+const APPROVAL_DECISION_ENV: Record<ApprovalDecision, string> = {
+  Pending: "DATAVERSE_APPROVAL_DECISION_PENDING_VALUE",
+  Approved: "DATAVERSE_APPROVAL_DECISION_APPROVED_VALUE",
+  Rejected: "DATAVERSE_APPROVAL_DECISION_REJECTED_VALUE",
+};
+
+let approvalDecisionOptionValuesPromise:
+  | Promise<Map<ApprovalDecision, number>>
+  | undefined;
+
 function toApprovalDecision(value: string | undefined): ApprovalDecision {
   switch (value) {
     case "Approved":
@@ -52,6 +83,70 @@ function toApprovalDecision(value: string | undefined): ApprovalDecision {
     default:
       return "Pending";
   }
+}
+
+function getChoiceOptionLabel(option: DataverseChoiceOption) {
+  return (
+    option.Label?.UserLocalizedLabel?.Label ??
+    option.Label?.LocalizedLabels?.find((label) => label.Label)?.Label ??
+    ""
+  );
+}
+
+function parseApprovalDecision(value: string | undefined) {
+  return toApprovalDecision(value) === value ? value : undefined;
+}
+
+function getConfiguredApprovalDecisionValue(decision: ApprovalDecision) {
+  const envName = APPROVAL_DECISION_ENV[decision];
+  const raw = process.env[envName]?.trim();
+  if (!raw) return undefined;
+
+  const value = Number(raw);
+  if (!Number.isInteger(value)) {
+    throw new Error(`${envName} must be a Dataverse integer choice value.`);
+  }
+
+  return value;
+}
+
+async function loadApprovalDecisionOptionValues() {
+  const values = new Map<ApprovalDecision, number>();
+  for (const decision of Object.keys(APPROVAL_DECISION_ENV) as ApprovalDecision[]) {
+    const configuredValue = getConfiguredApprovalDecisionValue(decision);
+    if (configuredValue !== undefined) {
+      values.set(decision, configuredValue);
+    }
+  }
+
+  const metadata = await dataverseFetch<DataverseChoiceMetadata>(
+    "/EntityDefinitions(LogicalName='drg_approval')/Attributes(LogicalName='drg_decision')/Microsoft.Dynamics.CRM.PicklistAttributeMetadata?$select=LogicalName&$expand=OptionSet($select=Options),GlobalOptionSet($select=Options)"
+  );
+  const options =
+    metadata.OptionSet?.Options ?? metadata.GlobalOptionSet?.Options ?? [];
+
+  for (const option of options) {
+    if (typeof option.Value !== "number") continue;
+    const decision = parseApprovalDecision(getChoiceOptionLabel(option));
+    if (!decision) continue;
+    values.set(decision, option.Value);
+  }
+
+  return values;
+}
+
+async function getApprovalDecisionOptionValue(decision: ApprovalDecision) {
+  approvalDecisionOptionValuesPromise ??= loadApprovalDecisionOptionValues();
+  const values = await approvalDecisionOptionValuesPromise;
+  const value = values.get(decision);
+
+  if (value === undefined) {
+    throw new Error(
+      `Could not resolve Dataverse drg_decision choice value for "${decision}".`
+    );
+  }
+
+  return value;
 }
 
 function mapApprovalRow(row: DataverseApprovalRow): Approval {
@@ -113,7 +208,7 @@ async function patchApprovalDecision(input: SubmitApprovalDecisionInput) {
   }
 
   const payload: Record<string, unknown> = {
-    drg_decision: input.decision,
+    drg_decision: await getApprovalDecisionOptionValue(input.decision),
     drg_comments: input.comments,
     drg_decisiondate: new Date().toISOString(),
   };
