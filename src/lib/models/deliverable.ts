@@ -1,24 +1,45 @@
-export const DELIVERABLE_TYPES = ["CDRL", "SDRL"] as const;
-export type DeliverableType = (typeof DELIVERABLE_TYPES)[number];
+export interface DeliverableType {
+  id: string;
+  name: string;
+  normalizedName: string;
+  isActive: boolean;
+  createdByUserId?: string;
+}
 
 export const DELIVERABLE_STATUSES = [
   "Draft",
-  "In Review",
-  "Approved",
+  "Not Submitted",
   "Submitted",
-  "Overdue",
+  "In Review",
+  "Returned",
+  "Pending Acknowledgment",
+  "Complete",
+  "Overdue - Waiting on Reviewer",
+  "Overdue - Waiting on DRG",
 ] as const;
 export type DeliverableStatus = (typeof DELIVERABLE_STATUSES)[number];
 
 export interface Deliverable {
   id: string;
   title: string;
-  type: DeliverableType;
+  deliverableNumber: string;
+  typeId: string;
+  type: string;
   status: DeliverableStatus;
-  dueDate: string; // ISO 8601
+  dueDate: string;
+  assignedToUserId?: string;
+  assignedToEmail?: string;
   assignedTo: string;
   programId: string;
   contractRef: string;
   description: string;
-  lastUpdated: string; // ISO 8601
+  lastSubmittedOn?: string;
+  lastApprovedOn?: string;
+  acknowledgedByUserId?: string;
+  acknowledgedByEmail?: string;
+  acknowledgedOn?: string;
+  currentSubmissionNumber?: number;
+  isClosed: boolean;
+  createdOn?: string;
+  lastUpdated: string;
 }

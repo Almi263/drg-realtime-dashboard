@@ -2,24 +2,24 @@
 
 import Typography from "@mui/material/Typography";
 import DocumentsTable from "@/components/DocumentsTable";
-import { useRole } from "@/lib/context/role-context";
 import type { Deliverable } from "@/lib/models/deliverable";
-import type { DeliverableDocument } from "@/lib/models/document";
+import type { DeliverableDocument, DocumentAccessLog } from "@/lib/models/document";
 import type { Program } from "@/lib/models/program";
 
 interface FilteredDocumentsViewProps {
   documents: DeliverableDocument[];
   deliverables: Deliverable[];
   programs: Program[];
+  accessLogsByDocumentId?: Record<string, DocumentAccessLog[]>;
 }
 
 export default function FilteredDocumentsView({
   documents,
   deliverables,
   programs,
+  accessLogsByDocumentId = {},
 }: FilteredDocumentsViewProps) {
-  const { canViewProgram } = useRole();
-  const visiblePrograms = programs.filter((program) => canViewProgram(program.id));
+  const visiblePrograms = programs;
   const visibleProgramIds = new Set(visiblePrograms.map((program) => program.id));
   const visibleDocuments = documents.filter((document) =>
     visibleProgramIds.has(document.programId)
@@ -27,7 +27,9 @@ export default function FilteredDocumentsView({
   const visibleDeliverables = deliverables.filter((deliverable) =>
     visibleProgramIds.has(deliverable.programId)
   );
-  const deliverableMap = Object.fromEntries(visibleDeliverables.map((d) => [d.id, d.title]));
+  const deliverableMap = Object.fromEntries(
+    visibleDeliverables.map((d) => [d.id, `${d.deliverableNumber}: ${d.title}`])
+  );
 
   if (visiblePrograms.length === 0) {
     return (
@@ -42,7 +44,10 @@ export default function FilteredDocumentsView({
       documents={visibleDocuments}
       deliverableMap={deliverableMap}
       programs={visiblePrograms}
+      accessLogsByDocumentId={accessLogsByDocumentId}
       detailSource="documents"
+      showUploadAction={false}
+      showSearch
     />
   );
 }

@@ -2,7 +2,7 @@
 // dashboard with some items overdue and others in review.
 import type { Deliverable } from "@/lib/models/deliverable";
 
-const MOCK_DELIVERABLES: Deliverable[] = [
+const MOCK_DELIVERABLES = [
   // ── PROG-001: Surface Communications ────────────────────────────────
   {
     id: "CDRL-001",
@@ -177,7 +177,7 @@ const MOCK_DELIVERABLES: Deliverable[] = [
       "Reports on training completion rates, certification status, and CMMC compliance posture for Q1 2026.",
     lastUpdated: "2026-02-28T09:30:00Z",
   },
-];
+] as unknown as Deliverable[];
 
 export class MockDeliverableConnector {
   readonly name = "MockDeliverables";

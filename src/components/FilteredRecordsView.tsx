@@ -9,11 +9,15 @@ import type { Program } from "@/lib/models/program";
 interface FilteredRecordsViewProps {
   deliverables: Deliverable[];
   programs: Program[];
+  editMode?: boolean;
+  documentCountsByDeliverableId?: Record<string, number>;
 }
 
 export default function FilteredRecordsView({
   deliverables,
   programs,
+  editMode = false,
+  documentCountsByDeliverableId = {},
 }: FilteredRecordsViewProps) {
   const { canViewProgram } = useRole();
   const visiblePrograms = programs.filter((program) => canViewProgram(program.id));
@@ -30,5 +34,15 @@ export default function FilteredRecordsView({
     );
   }
 
-  return <RecordsTable deliverables={visibleDeliverables} programs={visiblePrograms} detailSource="records" />;
+  return (
+    <RecordsTable
+      deliverables={visibleDeliverables}
+      programs={visiblePrograms}
+      editMode={editMode}
+      documentCountsByDeliverableId={documentCountsByDeliverableId}
+      detailSource="records"
+      showProgramColumn
+      showSearch
+    />
+  );
 }

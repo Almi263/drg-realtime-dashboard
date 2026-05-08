@@ -1,23 +1,52 @@
-export const INTERNAL_ROLES = ["drg-admin", "drg-staff"] as const;
-export const EFFECTIVE_ROLES = ["drg-admin", "drg-staff", "gov-reviewer"] as const;
+export const INTERNAL_ROLES = [
+  "drg-admin",
+  "drg-program-owner",
+  "drg-staff",
+  "external-reviewer",
+] as const;
+export const EFFECTIVE_ROLES = [
+  "drg-admin",
+  "drg-program-owner",
+  "drg-staff",
+  "external-reviewer",
+  "gov-reviewer",
+] as const;
 
 export type InternalRole = (typeof INTERNAL_ROLES)[number];
 export type EffectiveRole = (typeof EFFECTIVE_ROLES)[number];
 
 export const ROLE_LABELS: Record<EffectiveRole, string> = {
   "drg-admin": "DRG Admin",
+  "drg-program-owner": "DRG Program Owner",
   "drg-staff": "DRG Staff",
+  "external-reviewer": "External Reviewer",
   "gov-reviewer": "Gov Reviewer",
 };
 
 const ENTRA_APP_ROLE_TO_INTERNAL_ROLE: Record<string, InternalRole> = {
   "drg-admin": "drg-admin",
+  drg_admin: "drg-admin",
+  drg_admins: "drg-admin",
+  "DRG Admin": "drg-admin",
+  "drg_program_owner": "drg-program-owner",
+  "drg-program-owner": "drg-program-owner",
+  drg_program_owners: "drg-program-owner",
+  "DRG Program Owner": "drg-program-owner",
   "drg-staff": "drg-staff",
+  drg_staff: "drg-staff",
+  "DRG Staff": "drg-staff",
+  "external-reviewer": "external-reviewer",
+  external_reviewer: "external-reviewer",
+  external_reviewers: "external-reviewer",
+  external_user: "external-reviewer",
+  "DRG External Reviewer": "external-reviewer",
 };
 
 const ENTRA_GROUP_TO_INTERNAL_ROLE: Record<string, InternalRole> = {
   [process.env.ENTRA_DRG_ADMIN_GROUP_ID ?? ""]: "drg-admin",
+  [process.env.ENTRA_DRG_PROGRAM_OWNER_GROUP_ID ?? ""]: "drg-program-owner",
   [process.env.ENTRA_DRG_STAFF_GROUP_ID ?? ""]: "drg-staff",
+  [process.env.ENTRA_EXTERNAL_REVIEWER_GROUP_ID ?? ""]: "external-reviewer",
 };
 
 export function normalizeEmail(email: string | null | undefined) {

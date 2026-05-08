@@ -2,7 +2,7 @@
 // implementing the same getPrograms/getProgramById interface.
 import type { Program } from "@/lib/models/program";
 
-const MOCK_PROGRAMS: Program[] = [
+const MOCK_PROGRAMS = [
   {
     id: "PROG-001",
     name: "Surface Communications",
@@ -101,7 +101,7 @@ const MOCK_PROGRAMS: Program[] = [
       },
     ],
   },
-];
+] as unknown as Program[];
 
 export class MockProgramConnector {
   readonly name = "MockPrograms";

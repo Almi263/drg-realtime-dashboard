@@ -1,5 +1,6 @@
 "use client";
 
+import type { MouseEvent } from "react";
 import Card from "@mui/material/Card";
 import CardActionArea from "@mui/material/CardActionArea";
 import CardContent from "@mui/material/CardContent";
@@ -13,26 +14,40 @@ import type { Deliverable, DeliverableStatus } from "@/lib/models/deliverable";
 interface ProgramStatusCardProps {
   program: Program;
   deliverables: Deliverable[];
+  isEditMode?: boolean;
+  canEdit?: boolean;
+  onEdit?: (program: Program) => void;
 }
 
 const STATUS_COLORS: Partial<Record<DeliverableStatus, { bg: string; color: string }>> = {
-  Overdue: { bg: "#d32f2f", color: "#fff" },
+  "Overdue - Waiting on Reviewer": { bg: "#d32f2f", color: "#fff" },
+  "Overdue - Waiting on DRG": { bg: "#d32f2f", color: "#fff" },
   "In Review": { bg: "#0078d4", color: "#fff" },
+  Returned: { bg: "#ed6c02", color: "#fff" },
+  "Pending Acknowledgment": { bg: "#6d4c41", color: "#fff" },
   Submitted: { bg: "#00695c", color: "#fff" },
-  Approved: { bg: "#2e7d32", color: "#fff" },
+  Complete: { bg: "#2e7d32", color: "#fff" },
 };
 
 function formatDate(iso: string) {
   return new Date(iso).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
 }
 
-export default function ProgramStatusCard({ program, deliverables }: ProgramStatusCardProps) {
+export default function ProgramStatusCard({
+  program,
+  deliverables,
+  isEditMode = false,
+  canEdit = false,
+  onEdit,
+}: ProgramStatusCardProps) {
   const counts = deliverables.reduce<Partial<Record<DeliverableStatus, number>>>(
     (acc, d) => ({ ...acc, [d.status]: (acc[d.status] ?? 0) + 1 }),
     {}
   );
 
-  const overdue = counts["Overdue"] ?? 0;
+  const overdue =
+    (counts["Overdue - Waiting on Reviewer"] ?? 0) +
+    (counts["Overdue - Waiting on DRG"] ?? 0);
   const lastActivity = deliverables.length
     ? deliverables.reduce((a, b) => (a.lastUpdated > b.lastUpdated ? a : b)).lastUpdated
     : null;
@@ -46,7 +61,24 @@ export default function ProgramStatusCard({ program, deliverables }: ProgramStat
         "&:hover": { boxShadow: 3 },
       }}
     >
-      <CardActionArea component={Link} href={`/programs/${program.id}`} sx={{ height: "100%" }}>
+      <CardActionArea
+        component={isEditMode ? "button" : Link}
+        href={isEditMode ? undefined : `/programs/${program.id}`}
+        onClick={
+          isEditMode
+            ? (event: MouseEvent) => {
+                event.preventDefault();
+                if (canEdit) onEdit?.(program);
+              }
+            : undefined
+        }
+        sx={{
+          height: "100%",
+          cursor: isEditMode && !canEdit ? "not-allowed" : "pointer",
+          opacity: isEditMode && !canEdit ? 0.55 : 1,
+          textAlign: "left",
+        }}
+      >
         <CardContent sx={{ p: 2 }}>
           {/* Header */}
           <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", mb: 1 }}>
@@ -72,14 +104,15 @@ export default function ProgramStatusCard({ program, deliverables }: ProgramStat
 
           {/* Status breakdown */}
           <Box sx={{ display: "flex", flexWrap: "wrap", gap: 0.75, mb: 1.5 }}>
-            {(["Draft", "In Review", "Submitted", "Approved", "Overdue"] as DeliverableStatus[]).map((s) => {
-              const count = counts[s];
+            {Object.keys(counts).map((s) => {
+              const status = s as DeliverableStatus;
+              const count = counts[status];
               if (!count) return null;
-              const colors = STATUS_COLORS[s];
+              const colors = STATUS_COLORS[status];
               return (
                 <Chip
-                  key={s}
-                  label={`${count} ${s}`}
+                  key={status}
+                  label={`${count} ${status}`}
                   size="small"
                   sx={
                     colors

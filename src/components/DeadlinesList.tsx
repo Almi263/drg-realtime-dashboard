@@ -1,28 +1,34 @@
 "use client";
 
 import { useMemo } from "react";
+import NextLink from "next/link";
 import Box from "@mui/material/Box";
 import Typography from "@mui/material/Typography";
 import Card from "@mui/material/Card";
 import CardContent from "@mui/material/CardContent";
 import Chip from "@mui/material/Chip";
 import Stack from "@mui/material/Stack";
+import Tooltip from "@mui/material/Tooltip";
 import type { Deliverable, DeliverableStatus } from "@/lib/models/deliverable";
+import type { Program } from "@/lib/models/program";
 
 /* ------------------------------------------------------------------ */
 /*  Status chip styling (matches RecordsTable)                        */
 /* ------------------------------------------------------------------ */
 
-const STATUS_CHIP_STYLE: Record<DeliverableStatus, object> = {
-  Draft: {},
+const STATUS_CHIP_STYLE: Partial<Record<DeliverableStatus, object>> = {
+  "Not Submitted": {},
   "In Review": { bgcolor: "#0078d4", color: "#fff" },
-  Approved: { bgcolor: "#2e7d32", color: "#fff" },
+  Returned: { bgcolor: "#ed6c02", color: "#fff" },
+  "Pending Acknowledgment": { bgcolor: "#6d4c41", color: "#fff" },
+  Complete: { bgcolor: "#2e7d32", color: "#fff" },
   Submitted: { bgcolor: "#00695c", color: "#fff" },
-  Overdue: { bgcolor: "#d32f2f", color: "#fff" },
+  "Overdue - Waiting on Reviewer": { bgcolor: "#d32f2f", color: "#fff" },
+  "Overdue - Waiting on DRG": { bgcolor: "#d32f2f", color: "#fff" },
 };
 
 function getStatusChipProps(status: DeliverableStatus) {
-  if (status === "Draft") {
+  if (status === "Not Submitted") {
     return { color: "default" as const };
   }
   return { sx: STATUS_CHIP_STYLE[status] };
@@ -129,9 +135,29 @@ function groupDeliverables(deliverables: Deliverable[]): DeliverableGroup[] {
 /*  Deliverable card                                                  */
 /* ------------------------------------------------------------------ */
 
-function DeliverableCard({ deliverable }: { deliverable: Deliverable }) {
+function DeliverableCard({
+  deliverable,
+  programName,
+}: {
+  deliverable: Deliverable;
+  programName: string;
+}) {
   return (
-    <Card variant="outlined">
+    <Card
+      variant="outlined"
+      component={NextLink}
+      href={`/records/${deliverable.id}?from=records`}
+      sx={{
+        color: "inherit",
+        cursor: "pointer",
+        display: "block",
+        textDecoration: "none",
+        "&:hover": {
+          borderColor: "primary.main",
+          boxShadow: 1,
+        },
+      }}
+    >
       <CardContent
         sx={{
           display: "flex",
@@ -141,12 +167,20 @@ function DeliverableCard({ deliverable }: { deliverable: Deliverable }) {
           "&:last-child": { pb: 2 },
         }}
       >
-        {/* Row 1: ID + Title */}
-        <Box sx={{ display: "flex", alignItems: "baseline", gap: 1 }}>
-          <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>
-            {deliverable.id}
+        {/* Row 1: Deliverable number + Title */}
+        <Box sx={{ display: "flex", alignItems: "baseline", flexWrap: "wrap" }}>
+          <Typography
+            variant="subtitle1"
+            sx={{
+              color: "text.primary",
+              fontWeight: 700,
+            }}
+          >
+            Deliverable {deliverable.deliverableNumber}:
           </Typography>
-          <Typography variant="subtitle1">{deliverable.title}</Typography>
+          <Typography variant="subtitle1" sx={{ color: "secondary.main", fontWeight: 600, ml: 0.5 }}>
+            {deliverable.title}
+          </Typography>
         </Box>
 
         {/* Row 2: Type chip, Status chip, Due date, Assigned to */}
@@ -173,17 +207,25 @@ function DeliverableCard({ deliverable }: { deliverable: Deliverable }) {
           <Typography
             variant="body2"
             sx={{
-              color: deliverable.status === "Overdue" ? "error.main" : "text.secondary",
-              fontWeight: deliverable.status === "Overdue" ? 600 : 400,
+              color: deliverable.status.startsWith("Overdue") ? "error.main" : "text.secondary",
+              fontWeight: deliverable.status.startsWith("Overdue") ? 600 : 400,
             }}
           >
             Due: {formatDueDate(deliverable.dueDate)}
           </Typography>
           <Typography
             variant="body2"
+            sx={{ color: "text.secondary" }}
+          >
+            Program: {programName}
+          </Typography>
+          <Typography
+            variant="body2"
             sx={{ color: "text.secondary", ml: "auto" }}
           >
-            {deliverable.assignedTo}
+            <Tooltip title={deliverable.assignedToEmail || deliverable.assignedTo}>
+              <Box component="span">{deliverable.assignedTo}</Box>
+            </Tooltip>
           </Typography>
         </Box>
       </CardContent>
@@ -197,14 +239,19 @@ function DeliverableCard({ deliverable }: { deliverable: Deliverable }) {
 
 interface DeadlinesListProps {
   deliverables: Deliverable[];
+  programs: Program[];
 }
 
-export default function DeadlinesList({ deliverables }: DeadlinesListProps) {
+export default function DeadlinesList({ deliverables, programs }: DeadlinesListProps) {
   // Exclude completed items — the calendar is an action surface, not a history view
   const actionable = deliverables.filter(
-    (d) => d.status !== "Submitted" && d.status !== "Approved"
+    (d) => d.status !== "Draft" && d.status !== "Submitted" && d.status !== "Complete"
   );
   const groups = useMemo(() => groupDeliverables(actionable), [actionable]);
+  const programNameById = useMemo(
+    () => Object.fromEntries(programs.map((program) => [program.id, program.name])),
+    [programs]
+  );
 
   if (groups.length === 0) {
     return (
@@ -259,7 +306,11 @@ export default function DeadlinesList({ deliverables }: DeadlinesListProps) {
           {/* Deliverable cards */}
           <Stack spacing={1.5}>
             {group.items.map((d) => (
-              <DeliverableCard key={d.id} deliverable={d} />
+              <DeliverableCard
+                key={d.id}
+                deliverable={d}
+                programName={programNameById[d.programId] ?? d.programId}
+              />
             ))}
           </Stack>
         </Box>

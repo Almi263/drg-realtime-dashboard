@@ -1,29 +1,43 @@
 import { Suspense } from "react";
 import Box from "@mui/material/Box";
 import Container from "@mui/material/Container";
-import Typography from "@mui/material/Typography";
 import CircularProgress from "@mui/material/CircularProgress";
-import { MockDeliverableConnector } from "@/lib/connectors/mock-deliverables";
-import { MockProgramConnector } from "@/lib/connectors/mock-programs";
-import FilteredRecordsView from "@/components/FilteredRecordsView";
+import RecordsPageView from "@/components/RecordsPageView";
+import { requireUser } from "@/lib/auth/guards";
+import { listDeliverableTypes } from "@/lib/dataverse/deliverable-types";
+import { listVisibleDeliverables } from "@/lib/dataverse/deliverables";
+import { listVisibleDocuments } from "@/lib/dataverse/documents";
+import { listVisiblePrograms } from "@/lib/dataverse/programs";
 
 async function RecordsContent() {
-  const [deliverables, programs] = await Promise.all([
-    new MockDeliverableConnector().getDeliverables(),
-    new MockProgramConnector().getPrograms(),
+  const user = await requireUser();
+  const [deliverables, documents, programs, deliverableTypes] = await Promise.all([
+    listVisibleDeliverables(user),
+    listVisibleDocuments(user, { currentOnly: false }),
+    listVisiblePrograms(user),
+    listDeliverableTypes(),
   ]);
-  return <FilteredRecordsView deliverables={deliverables} programs={programs} />;
+  const documentCountsByDeliverableId = documents.reduce<Record<string, number>>(
+    (counts, document) => ({
+      ...counts,
+      [document.deliverableId]: (counts[document.deliverableId] ?? 0) + 1,
+    }),
+    {}
+  );
+
+  return (
+    <RecordsPageView
+      deliverables={deliverables}
+      programs={programs}
+      deliverableTypes={deliverableTypes}
+      documentCountsByDeliverableId={documentCountsByDeliverableId}
+    />
+  );
 }
 
 export default function RecordsPage() {
   return (
     <Container maxWidth="lg" sx={{ py: { xs: 3, sm: 4 } }}>
-      <Box sx={{ mb: 2.5 }}>
-        <Typography variant="h5">Deliverables</Typography>
-        <Typography variant="body2" sx={{ color: "text.secondary", mt: 0.25 }}>
-          All CDRL / SDRL Records across active programs
-        </Typography>
-      </Box>
       <Suspense
         fallback={
           <Box sx={{ display: "flex", justifyContent: "center", py: 8 }}>

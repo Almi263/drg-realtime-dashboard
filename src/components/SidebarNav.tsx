@@ -14,12 +14,14 @@ import DescriptionIcon from "@mui/icons-material/Description";
 import CalendarMonthIcon from "@mui/icons-material/CalendarMonth";
 import FolderOpenIcon from "@mui/icons-material/FolderOpen";
 import BusinessCenterIcon from "@mui/icons-material/BusinessCenter";
+import Inventory2Icon from "@mui/icons-material/Inventory2";
 import UploadFileIcon from "@mui/icons-material/UploadFile";
 import { useRole } from "@/lib/context/role-context";
 
 const NAV_ITEMS = [
   { label: "Dashboard", href: "/", icon: DashboardIcon },
-  { label: "Programs", href: "/programs", icon: BusinessCenterIcon },
+  { label: "Active Programs", href: "/programs", icon: BusinessCenterIcon },
+  { label: "Archived Programs", href: "/programs/archived", icon: Inventory2Icon },
   null,
   { label: "Deliverables", href: "/records", icon: DescriptionIcon },
   { label: "Documents", href: "/documents", icon: FolderOpenIcon },
@@ -29,7 +31,9 @@ const NAV_ITEMS = [
 export default function SidebarNav() {
   const pathname = usePathname();
   const { role } = useRole();
-  const canSubmit = role ? role === "drg-admin" || role === "drg-staff" : false;
+  const canSubmit = role
+    ? ["drg-admin", "drg-program-owner", "drg-staff", "external-reviewer"].includes(role)
+    : false;
 
   return (
     <Box sx={{ display: "flex", flexDirection: "column", height: "100%" }}>
@@ -37,7 +41,12 @@ export default function SidebarNav() {
         {NAV_ITEMS.map((item, i) => {
           if (item === null) return <Divider key={`divider-${i}`} />;
           const { label, href, icon: Icon } = item;
-          const active = pathname === href || (href !== "/" && pathname.startsWith(href));
+          const active =
+            href === "/"
+              ? pathname === href
+              : href === "/programs"
+                ? pathname === "/programs"
+                : pathname === href || pathname.startsWith(`${href}/`);
           return (
             <ListItemButton
               key={href}

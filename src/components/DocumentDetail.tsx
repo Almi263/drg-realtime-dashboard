@@ -1,5 +1,7 @@
 "use client";
 
+import { useState } from "react";
+import { useRouter } from "next/navigation";
 import Box from "@mui/material/Box";
 import Typography from "@mui/material/Typography";
 import Card from "@mui/material/Card";
@@ -13,7 +15,16 @@ import DownloadIcon from "@mui/icons-material/Download";
 import LockIcon from "@mui/icons-material/Lock";
 import VisibilityIcon from "@mui/icons-material/Visibility";
 import FileDownloadIcon from "@mui/icons-material/FileDownload";
-import type { DeliverableDocument, FileType, AccessAction } from "@/lib/models/document";
+import UploadFileIcon from "@mui/icons-material/UploadFile";
+import BusinessCenterIcon from "@mui/icons-material/BusinessCenter";
+import DescriptionIcon from "@mui/icons-material/Description";
+import DeleteOutlineIcon from "@mui/icons-material/DeleteOutline";
+import type {
+  DeliverableDocument,
+  DocumentAccessAction,
+  DocumentAccessLog,
+  FileType,
+} from "@/lib/models/document";
 import type { Program } from "@/lib/models/program";
 import { useRole } from "@/lib/context/role-context";
 
@@ -28,9 +39,12 @@ const FILE_TYPE_COLORS: Record<FileType, string> = {
   PowerPoint: "#d24726",
 };
 
-const ACTION_ICONS: Record<AccessAction, React.ReactNode> = {
-  viewed: <VisibilityIcon sx={{ fontSize: "0.9rem" }} />,
-  downloaded: <FileDownloadIcon sx={{ fontSize: "0.9rem" }} />,
+const ACTION_ICONS: Record<DocumentAccessAction, React.ReactNode> = {
+  View: <VisibilityIcon sx={{ fontSize: "0.9rem" }} />,
+  Download: <FileDownloadIcon sx={{ fontSize: "0.9rem" }} />,
+  Upload: <UploadFileIcon sx={{ fontSize: "0.9rem" }} />,
+  Delete: <VisibilityIcon sx={{ fontSize: "0.9rem" }} />,
+  Acknowledge: <VisibilityIcon sx={{ fontSize: "0.9rem" }} />,
 };
 
 function formatDateTime(iso: string) {
@@ -51,36 +65,25 @@ function formatFileSize(sizeKb: number) {
 /*  Access timeline                                                   */
 /* ------------------------------------------------------------------ */
 
-function AccessTimeline({ doc }: { doc: DeliverableDocument }) {
-  const events = [
-    // Treat the upload itself as the first event
-    {
-      action: "uploaded" as const,
-      userName: doc.uploadedBy,
-      timestamp: doc.uploadedAt,
-      isUpload: true,
-    },
-    ...doc.accessLog.map((e) => ({ ...e, isUpload: false })),
-  ];
-
+function AccessTimeline({ logs }: { logs: DocumentAccessLog[] }) {
   return (
     <Box>
       <Box sx={{ display: "flex", alignItems: "center", gap: 1, mb: 2 }}>
         <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>
           Access Log
         </Typography>
-        <Chip label={doc.accessLog.length} size="small" variant="outlined" sx={{ fontSize: "0.7rem", height: 20 }} />
+        <Chip label={logs.length} size="small" variant="outlined" sx={{ fontSize: "0.7rem", height: 20 }} />
       </Box>
 
-      {events.length === 1 && (
+      {logs.length === 0 && (
         <Typography variant="body2" sx={{ color: "text.secondary" }}>
-          No access events yet. This document has not been viewed or downloaded by any external user.
+          No access activity recorded yet.
         </Typography>
       )}
 
       <Box sx={{ position: "relative" }}>
         {/* Vertical line */}
-        {events.length > 1 && (
+        {logs.length > 1 && (
           <Box
             sx={{
               position: "absolute",
@@ -94,8 +97,8 @@ function AccessTimeline({ doc }: { doc: DeliverableDocument }) {
         )}
 
         <Box sx={{ display: "flex", flexDirection: "column", gap: 2 }}>
-          {events.map((event, i) => (
-            <Box key={i} sx={{ display: "flex", alignItems: "flex-start", gap: 2 }}>
+          {logs.map((event) => (
+            <Box key={event.id} sx={{ display: "flex", alignItems: "flex-start", gap: 2 }}>
               {/* Timeline dot */}
               <Box
                 sx={{
@@ -103,43 +106,49 @@ function AccessTimeline({ doc }: { doc: DeliverableDocument }) {
                   height: 24,
                   borderRadius: "50%",
                   border: "2px solid",
-                  borderColor: event.isUpload ? "primary.main" : event.action === "downloaded" ? "success.main" : "divider",
+                  borderColor: event.action === "Upload" ? "primary.main" : event.action === "Download" ? "success.main" : "divider",
                   display: "flex",
                   alignItems: "center",
                   justifyContent: "center",
-                  color: event.isUpload || event.action === "downloaded" ? "#fff" : "text.secondary",
+                  color: event.action === "Upload" || event.action === "Download" ? "#fff" : "text.secondary",
                   flexShrink: 0,
                   zIndex: 1,
-                  bgcolor: event.isUpload ? "primary.main" : event.action === "downloaded" ? "success.main" : "background.paper",
+                  bgcolor: event.action === "Upload" ? "primary.main" : event.action === "Download" ? "success.main" : "background.paper",
                 }}
               >
-                {event.isUpload ? (
-                  <Typography sx={{ fontSize: "0.6rem", fontWeight: 900 }}>UP</Typography>
-                ) : (
-                  ACTION_ICONS[event.action as AccessAction]
-                )}
+                {ACTION_ICONS[event.action]}
               </Box>
 
               {/* Event content */}
               <Box sx={{ flex: 1, pb: 0.5 }}>
                 <Box sx={{ display: "flex", alignItems: "baseline", gap: 1, flexWrap: "wrap" }}>
                   <Typography variant="body2" sx={{ fontWeight: 600 }}>
-                    {event.userName}
+                    <Tooltip title={event.actorEmail}>
+                      <Box component="span">{event.actorName || event.actorEmail}</Box>
+                    </Tooltip>
                   </Typography>
                   <Chip
-                    label={event.isUpload ? "uploaded" : event.action}
+                    label={event.action}
                     size="small"
                     variant="outlined"
                     color={
-                      event.isUpload ? "primary"
-                      : event.action === "downloaded" ? "success"
+                      event.action === "Upload" ? "primary"
+                      : event.action === "Download" ? "success"
                       : "default"
                     }
                     sx={{ fontSize: "0.65rem", height: 18 }}
                   />
+                  {event.source && (
+                    <Chip
+                      label={event.source}
+                      size="small"
+                      variant="outlined"
+                      sx={{ fontSize: "0.65rem", height: 18 }}
+                    />
+                  )}
                 </Box>
                 <Typography variant="caption" sx={{ color: "text.secondary" }}>
-                  {formatDateTime(event.timestamp)}
+                  {formatDateTime(event.occurredOn)}
                 </Typography>
               </Box>
             </Box>
@@ -156,16 +165,66 @@ function AccessTimeline({ doc }: { doc: DeliverableDocument }) {
 
 interface DocumentDetailProps {
   doc: DeliverableDocument;
-  deliverableTitle: string;
+  deliverableLabel: string;
   program: Program | undefined;
+  accessLogs?: DocumentAccessLog[];
 }
 
-export default function DocumentDetail({ doc, deliverableTitle, program }: DocumentDetailProps) {
-  const { role } = useRole();
-  const canSeeAccessLog = role === "drg-admin" || role === "drg-staff";
+export default function DocumentDetail({
+  doc,
+  deliverableLabel,
+  program,
+  accessLogs = [],
+}: DocumentDetailProps) {
+  const router = useRouter();
+  const { role, canDeleteDocumentsForProgram } = useRole();
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [actionError, setActionError] = useState<string | null>(null);
+  const canSeeAccessLog =
+    role === "drg-admin" || role === "drg-program-owner" || role === "drg-staff";
+  const canDelete = canDeleteDocumentsForProgram(doc.programId);
+  const uploadLog = accessLogs.find((event) => event.action === "Upload");
+  const uploadedBy =
+    uploadLog?.actorName && uploadLog.actorName.length > doc.uploadedBy.length
+      ? uploadLog.actorName
+      : doc.uploadedBy.includes("@")
+      ? uploadLog?.actorName || doc.uploadedBy
+      : doc.uploadedBy;
+  const uploadedByEmail = doc.uploadedByEmail || uploadLog?.actorEmail || doc.uploadedBy;
+
+  async function handleDelete() {
+    if (!window.confirm(`Delete ${doc.fileName}? This cannot be undone.`)) {
+      return;
+    }
+
+    setIsDeleting(true);
+    setActionError(null);
+
+    try {
+      const response = await fetch(`/api/documents/${doc.id}`, {
+        method: "DELETE",
+      });
+
+      if (!response.ok) {
+        const json = await response.json().catch(() => null);
+        throw new Error(json?.error ?? "Failed to delete document.");
+      }
+
+      router.push(`/records/${doc.deliverableId}`);
+      router.refresh();
+    } catch (error) {
+      setActionError(
+        error instanceof Error ? error.message : "Failed to delete document."
+      );
+    } finally {
+      setIsDeleting(false);
+    }
+  }
 
   return (
     <Box sx={{ display: "flex", flexDirection: "column", gap: 3 }}>
+      {actionError && <Alert severity="error">{actionError}</Alert>}
+
       {/* Document header */}
       <Card variant="outlined">
         <CardContent sx={{ p: 2.5 }}>
@@ -184,34 +243,52 @@ export default function DocumentDetail({ doc, deliverableTitle, program }: Docum
               <Typography variant="body2" sx={{ color: "text.secondary" }}>
                 {formatFileSize(doc.sizeKb)}
                 {" · "}
-                Uploaded by <strong>{doc.uploadedBy}</strong>
+                Uploaded by{" "}
+                <Tooltip title={uploadedByEmail}>
+                  <Box component="strong">{uploadedBy}</Box>
+                </Tooltip>
                 {" · "}
                 {formatDateTime(doc.uploadedAt)}
               </Typography>
             </Box>
-            <Tooltip title="Download">
-              <span>
+            <Box sx={{ display: "flex", gap: 1, flexWrap: "wrap" }}>
+              {canDelete && (
+                <Tooltip title="Delete document">
+                  <Button
+                    variant="outlined"
+                    color="error"
+                    startIcon={<DeleteOutlineIcon />}
+                    size="small"
+                    onClick={handleDelete}
+                    disabled={isDeleting}
+                  >
+                    {isDeleting ? "Deleting..." : "Delete"}
+                  </Button>
+                </Tooltip>
+              )}
+              <Tooltip title="Download">
                 <Button
+                  component="a"
+                  href={`/api/documents/${doc.id}/download`}
                   variant="contained"
                   startIcon={<DownloadIcon />}
-                  disabled
                   size="small"
                 >
                   Download
                 </Button>
-              </span>
-            </Tooltip>
+              </Tooltip>
+            </Box>
           </Box>
 
           {/* Metadata row */}
           <Box sx={{ display: "flex", flexWrap: "wrap", gap: 1.5 }}>
             <Box sx={{ display: "flex", gap: 0.5, alignItems: "center" }}>
-              <Typography variant="caption" sx={{ color: "text.secondary", fontWeight: 600 }}>Deliverable</Typography>
-              <Chip label={`${doc.deliverableId} — ${deliverableTitle}`} size="small" variant="outlined" sx={{ fontSize: "0.72rem" }} />
+              <DescriptionIcon fontSize="small" sx={{ color: "text.secondary" }} />
+              <Chip label={deliverableLabel} size="small" variant="outlined" sx={{ fontSize: "0.72rem" }} />
             </Box>
             {program && (
               <Box sx={{ display: "flex", gap: 0.5, alignItems: "center" }}>
-                <Typography variant="caption" sx={{ color: "text.secondary", fontWeight: 600 }}>Program</Typography>
+                <BusinessCenterIcon fontSize="small" sx={{ color: "text.secondary" }} />
                 <Chip label={program.name} size="small" variant="outlined" sx={{ fontSize: "0.72rem" }} />
               </Box>
             )}
@@ -227,7 +304,7 @@ export default function DocumentDetail({ doc, deliverableTitle, program }: Docum
         sx={{ "& .MuiAlert-message": { fontSize: "0.8rem" } }}
       >
         <strong>Permanent record.</strong> This document was submitted on {formatDateTime(doc.uploadedAt)} and cannot be
-        modified or deleted by external users. The access log below provides a full audit trail.
+        modified or deleted by external users. The access log below focuses on uploads and external reviewer activity.
         {role === "gov-reviewer" && " Your access to this document has been recorded."}
       </Alert>
 
@@ -235,7 +312,7 @@ export default function DocumentDetail({ doc, deliverableTitle, program }: Docum
 
       {/* Access log — staff/admin only */}
       {canSeeAccessLog ? (
-        <AccessTimeline doc={doc} />
+        <AccessTimeline logs={accessLogs} />
       ) : (
         <Box sx={{ py: 2 }}>
           <Typography variant="body2" sx={{ color: "text.secondary" }}>

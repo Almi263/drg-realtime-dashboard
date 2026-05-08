@@ -3,29 +3,19 @@ import Box from "@mui/material/Box";
 import Container from "@mui/material/Container";
 import Typography from "@mui/material/Typography";
 import CircularProgress from "@mui/material/CircularProgress";
-import { canViewProgram, requireUser } from "@/lib/auth/guards";
-import { MockDeliverableConnector } from "@/lib/connectors/mock-deliverables";
-import { MockProgramConnector } from "@/lib/connectors/mock-programs";
+import { requireUser } from "@/lib/auth/guards";
+import { listVisibleDeliverables } from "@/lib/dataverse/deliverables";
+import { listVisiblePrograms } from "@/lib/dataverse/programs";
 import DeadlinesList from "@/components/DeadlinesList";
 
 async function CalendarContent() {
   const user = await requireUser();
-  const [deliverables, programs] = await Promise.all([
-    new MockDeliverableConnector().getDeliverables(),
-    new MockProgramConnector().getPrograms(),
+  const [visibleDeliverables, visiblePrograms] = await Promise.all([
+    listVisibleDeliverables(user),
+    listVisiblePrograms(user),
   ]);
 
-  const visibleProgramIds = new Set(
-    programs
-      .filter((program) => canViewProgram(user, program))
-      .map((program) => program.id)
-  );
-
-  const visibleDeliverables = deliverables.filter((deliverable) =>
-    visibleProgramIds.has(deliverable.programId)
-  );
-
-  return <DeadlinesList deliverables={visibleDeliverables} />;
+  return <DeadlinesList deliverables={visibleDeliverables} programs={visiblePrograms} />;
 }
 
 export default function CalendarPage() {
