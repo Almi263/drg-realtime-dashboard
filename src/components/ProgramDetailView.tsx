@@ -15,6 +15,7 @@ import Tab from "@mui/material/Tab";
 import Tabs from "@mui/material/Tabs";
 import TextField from "@mui/material/TextField";
 import Typography from "@mui/material/Typography";
+import ArchiveOutlinedIcon from "@mui/icons-material/ArchiveOutlined";
 import CalendarTodayIcon from "@mui/icons-material/CalendarToday";
 import DeleteOutlineIcon from "@mui/icons-material/DeleteOutline";
 import EditOutlinedIcon from "@mui/icons-material/EditOutlined";
@@ -118,8 +119,10 @@ export default function ProgramDetailView({
   const [activeTab, setActiveTab] = useState(0);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+  const [isArchiveDialogOpen, setIsArchiveDialogOpen] = useState(false);
   const [isSavingEdit, setIsSavingEdit] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [isArchiving, setIsArchiving] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
   const [editName, setEditName] = useState("");
   const [editProgramNumber, setEditProgramNumber] = useState("");
@@ -145,7 +148,9 @@ export default function ProgramDetailView({
   }
 
   const activeProgram = program;
-  const deliverableMap = Object.fromEntries(deliverables.map((d) => [d.id, d.title]));
+  const deliverableMap = Object.fromEntries(
+    deliverables.map((d) => [d.id, `${d.deliverableNumber}: ${d.title}`])
+  );
   const documentCountsByDeliverableId =
     initialDocumentCountsByDeliverableId ??
     documents.reduce<Record<string, number>>(
@@ -259,6 +264,37 @@ export default function ProgramDetailView({
     }
   }
 
+  async function handleArchiveProgram() {
+    setIsArchiving(true);
+    setActionError(null);
+
+    try {
+      const response = await fetch(`/api/programs/${activeProgram.id}`, {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ action: "archive" }),
+      });
+
+      if (!response.ok) {
+        const json = await response.json().catch(() => null);
+        throw new Error(json?.error ?? "Failed to archive program.");
+      }
+
+      await refreshPrograms();
+      setIsArchiveDialogOpen(false);
+      router.push("/programs/archived");
+      router.refresh();
+    } catch (error) {
+      setActionError(
+        error instanceof Error ? error.message : "Failed to archive program."
+      );
+    } finally {
+      setIsArchiving(false);
+    }
+  }
+
   return (
     <Box sx={{ display: "flex", flexDirection: "column", gap: 4 }}>
       <Box
@@ -349,18 +385,20 @@ export default function ProgramDetailView({
 
         <Box sx={{ p: 2.5 }}>
           {activeTab === 0 && (
-            <RecordsTable
-              deliverables={deliverables}
-              programs={[program]}
-              documentCountsByDeliverableId={documentCountsByDeliverableId}
-              toolbarAction={
+            <Box sx={{ display: "flex", flexDirection: "column", gap: 2 }}>
+              <Box sx={{ display: "flex", justifyContent: "flex-end" }}>
                 <CreateDeliverableDialog
                   programs={[program]}
                   deliverableTypes={deliverableTypes}
                   defaultProgramId={program.id}
                 />
-              }
-            />
+              </Box>
+              <RecordsTable
+                deliverables={deliverables}
+                programs={[program]}
+                documentCountsByDeliverableId={documentCountsByDeliverableId}
+              />
+            </Box>
           )}
           {activeTab === 1 && (
             <DocumentsTable
@@ -456,20 +494,36 @@ export default function ProgramDetailView({
         </DialogContent>
         <DialogActions>
           {mayDeleteProgram && (
-            <Button
-              color="error"
-              variant="outlined"
-              startIcon={<DeleteOutlineIcon />}
-              onClick={() => {
-                setActionError(null);
-                setIsEditDialogOpen(false);
-                setIsDeleteDialogOpen(true);
-              }}
-              disabled={isSavingEdit}
-              sx={{ mr: "auto" }}
-            >
-              Delete Program
-            </Button>
+            <Box sx={{ display: "flex", gap: 1, mr: "auto", flexWrap: "wrap" }}>
+              {activeProgram.status !== "Archived" && (
+                <Button
+                  color="warning"
+                  variant="outlined"
+                  startIcon={<ArchiveOutlinedIcon />}
+                  onClick={() => {
+                    setActionError(null);
+                    setIsEditDialogOpen(false);
+                    setIsArchiveDialogOpen(true);
+                  }}
+                  disabled={isSavingEdit}
+                >
+                  Archive Program
+                </Button>
+              )}
+              <Button
+                color="error"
+                variant="outlined"
+                startIcon={<DeleteOutlineIcon />}
+                onClick={() => {
+                  setActionError(null);
+                  setIsEditDialogOpen(false);
+                  setIsDeleteDialogOpen(true);
+                }}
+                disabled={isSavingEdit}
+              >
+                Delete Program
+              </Button>
+            </Box>
           )}
           <Button onClick={() => setIsEditDialogOpen(false)} disabled={isSavingEdit}>
             Cancel
@@ -486,6 +540,36 @@ export default function ProgramDetailView({
             onClick={handleSaveProgram}
           >
             {isSavingEdit ? "Saving..." : "Save"}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      <Dialog
+        open={isArchiveDialogOpen}
+        onClose={() => {
+          if (!isArchiving) setIsArchiveDialogOpen(false);
+        }}
+        maxWidth="xs"
+        fullWidth
+      >
+        <DialogTitle>Archive Program?</DialogTitle>
+        <DialogContent>
+          <DialogContentText>
+            This will move the program out of active program views. Downloads
+            remain available, but new uploads are blocked for archived programs.
+          </DialogContentText>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setIsArchiveDialogOpen(false)} disabled={isArchiving}>
+            Cancel
+          </Button>
+          <Button
+            color="warning"
+            variant="contained"
+            onClick={handleArchiveProgram}
+            disabled={isArchiving}
+          >
+            {isArchiving ? "Archiving..." : "Archive Program"}
           </Button>
         </DialogActions>
       </Dialog>

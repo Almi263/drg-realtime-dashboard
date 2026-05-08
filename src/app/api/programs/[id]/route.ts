@@ -3,6 +3,7 @@ import { auth } from "@/auth";
 import { canDeleteProgram, canManageProgramAccess } from "@/lib/auth/guards";
 import { normalizeEmail } from "@/lib/auth/roles";
 import {
+  archiveProgram,
   deleteEmptyProgram,
   getProgramById,
   listPrograms,
@@ -51,6 +52,33 @@ export async function PATCH(
   }
 
   const body = await request.json().catch(() => null);
+  const isAdmin = session.user.internalRoles.includes("drg-admin");
+
+  if (body?.action === "archive") {
+    if (!isAdmin) {
+      return NextResponse.json(
+        { error: "Only DRG admins can archive programs." },
+        { status: 403 }
+      );
+    }
+
+    if (program.status === "Archived") {
+      return NextResponse.json({ archived: true, programId: id });
+    }
+
+    try {
+      await archiveProgram({
+        programId: id,
+        archivedByEmail: normalizeEmail(session.user.email),
+      });
+      return NextResponse.json({ archived: true, programId: id });
+    } catch (error) {
+      return errorResponse(error, {
+        fallback: "Failed to archive program.",
+      });
+    }
+  }
+
   const name = requiredString(body?.name);
   const programNumber = requiredString(body?.programNumber);
   const contractRef = requiredString(body?.contractRef);
@@ -69,7 +97,6 @@ export async function PATCH(
     );
   }
 
-  const isAdmin = session.user.internalRoles.includes("drg-admin");
   const normalizedExistingOwner = normalizeEmail(program.ownerUpn);
   const nextOwnerUpn = ownerUpn || normalizedExistingOwner;
 

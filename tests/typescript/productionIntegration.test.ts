@@ -1012,6 +1012,38 @@ describe("production integration layer", () => {
     expect(accessLogPayload?.drg_occurredon).toEqual(expect.any(String));
   });
 
+  it("limits document access logging to uploads and external reviewer access", async () => {
+    vi.resetModules();
+    const { shouldCreateDocumentAccessLog } = await import(
+      "@/lib/dataverse/document-access-logs"
+    );
+
+    expect(
+      shouldCreateDocumentAccessLog({
+        action: "View",
+        internalRoles: ["external-reviewer"],
+      })
+    ).toBe(true);
+    expect(
+      shouldCreateDocumentAccessLog({
+        action: "Download",
+        internalRoles: ["drg-program-owner"],
+      })
+    ).toBe(false);
+    expect(
+      shouldCreateDocumentAccessLog({
+        action: "Upload",
+        internalRoles: ["drg-staff"],
+      })
+    ).toBe(true);
+    expect(
+      shouldCreateDocumentAccessLog({
+        action: "Acknowledge",
+        internalRoles: ["drg-admin"],
+      })
+    ).toBe(false);
+  });
+
   it("sends the expected Power Automate acknowledgment payload", async () => {
     vi.resetModules();
     vi.stubEnv(

@@ -44,24 +44,23 @@ export default function DashboardProgramsView({
       />
 
       <Box>
-        <Typography
-          variant="subtitle2"
-          sx={{
-            fontWeight: 700,
-            mb: 1.5,
-            color: "text.secondary",
-            textTransform: "uppercase",
-            letterSpacing: 0.8,
-            fontSize: "0.7rem",
-          }}
-        >
-          Active Programs
-        </Typography>
-        {role === "drg-admin" && (
-          <Box sx={{ display: "flex", justifyContent: "flex-end", mb: 1.5 }}>
+        <Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 2, mb: 1.5, flexWrap: "wrap" }}>
+          <Typography
+            variant="subtitle2"
+            sx={{
+              fontWeight: 700,
+              color: "text.secondary",
+              textTransform: "uppercase",
+              letterSpacing: 0.8,
+              fontSize: "0.7rem",
+            }}
+          >
+            Active Programs
+          </Typography>
+          {role === "drg-admin" && (
             <CreateProgramDialog />
-          </Box>
-        )}
+          )}
+        </Box>
         {visiblePrograms.length === 0 ? (
           <Typography variant="body2" sx={{ color: "text.secondary" }}>
             No programs are currently assigned to this account.

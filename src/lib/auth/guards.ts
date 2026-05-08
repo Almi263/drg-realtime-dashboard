@@ -93,6 +93,8 @@ export function canDeleteDeliverable(
   program: Program,
   documentCount: number
 ) {
+  void documentCount;
+
   if (isProgramArchived(program)) return false;
   if (user.internalRoles.includes("drg-admin")) return true;
 
@@ -100,10 +102,14 @@ export function canDeleteDeliverable(
     return false;
   }
 
-  return (
-    documentCount === 0 &&
-    hasActiveProgramAccessWithRole(program, user.email, ["Program Owner"])
-  );
+  return hasActiveProgramAccessWithRole(program, user.email, ["Program Owner"]);
+}
+
+export function canDeleteDocument(
+  user: { email?: string | null; internalRoles: InternalRole[] },
+  program: Program
+) {
+  return canDeleteDeliverable(user, program, 0);
 }
 
 export function canManageProgramAccess(

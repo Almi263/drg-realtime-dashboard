@@ -11,6 +11,7 @@ import Paper from "@mui/material/Paper";
 import Chip from "@mui/material/Chip";
 import Box from "@mui/material/Box";
 import Button from "@mui/material/Button";
+import Alert from "@mui/material/Alert";
 import IconButton from "@mui/material/IconButton";
 import Collapse from "@mui/material/Collapse";
 import Typography from "@mui/material/Typography";
@@ -32,7 +33,7 @@ import UploadFileIcon from "@mui/icons-material/UploadFile";
 import SearchIcon from "@mui/icons-material/Search";
 import MuiLink from "@mui/material/Link";
 import NextLink from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import type { SelectChangeEvent } from "@mui/material/Select";
 import type {
   DeliverableDocument,
@@ -80,6 +81,40 @@ function formatDateTime(iso: string): string {
   });
 }
 
+function getUploadDisplay(
+  document: DeliverableDocument,
+  logs: DocumentAccessLog[],
+  programs: Program[]
+) {
+  const uploadLog = logs.find((event) => event.action === "Upload");
+  const program = programs.find((entry) => entry.id === document.programId);
+  const programDisplayName =
+    program?.access.find(
+      (entry) =>
+        entry.email.toLowerCase() === document.uploadedByEmail.toLowerCase()
+    )?.displayName ??
+    (program?.ownerUpn.toLowerCase() === document.uploadedByEmail.toLowerCase()
+      ? program.ownerName
+      : undefined);
+  const uploadActorName =
+    uploadLog?.actorName && !uploadLog.actorName.includes("@")
+      ? uploadLog.actorName
+      : undefined;
+  const documentDisplayName = document.uploadedBy.includes("@")
+    ? undefined
+    : document.uploadedBy;
+
+  return {
+    name:
+      uploadActorName ||
+      programDisplayName ||
+      documentDisplayName ||
+      document.uploadedByEmail ||
+      document.uploadedBy,
+    email: document.uploadedByEmail || uploadLog?.actorEmail || document.uploadedBy,
+  };
+}
+
 /* ------------------------------------------------------------------ */
 /*  AccessLogRow — expandable panel below a document row             */
 /* ------------------------------------------------------------------ */
@@ -114,7 +149,9 @@ function AccessLogRow({ logs, colSpan }: { logs: DocumentAccessLog[]; colSpan: n
                 sx={{ fontSize: "0.65rem", height: 20, minWidth: 80 }}
               />
               <Typography variant="caption" sx={{ fontWeight: 600 }}>
-                {event.actorName || event.actorEmail}
+                <Tooltip title={event.actorEmail}>
+                  <Box component="span">{event.actorName || event.actorEmail}</Box>
+                </Tooltip>
               </Typography>
               <Typography variant="caption" sx={{ color: "text.secondary" }}>
                 {formatDateTime(event.occurredOn)}
@@ -153,13 +190,16 @@ export default function DocumentsTable({
   showArchivedToggle = false,
 }: DocumentsTableProps) {
   const pathname = usePathname();
-  const { role, canUploadToProgram } = useRole();
+  const router = useRouter();
+  const { role, canUploadToProgram, canDeleteDocumentsForProgram } = useRole();
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [programFilter, setProgramFilter] = useState<string>("All");
   const [statusFilter, setStatusFilter] = useState<string>("All");
   const [typeFilter, setTypeFilter] = useState<string>("All");
   const [searchQuery, setSearchQuery] = useState("");
   const [includeArchivedPrograms, setIncludeArchivedPrograms] = useState(false);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [actionError, setActionError] = useState<string | null>(null);
 
   const availablePrograms = useMemo(
     () =>
@@ -175,7 +215,10 @@ export default function DocumentsTable({
   const showProgramFilter = availablePrograms.length > 1;
   const hasArchivedPrograms = programs.some((program) => program.status === "Archived");
   const canUpload = programs.some((program) => canUploadToProgram(program.id));
-  const canDelete = role === "drg-admin";
+  const programMap = useMemo(
+    () => Object.fromEntries(programs.map((program) => [program.id, program.name])),
+    [programs]
+  );
   // Access log only visible to internal roles
   const canSeeAccessLog =
     role === "drg-admin" || role === "drg-program-owner" || role === "drg-staff";
@@ -198,22 +241,56 @@ export default function DocumentsTable({
     const associatedRecord = [
       document.deliverableId,
       deliverableMap[document.deliverableId] ?? "",
+      programMap[document.programId] ?? "",
     ].join(" ");
 
     return [document.fileName, document.fileType, associatedRecord].some((value) =>
       value.toLowerCase().includes(normalizedSearchQuery)
     );
   });
+  const showDeleteActions = filtered.some((document) =>
+    canDeleteDocumentsForProgram(document.programId)
+  );
 
   // Has to match real column count or the access log row breaks
-  const colSpan = 6 + (canSeeAccessLog ? 1 : 0) + (canDelete ? 1 : 0);
+  const colSpan = 8 + (canSeeAccessLog ? 1 : 0) + (showDeleteActions ? 1 : 0);
 
   const toggleExpand = (id: string) => {
     setExpandedId((prev) => (prev === id ? null : id));
   };
 
+  async function handleDelete(document: DeliverableDocument) {
+    if (!window.confirm(`Delete ${document.fileName}? This cannot be undone.`)) {
+      return;
+    }
+
+    setDeletingId(document.id);
+    setActionError(null);
+
+    try {
+      const response = await fetch(`/api/documents/${document.id}`, {
+        method: "DELETE",
+      });
+
+      if (!response.ok) {
+        const json = await response.json().catch(() => null);
+        throw new Error(json?.error ?? "Failed to delete document.");
+      }
+
+      router.refresh();
+    } catch (error) {
+      setActionError(
+        error instanceof Error ? error.message : "Failed to delete document."
+      );
+    } finally {
+      setDeletingId(null);
+    }
+  }
+
   return (
     <Box>
+      {actionError && <Alert severity="error" sx={{ mb: 2 }}>{actionError}</Alert>}
+
       {/* Filter controls */}
       <Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 2, mb: 2, flexWrap: "wrap" }}>
         <Box sx={{ display: "flex", gap: 2, flexWrap: "wrap", alignItems: "center" }}>
@@ -331,12 +408,13 @@ export default function DocumentsTable({
               {canSeeAccessLog && <TableCell sx={{ width: 40 }} />}
               <TableCell sx={{ fontWeight: 700 }}>File Name</TableCell>
               <TableCell sx={{ fontWeight: 700 }}>Type</TableCell>
-              <TableCell sx={{ fontWeight: 700 }}>Associated Record</TableCell>
+              <TableCell sx={{ fontWeight: 700 }}>Associated Deliverable</TableCell>
+              <TableCell sx={{ fontWeight: 700 }}>Associated Program</TableCell>
               <TableCell sx={{ fontWeight: 700 }}>Uploaded By</TableCell>
               <TableCell sx={{ fontWeight: 700 }}>Upload Date</TableCell>
               <TableCell sx={{ fontWeight: 700 }}>Status</TableCell>
               <TableCell sx={{ fontWeight: 700 }}>Actions</TableCell>
-              {canDelete && <TableCell sx={{ width: 48 }} />}
+              {showDeleteActions && <TableCell sx={{ width: 48 }} />}
             </TableRow>
           </TableHead>
 
@@ -345,6 +423,8 @@ export default function DocumentsTable({
               const isExpanded = expandedId === doc.id;
               const logs = accessLogsByDocumentId[doc.id] ?? [];
               const accessCount = logs.length;
+              const canDelete = canDeleteDocumentsForProgram(doc.programId);
+              const uploadedBy = getUploadDisplay(doc, logs, programs);
 
               return (
                 <Fragment key={doc.id}>
@@ -392,13 +472,18 @@ export default function DocumentsTable({
                     </TableCell>
 
                     <TableCell>
-                      <Box component="span" sx={{ fontWeight: 700, fontFamily: "monospace", fontSize: "0.8rem" }}>
-                        {doc.deliverableId}
-                      </Box>
-                      {deliverableMap[doc.deliverableId] ? ` — ${deliverableMap[doc.deliverableId]}` : ""}
+                      {deliverableMap[doc.deliverableId] ?? doc.deliverableId}
                     </TableCell>
 
-                    <TableCell>{doc.uploadedBy}</TableCell>
+                    <TableCell>
+                      {programMap[doc.programId] ?? doc.programId}
+                    </TableCell>
+
+                    <TableCell>
+                      <Tooltip title={uploadedBy.email}>
+                        <Box component="span">{uploadedBy.name}</Box>
+                      </Tooltip>
+                    </TableCell>
                     <TableCell>{formatDate(doc.uploadedAt)}</TableCell>
 
                     <TableCell>
@@ -422,13 +507,22 @@ export default function DocumentsTable({
                       </Box>
                     </TableCell>
 
-                    {canDelete && (
+                    {showDeleteActions && (
                       <TableCell>
-                        <Tooltip title="Delete (admin only)">
-                          <IconButton size="small" disabled sx={{ color: "error.light" }}>
-                            <DeleteIcon fontSize="small" />
-                          </IconButton>
-                        </Tooltip>
+                        {canDelete && (
+                          <Tooltip title="Delete document">
+                            <span>
+                              <IconButton
+                                size="small"
+                                color="error"
+                                disabled={deletingId === doc.id}
+                                onClick={() => handleDelete(doc)}
+                              >
+                                <DeleteIcon fontSize="small" />
+                              </IconButton>
+                            </span>
+                          </Tooltip>
+                        )}
                       </TableCell>
                     )}
                   </TableRow>

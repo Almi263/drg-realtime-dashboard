@@ -48,6 +48,27 @@ interface DataverseSystemUserRow {
   systemuserid: string;
 }
 
+type DataverseChoiceOption = {
+  Value?: number;
+  Label?: {
+    UserLocalizedLabel?: {
+      Label?: string;
+    } | null;
+    LocalizedLabels?: Array<{
+      Label?: string;
+    }>;
+  };
+};
+
+type DataverseChoiceMetadata = {
+  OptionSet?: {
+    Options?: DataverseChoiceOption[];
+  } | null;
+  GlobalOptionSet?: {
+    Options?: DataverseChoiceOption[];
+  } | null;
+};
+
 export interface CreateProgramInput {
   name: string;
   programNumber: string;
@@ -72,6 +93,18 @@ export interface UpdateProgramInput {
   ownerUpn?: string;
 }
 
+const PROGRAM_STATUS_ENV: Record<ProgramStatus, string> = {
+  Draft: "DATAVERSE_PROGRAM_STATUS_DRAFT_VALUE",
+  Active: "DATAVERSE_PROGRAM_STATUS_ACTIVE_VALUE",
+  "On Hold": "DATAVERSE_PROGRAM_STATUS_ON_HOLD_VALUE",
+  Closed: "DATAVERSE_PROGRAM_STATUS_CLOSED_VALUE",
+  Archived: "DATAVERSE_PROGRAM_STATUS_ARCHIVED_VALUE",
+};
+
+let programStatusOptionValuesPromise:
+  | Promise<Map<ProgramStatus, number>>
+  | undefined;
+
 function isInternalAllProgramsUser(user: DataverseUser) {
   return Boolean(user.internalRoles?.includes("drg-admin"));
 }
@@ -87,6 +120,71 @@ function toProgramStatus(value: string | undefined): ProgramStatus {
     default:
       return "Active";
   }
+}
+
+function getChoiceOptionLabel(option: DataverseChoiceOption) {
+  return (
+    option.Label?.UserLocalizedLabel?.Label ??
+    option.Label?.LocalizedLabels?.find((label) => label.Label)?.Label ??
+    ""
+  );
+}
+
+function parseProgramStatus(value: string | undefined) {
+  return toProgramStatus(value) === value ? value : undefined;
+}
+
+function getConfiguredProgramStatusValue(status: ProgramStatus) {
+  const envName = PROGRAM_STATUS_ENV[status];
+  const raw = process.env[envName]?.trim();
+  if (!raw) return undefined;
+
+  const value = Number(raw);
+  if (!Number.isInteger(value)) {
+    throw new Error(`${envName} must be a Dataverse integer choice value.`);
+  }
+
+  return value;
+}
+
+async function loadProgramStatusOptionValues() {
+  const values = new Map<ProgramStatus, number>();
+
+  for (const status of Object.keys(PROGRAM_STATUS_ENV) as ProgramStatus[]) {
+    const configuredValue = getConfiguredProgramStatusValue(status);
+    if (configuredValue !== undefined) {
+      values.set(status, configuredValue);
+    }
+  }
+
+  const metadata = await dataverseFetch<DataverseChoiceMetadata>(
+    "/EntityDefinitions(LogicalName='drg_program')/Attributes(LogicalName='drg_status')/Microsoft.Dynamics.CRM.PicklistAttributeMetadata?$select=LogicalName&$expand=OptionSet($select=Options),GlobalOptionSet($select=Options)"
+  );
+  const options =
+    metadata.OptionSet?.Options ?? metadata.GlobalOptionSet?.Options ?? [];
+
+  for (const option of options) {
+    if (typeof option.Value !== "number") continue;
+    const status = parseProgramStatus(getChoiceOptionLabel(option));
+    if (!status) continue;
+    values.set(status, option.Value);
+  }
+
+  return values;
+}
+
+async function getProgramStatusOptionValue(status: ProgramStatus) {
+  programStatusOptionValuesPromise ??= loadProgramStatusOptionValues();
+  const values = await programStatusOptionValuesPromise;
+  const value = values.get(status);
+
+  if (value === undefined) {
+    throw new Error(
+      `Could not resolve Dataverse drg_status choice value for "${status}".`
+    );
+  }
+
+  return value;
 }
 
 function normalizeMockProgram(program: Program): Program {
@@ -392,6 +490,33 @@ export async function updateProgram(input: UpdateProgramInput) {
   });
 
   await replaceProgramSites(input.programId, input.sites);
+}
+
+export async function archiveProgram(input: {
+  programId: string;
+  archivedByEmail: string;
+}) {
+  if (!isDataverseConfigured()) {
+    throw new Error("Dataverse is not configured for program archival.");
+  }
+
+  const archivedByUserId = await findSystemUserIdByEmail(input.archivedByEmail);
+  const payload: Record<string, unknown> = {
+    drg_status: await getProgramStatusOptionValue("Archived"),
+    drg_archivedon: new Date().toISOString(),
+  };
+
+  if (archivedByUserId) {
+    payload["drg_archivedby@odata.bind"] = lookupBind(
+      "systemusers",
+      archivedByUserId
+    );
+  }
+
+  await dataverseFetch<void>(`/drg_programs(${input.programId})`, {
+    method: "PATCH",
+    body: JSON.stringify(payload),
+  });
 }
 
 export async function createProgram(input: CreateProgramInput) {

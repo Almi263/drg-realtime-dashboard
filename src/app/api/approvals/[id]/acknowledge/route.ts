@@ -1,7 +1,6 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { acknowledgeApproval, getApprovalById } from "@/lib/dataverse/approvals";
-import { createDocumentAccessLog } from "@/lib/dataverse/document-access-logs";
 import { getProgramById } from "@/lib/dataverse/programs";
 import { businessRuleResponse, errorResponse } from "@/lib/errors/business-rules";
 import { acknowledgeSignedApprovalFlow } from "@/lib/power-automate/flows";
@@ -62,17 +61,6 @@ export async function POST(
       acknowledgedByName: session.user.name ?? session.user.email ?? "Signed-in user",
       acknowledgedByUserId: session.user.id,
     });
-
-    if (result.skipped) {
-      await createDocumentAccessLog({
-        documentId: signedApprovalDocumentId,
-        programId: approval.programId,
-        actorUserId: session.user.id,
-        actorName: session.user.name ?? session.user.email ?? "Signed-in user",
-        actorEmail: session.user.email ?? "",
-        action: "Acknowledge",
-      });
-    }
 
     return NextResponse.json({
       acknowledged: true,

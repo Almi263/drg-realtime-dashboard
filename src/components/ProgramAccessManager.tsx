@@ -21,6 +21,7 @@ import TableContainer from "@mui/material/TableContainer";
 import TableHead from "@mui/material/TableHead";
 import TableRow from "@mui/material/TableRow";
 import TextField from "@mui/material/TextField";
+import Tooltip from "@mui/material/Tooltip";
 import Typography from "@mui/material/Typography";
 import { normalizeEmail } from "@/lib/auth/roles";
 import type { Program } from "@/lib/models/program";
@@ -234,7 +235,14 @@ export default function ProgramAccessManager({ program }: { program: Program }) 
         </Typography>
 
         <Alert severity="info" sx={{ mb: 2 }}>
-          Program owner: {program.ownerUpn ? ownerDisplayName : "Unassigned"}
+          Program owner:{" "}
+          {program.ownerUpn ? (
+            <Tooltip title={program.ownerUpn}>
+              <Box component="span">{ownerDisplayName}</Box>
+            </Tooltip>
+          ) : (
+            "Unassigned"
+          )}
         </Alert>
 
         {mayManageAccess ? (
@@ -312,14 +320,13 @@ export default function ProgramAccessManager({ program }: { program: Program }) 
         {accessError && <Alert severity="error" sx={{ mb: 2 }}>{accessError}</Alert>}
 
         <TableContainer>
-          <Table size="small" sx={{ minWidth: 980 }}>
+          <Table size="small" sx={{ minWidth: 760 }}>
             <TableHead>
               <TableRow>
                 <TableCell sx={{ fontWeight: 700, width: { xs: 220, md: 300 } }}>Name</TableCell>
                 <TableCell sx={{ fontWeight: 700, minWidth: 240 }}>Email</TableCell>
                 <TableCell sx={{ fontWeight: 700, minWidth: 150 }}>Role</TableCell>
                 <TableCell sx={{ fontWeight: 700, minWidth: 180 }}>Granted On</TableCell>
-                <TableCell sx={{ fontWeight: 700, minWidth: 220 }}>Granted By</TableCell>
                 {mayManageAccess && <TableCell sx={{ fontWeight: 700, width: 120 }}>Actions</TableCell>}
               </TableRow>
             </TableHead>
@@ -337,7 +344,9 @@ export default function ProgramAccessManager({ program }: { program: Program }) 
                 return (
                   <TableRow key={entry.email} hover>
                     <TableCell sx={{ fontWeight: 600, minWidth: { xs: 220, md: 300 } }}>
-                      {displayName}
+                      <Tooltip title={entry.email}>
+                        <Box component="span">{displayName}</Box>
+                      </Tooltip>
                       {normalizeEmail(entry.email) === normalizeEmail(currentUser?.email) && (
                         <Typography component="span" variant="caption" sx={{ color: "text.secondary", ml: 0.75 }}>
                           (You)
@@ -354,7 +363,6 @@ export default function ProgramAccessManager({ program }: { program: Program }) 
                       />
                     </TableCell>
                     <TableCell>{formatDateTime(entry.grantedAt)}</TableCell>
-                    <TableCell>{entry.grantedByEmail}</TableCell>
                     {mayManageAccess && (
                       <TableCell>
                         <Button

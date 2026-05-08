@@ -27,7 +27,9 @@ export default function FilteredDocumentsView({
   const visibleDeliverables = deliverables.filter((deliverable) =>
     visibleProgramIds.has(deliverable.programId)
   );
-  const deliverableMap = Object.fromEntries(visibleDeliverables.map((d) => [d.id, d.title]));
+  const deliverableMap = Object.fromEntries(
+    visibleDeliverables.map((d) => [d.id, `${d.deliverableNumber}: ${d.title}`])
+  );
 
   if (visiblePrograms.length === 0) {
     return (

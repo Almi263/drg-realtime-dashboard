@@ -1,8 +1,8 @@
 "use client";
 
 import { useState, useMemo } from "react";
-import type { MouseEvent, ReactNode } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
+import Autocomplete from "@mui/material/Autocomplete";
 import Table from "@mui/material/Table";
 import TableBody from "@mui/material/TableBody";
 import TableCell from "@mui/material/TableCell";
@@ -13,6 +13,11 @@ import TableSortLabel from "@mui/material/TableSortLabel";
 import Paper from "@mui/material/Paper";
 import Chip from "@mui/material/Chip";
 import Box from "@mui/material/Box";
+import Button from "@mui/material/Button";
+import Dialog from "@mui/material/Dialog";
+import DialogActions from "@mui/material/DialogActions";
+import DialogContent from "@mui/material/DialogContent";
+import DialogTitle from "@mui/material/DialogTitle";
 import FormControl from "@mui/material/FormControl";
 import InputAdornment from "@mui/material/InputAdornment";
 import InputLabel from "@mui/material/InputLabel";
@@ -21,10 +26,8 @@ import MenuItem from "@mui/material/MenuItem";
 import TextField from "@mui/material/TextField";
 import Typography from "@mui/material/Typography";
 import Alert from "@mui/material/Alert";
-import IconButton from "@mui/material/IconButton";
 import Tooltip from "@mui/material/Tooltip";
 import SearchIcon from "@mui/icons-material/Search";
-import DeleteOutlineIcon from "@mui/icons-material/DeleteOutline";
 import type { SelectChangeEvent } from "@mui/material/Select";
 import type { Deliverable, DeliverableStatus } from "@/lib/models/deliverable";
 import { DELIVERABLE_STATUSES } from "@/lib/models/deliverable";
@@ -64,8 +67,8 @@ function getStatusChipProps(status: DeliverableStatus) {
 }
 
 function descendingComparator(a: Deliverable, b: Deliverable, key: SortableKey): number {
-  const aVal = a[key];
-  const bVal = b[key];
+  const aVal = a[key] ?? "";
+  const bVal = b[key] ?? "";
   if (bVal < aVal) return -1;
   if (bVal > aVal) return 1;
   return 0;
@@ -91,6 +94,15 @@ function getAssignedToDisplay(deliverable: Deliverable, programs: Program[]) {
   );
 }
 
+function getAssignedToEmail(deliverable: Deliverable) {
+  return deliverable.assignedToEmail || deliverable.assignedTo;
+}
+
+interface AssignedToOption {
+  email: string;
+  displayName?: string;
+}
+
 /* ------------------------------------------------------------------ */
 /*  Component                                                         */
 /* ------------------------------------------------------------------ */
@@ -99,8 +111,9 @@ interface RecordsTableProps {
   deliverables: Deliverable[];
   programs: Program[];
   detailSource?: "records";
-  toolbarAction?: ReactNode;
+  editMode?: boolean;
   showSearch?: boolean;
+  showProgramColumn?: boolean;
   documentCountsByDeliverableId?: Record<string, number>;
 }
 
@@ -108,19 +121,34 @@ export default function RecordsTable({
   deliverables,
   programs,
   detailSource,
-  toolbarAction,
+  editMode = false,
   showSearch = false,
+  showProgramColumn = false,
   documentCountsByDeliverableId = {},
 }: RecordsTableProps) {
+  void documentCountsByDeliverableId;
+
   const router = useRouter();
-  const { canDeleteDeliverableForProgram, role } = useRole();
-  const [statusFilter, setStatusFilter] = useState<string>("All");
+  const searchParams = useSearchParams();
+  const { canCreateDeliverableForProgram } = useRole();
+  const requestedStatus = searchParams.get("status");
+  const initialStatus =
+    requestedStatus &&
+    DELIVERABLE_STATUSES.includes(requestedStatus as DeliverableStatus)
+      ? requestedStatus
+      : "All";
+  const [statusFilter, setStatusFilter] = useState<string>(initialStatus);
   const [typeFilter, setTypeFilter] = useState<string>("All");
   const [programFilter, setProgramFilter] = useState<string>("All");
   const [searchQuery, setSearchQuery] = useState("");
   const [orderBy, setOrderBy] = useState<SortableKey>("dueDate");
   const [order, setOrder] = useState<Order>("asc");
-  const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [editingDeliverable, setEditingDeliverable] = useState<Deliverable | null>(null);
+  const [isSavingEdit, setIsSavingEdit] = useState(false);
+  const [editTitle, setEditTitle] = useState("");
+  const [editDescription, setEditDescription] = useState("");
+  const [editDueDate, setEditDueDate] = useState("");
+  const [editAssignedToEmail, setEditAssignedToEmail] = useState("");
   const [actionError, setActionError] = useState<string | null>(null);
 
   const programMap = useMemo(
@@ -131,6 +159,52 @@ export default function RecordsTable({
     () => [...new Set(deliverables.map((d) => d.type))].sort(),
     [deliverables]
   );
+  const programCounts = useMemo(
+    () =>
+      deliverables.reduce<Record<string, number>>((counts, deliverable) => {
+        counts[deliverable.programId] = (counts[deliverable.programId] ?? 0) + 1;
+        return counts;
+      }, {}),
+    [deliverables]
+  );
+  const statusCounts = useMemo(
+    () =>
+      deliverables.reduce<Record<string, number>>((counts, deliverable) => {
+        counts[deliverable.status] = (counts[deliverable.status] ?? 0) + 1;
+        return counts;
+      }, {}),
+    [deliverables]
+  );
+  const typeCounts = useMemo(
+    () =>
+      deliverables.reduce<Record<string, number>>((counts, deliverable) => {
+        counts[deliverable.type] = (counts[deliverable.type] ?? 0) + 1;
+        return counts;
+      }, {}),
+    [deliverables]
+  );
+  const assignedToOptions = useMemo(() => {
+    const options = new Map<string, AssignedToOption>();
+
+    for (const program of programs) {
+      if (program.ownerUpn) {
+        options.set(normalizeEmail(program.ownerUpn), {
+          email: program.ownerUpn,
+          displayName: program.ownerName,
+        });
+      }
+
+      for (const entry of program.access) {
+        if (!entry.isActive || !entry.email) continue;
+        options.set(normalizeEmail(entry.email), {
+          email: entry.email,
+          displayName: entry.displayName,
+        });
+      }
+    }
+
+    return [...options.values()];
+  }, [programs]);
 
   const filtered = useMemo(() => {
     const normalizedSearchQuery = searchQuery.trim().toLowerCase();
@@ -159,48 +233,54 @@ export default function RecordsTable({
     setOrderBy(column);
   };
 
-  async function handleDelete(event: MouseEvent, deliverable: Deliverable) {
-    event.stopPropagation();
-    const documentCount = documentCountsByDeliverableId[deliverable.id] ?? 0;
-    const message =
-      documentCount > 0
-        ? `Delete ${deliverable.deliverableNumber} and its ${documentCount} document${documentCount === 1 ? "" : "s"}? This cannot be undone.`
-        : `Delete ${deliverable.deliverableNumber}? This cannot be undone.`;
-
-    if (!window.confirm(message)) return;
-
-    setDeletingId(deliverable.id);
+  function openEditDialog(deliverable: Deliverable) {
+    setEditingDeliverable(deliverable);
+    setEditTitle(deliverable.title);
+    setEditDescription(deliverable.description);
+    setEditDueDate(deliverable.dueDate.slice(0, 10));
+    setEditAssignedToEmail(deliverable.assignedToEmail ?? "");
     setActionError(null);
+  }
 
+  async function handleSaveEdit() {
+    if (!editingDeliverable) return;
+
+    setIsSavingEdit(true);
+    setActionError(null);
     try {
-      const response = await fetch(`/api/deliverables/${deliverable.id}`, {
-        method: "DELETE",
+      const response = await fetch(`/api/deliverables/${editingDeliverable.id}`, {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          title: editTitle,
+          description: editDescription,
+          dueDate: editDueDate,
+          assignedToEmail: editAssignedToEmail,
+        }),
       });
 
       if (!response.ok) {
         const json = await response.json().catch(() => null);
-        throw new Error(json?.error ?? "Failed to delete deliverable.");
+        throw new Error(json?.error ?? "Failed to update deliverable.");
       }
 
+      setEditingDeliverable(null);
       router.refresh();
     } catch (error) {
       setActionError(
-        error instanceof Error ? error.message : "Failed to delete deliverable."
+        error instanceof Error ? error.message : "Failed to update deliverable."
       );
     } finally {
-      setDeletingId(null);
+      setIsSavingEdit(false);
     }
   }
 
   // Only show program filter if multiple programs present
   const showProgramFilter = programs.length > 1;
-  const showActions = filtered.some((deliverable) =>
-    canDeleteDeliverableForProgram(
-      deliverable.programId,
-      documentCountsByDeliverableId[deliverable.id] ?? 0
-    )
-  );
-
+  const includeProgramColumn = showProgramColumn || showProgramFilter;
+  const recordLabel = filtered.length === 1 ? "record" : "records";
   return (
     <Box>
       {actionError && <Alert severity="error" sx={{ mb: 2 }}>{actionError}</Alert>}
@@ -217,10 +297,10 @@ export default function RecordsTable({
                 label="Program"
                 onChange={(e: SelectChangeEvent) => setProgramFilter(e.target.value)}
               >
-                <MenuItem value="All">All Programs</MenuItem>
+                <MenuItem value="All">All Programs ({deliverables.length})</MenuItem>
                 {programs.map((p) => (
                   <MenuItem key={p.id} value={p.id}>
-                    {p.name}
+                    {p.name} ({programCounts[p.id] ?? 0})
                   </MenuItem>
                 ))}
               </Select>
@@ -235,9 +315,9 @@ export default function RecordsTable({
               label="Status"
               onChange={(e: SelectChangeEvent) => setStatusFilter(e.target.value)}
             >
-              <MenuItem value="All">All Statuses</MenuItem>
+              <MenuItem value="All">All Statuses ({deliverables.length})</MenuItem>
               {DELIVERABLE_STATUSES.map((s) => (
-                <MenuItem key={s} value={s}>{s}</MenuItem>
+                <MenuItem key={s} value={s}>{s} ({statusCounts[s] ?? 0})</MenuItem>
               ))}
             </Select>
           </FormControl>
@@ -250,34 +330,34 @@ export default function RecordsTable({
               label="Type"
               onChange={(e: SelectChangeEvent) => setTypeFilter(e.target.value)}
             >
-              <MenuItem value="All">All Types</MenuItem>
+              <MenuItem value="All">All Types ({deliverables.length})</MenuItem>
               {deliverableTypes.map((t) => (
-                <MenuItem key={t} value={t}>{t}</MenuItem>
+                <MenuItem key={t} value={t}>{t} ({typeCounts[t] ?? 0})</MenuItem>
               ))}
             </Select>
           </FormControl>
+          <Typography variant="body2" sx={{ color: "text.secondary", alignSelf: "center" }}>
+            Displaying {filtered.length} {recordLabel}
+          </Typography>
         </Box>
-        {(showSearch || toolbarAction) && (
-          <Box sx={{ display: "flex", gap: 2, alignItems: "center", ml: "auto", flexWrap: "wrap" }}>
-            {showSearch && (
-              <TextField
-                value={searchQuery}
-                onChange={(event) => setSearchQuery(event.target.value)}
-                placeholder="Search deliverables"
-                size="small"
-                sx={{ minWidth: { xs: "100%", sm: 280 } }}
-                slotProps={{
-                  input: {
-                    startAdornment: (
-                      <InputAdornment position="start">
-                        <SearchIcon fontSize="small" />
-                      </InputAdornment>
-                    ),
-                  },
-                }}
-              />
-            )}
-            {toolbarAction}
+        {showSearch && (
+          <Box sx={{ display: "flex", alignItems: "center", ml: "auto", flexWrap: "wrap" }}>
+            <TextField
+              value={searchQuery}
+              onChange={(event) => setSearchQuery(event.target.value)}
+              placeholder="Search deliverables"
+              size="small"
+              sx={{ minWidth: { xs: "100%", sm: 280 } }}
+              slotProps={{
+                input: {
+                  startAdornment: (
+                    <InputAdornment position="start">
+                      <SearchIcon fontSize="small" />
+                    </InputAdornment>
+                  ),
+                },
+              }}
+            />
           </Box>
         )}
       </Box>
@@ -307,28 +387,32 @@ export default function RecordsTable({
                   </TableSortLabel>
                 </TableCell>
               ))}
-              {showProgramFilter && <TableCell sx={{ fontWeight: 700 }}>Program</TableCell>}
-              {showActions && <TableCell align="right" sx={{ fontWeight: 700 }}>Actions</TableCell>}
+              {includeProgramColumn && <TableCell sx={{ fontWeight: 700 }}>Associated Program</TableCell>}
             </TableRow>
           </TableHead>
 
           <TableBody>
             {filtered.map((d) => {
-              const documentCount = documentCountsByDeliverableId[d.id] ?? 0;
-              const canDelete = canDeleteDeliverableForProgram(d.programId, documentCount);
-              const deleteTooltip =
-                role === "drg-program-owner" && documentCount > 0
-                  ? "Program owners can only delete deliverables with no documents"
-                  : "Delete deliverable";
-
               const assignedToDisplay = getAssignedToDisplay(d, programs);
+              const assignedToEmail = getAssignedToEmail(d);
+              const canEdit = canCreateDeliverableForProgram(d.programId);
 
               return (
                 <TableRow
                   key={d.id}
                   hover
-                  onClick={() => router.push(detailSource ? `/records/${d.id}?from=${detailSource}` : `/records/${d.id}`)}
-                  sx={{ cursor: "pointer" }}
+                  onClick={() => {
+                    if (editMode) {
+                      if (canEdit) openEditDialog(d);
+                      return;
+                    }
+
+                    router.push(detailSource ? `/records/${d.id}?from=${detailSource}` : `/records/${d.id}`);
+                  }}
+                  sx={{
+                    cursor: editMode && !canEdit ? "not-allowed" : "pointer",
+                    opacity: editMode && !canEdit ? 0.55 : 1,
+                  }}
                 >
                   <TableCell sx={{ fontFamily: "monospace", fontSize: "0.8rem", color: "primary.main", fontWeight: 600 }}>
                     {d.deliverableNumber}
@@ -349,31 +433,16 @@ export default function RecordsTable({
                     {formatDate(d.dueDate)}
                   </TableCell>
                   <TableCell>{d.createdOn ? formatDate(d.createdOn) : "—"}</TableCell>
-                  <TableCell>{assignedToDisplay}</TableCell>
-                  {showProgramFilter && (
+                  <TableCell>
+                    <Tooltip title={assignedToEmail}>
+                      <Box component="span">{assignedToDisplay}</Box>
+                    </Tooltip>
+                  </TableCell>
+                  {includeProgramColumn && (
                     <TableCell>
                       <Typography variant="caption" sx={{ color: "text.secondary" }}>
                         {programMap[d.programId] ?? d.programId}
                       </Typography>
-                    </TableCell>
-                  )}
-                  {showActions && (
-                    <TableCell align="right">
-                      {canDelete && (
-                        <Tooltip title={deleteTooltip}>
-                          <span>
-                            <IconButton
-                              aria-label={`Delete ${d.deliverableNumber}`}
-                              color="error"
-                              size="small"
-                              onClick={(event) => handleDelete(event, d)}
-                              disabled={deletingId === d.id}
-                            >
-                              <DeleteOutlineIcon fontSize="small" />
-                            </IconButton>
-                          </span>
-                        </Tooltip>
-                      )}
                     </TableCell>
                   )}
                 </TableRow>
@@ -383,7 +452,7 @@ export default function RecordsTable({
             {filtered.length === 0 && (
               <TableRow>
                 <TableCell
-                  colSpan={7 + (showProgramFilter ? 1 : 0) + (showActions ? 1 : 0)}
+                  colSpan={7 + (includeProgramColumn ? 1 : 0)}
                   align="center"
                   sx={{ py: 4, color: "text.secondary" }}
                 >
@@ -394,6 +463,71 @@ export default function RecordsTable({
           </TableBody>
         </Table>
       </TableContainer>
+
+      <Dialog
+        open={Boolean(editingDeliverable)}
+        onClose={() => {
+          if (!isSavingEdit) setEditingDeliverable(null);
+        }}
+        fullWidth
+        maxWidth="sm"
+      >
+        <DialogTitle>Edit Deliverable Information</DialogTitle>
+        <DialogContent sx={{ display: "flex", flexDirection: "column", gap: 2, pt: 1 }}>
+          <TextField
+            label="Title"
+            value={editTitle}
+            onChange={(event) => setEditTitle(event.target.value)}
+            fullWidth
+            required
+          />
+          <TextField
+            label="Description"
+            value={editDescription}
+            onChange={(event) => setEditDescription(event.target.value)}
+            fullWidth
+            multiline
+            minRows={3}
+          />
+          <TextField
+            label="Due Date"
+            type="date"
+            value={editDueDate}
+            onChange={(event) => setEditDueDate(event.target.value)}
+            fullWidth
+            required
+            slotProps={{ inputLabel: { shrink: true } }}
+          />
+          <Autocomplete
+            freeSolo
+            options={assignedToOptions}
+            inputValue={editAssignedToEmail}
+            onInputChange={(_event, value) => setEditAssignedToEmail(value)}
+            getOptionLabel={(option) =>
+              typeof option === "string"
+                ? option
+                : option.displayName
+                ? `${option.displayName} (${option.email})`
+                : option.email
+            }
+            renderInput={(params) => (
+              <TextField {...params} label="Assigned To Email" fullWidth />
+            )}
+          />
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setEditingDeliverable(null)} disabled={isSavingEdit}>
+            Cancel
+          </Button>
+          <Button
+            onClick={handleSaveEdit}
+            variant="contained"
+            disabled={!editTitle.trim() || !editDueDate || isSavingEdit}
+          >
+            {isSavingEdit ? "Saving..." : "Save Changes"}
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Box>
   );
 }

@@ -8,6 +8,7 @@ import Card from "@mui/material/Card";
 import CardContent from "@mui/material/CardContent";
 import Chip from "@mui/material/Chip";
 import Stack from "@mui/material/Stack";
+import Tooltip from "@mui/material/Tooltip";
 import type { Deliverable, DeliverableStatus } from "@/lib/models/deliverable";
 import type { Program } from "@/lib/models/program";
 
@@ -222,7 +223,9 @@ function DeliverableCard({
             variant="body2"
             sx={{ color: "text.secondary", ml: "auto" }}
           >
-            {deliverable.assignedTo}
+            <Tooltip title={deliverable.assignedToEmail || deliverable.assignedTo}>
+              <Box component="span">{deliverable.assignedTo}</Box>
+            </Tooltip>
           </Typography>
         </Box>
       </CardContent>

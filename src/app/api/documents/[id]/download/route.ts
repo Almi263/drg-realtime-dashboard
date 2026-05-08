@@ -1,7 +1,10 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { canDownloadFromProgram } from "@/lib/auth/guards";
-import { createDocumentAccessLog } from "@/lib/dataverse/document-access-logs";
+import {
+  createDocumentAccessLog,
+  shouldCreateDocumentAccessLog,
+} from "@/lib/dataverse/document-access-logs";
 import { getVisibleDocumentById } from "@/lib/dataverse/documents";
 import { getProgramById } from "@/lib/dataverse/programs";
 import { triggerFlow } from "@/lib/power-automate/flows";
@@ -42,14 +45,21 @@ export async function GET(
     );
   }
 
-  await createDocumentAccessLog({
-    documentId: document.id,
-    programId: document.programId,
-    actorUserId: session.user.id,
-    actorName: session.user.name ?? session.user.email ?? "Signed-in user",
-    actorEmail: session.user.email ?? "",
-    action: "Download",
-  });
+  if (
+    shouldCreateDocumentAccessLog({
+      action: "Download",
+      internalRoles: session.user.internalRoles,
+    })
+  ) {
+    await createDocumentAccessLog({
+      documentId: document.id,
+      programId: document.programId,
+      actorUserId: session.user.id,
+      actorName: session.user.name ?? session.user.email ?? "Signed-in user",
+      actorEmail: session.user.email ?? "",
+      action: "Download",
+    });
+  }
 
   await triggerFlow("documentDownloaded", {
     documentId: document.id,

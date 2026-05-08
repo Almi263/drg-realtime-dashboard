@@ -391,6 +391,38 @@ export async function fetchSharePointFile(input: SharePointDownloadInput) {
   return response;
 }
 
+export async function deleteSharePointFile(input: SharePointDownloadInput) {
+  const token = await getGraphToken();
+
+  if (!input.driveId || !input.itemId) {
+    throw new Error("Missing SharePoint drive ID or item ID.");
+  }
+
+  const response = await fetch(
+    `${getDriveGraphBaseUrl(input.driveId)}/items/${encodeURIComponent(
+      input.itemId
+    )}`,
+    {
+      method: "DELETE",
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+      cache: "no-store",
+    }
+  );
+
+  if (response.ok || response.status === 404) {
+    return;
+  }
+
+  const details = await response.text().catch(() => "");
+  throw new Error(
+    `SharePoint file deletion failed: ${response.status}${
+      details ? ` - ${details}` : ""
+    }`
+  );
+}
+
 export async function uploadPdfToSharePoint(input: {
   programId: string;
   programNumber?: string;

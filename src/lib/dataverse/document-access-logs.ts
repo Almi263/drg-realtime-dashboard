@@ -11,6 +11,7 @@ import {
   lookupBind,
 } from "@/lib/dataverse/client";
 import { normalizeEmail } from "@/lib/auth/roles";
+import type { InternalRole } from "@/lib/auth/roles";
 
 interface DataverseDocumentAccessLogRow extends Record<string, unknown> {
   drg_documentaccesslogid: string;
@@ -58,6 +59,18 @@ const DOCUMENT_ACCESS_ACTION_ENV: Record<DocumentAccessAction, string> = {
 let documentAccessActionOptionValuesPromise:
   | Promise<Map<DocumentAccessAction, number>>
   | undefined;
+
+export function shouldCreateDocumentAccessLog(input: {
+  action: DocumentAccessAction;
+  internalRoles: readonly InternalRole[];
+}) {
+  if (input.action === "Upload") return true;
+  if (input.action === "View" || input.action === "Download") {
+    return input.internalRoles.includes("external-reviewer");
+  }
+
+  return false;
+}
 
 function toDocumentAccessAction(value: string | undefined): DocumentAccessAction {
   switch (value) {

@@ -435,7 +435,9 @@ export default function DeliverableDetail({
             <Box sx={{ display: "flex", alignItems: "center", gap: 0.75 }}>
               <PersonIcon sx={{ fontSize: "0.9rem", color: "text.secondary" }} />
               <Typography variant="body2" sx={{ color: "text.secondary" }}>
-                {assignedToDisplay}
+                <Tooltip title={d.assignedToEmail || d.assignedTo}>
+                  <Box component="span">{assignedToDisplay}</Box>
+                </Tooltip>
               </Typography>
             </Box>
             {program && (
@@ -660,7 +662,11 @@ export default function DeliverableDetail({
                     </MuiLink>
                     <Box sx={{ display: "flex", alignItems: "center", gap: 1.5, flexShrink: 0 }}>
                       <Typography variant="caption" sx={{ color: "text.secondary" }}>
-                        {doc.uploadedBy} · {formatDateTime(doc.uploadedAt)}
+                        <Tooltip title={doc.uploadedByEmail || doc.uploadedBy}>
+                          <Box component="span">{doc.uploadedBy}</Box>
+                        </Tooltip>
+                        {" · "}
+                        {formatDateTime(doc.uploadedAt)}
                       </Typography>
                       <Chip label={doc.status} size="small" variant="outlined" sx={{ fontSize: "0.7rem" }} />
                       {canSeeAccessLog && accessCount > 0 && (

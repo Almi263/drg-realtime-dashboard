@@ -1,5 +1,6 @@
 "use client";
 
+import type { MouseEvent } from "react";
 import Card from "@mui/material/Card";
 import CardActionArea from "@mui/material/CardActionArea";
 import CardContent from "@mui/material/CardContent";
@@ -13,6 +14,9 @@ import type { Deliverable, DeliverableStatus } from "@/lib/models/deliverable";
 interface ProgramStatusCardProps {
   program: Program;
   deliverables: Deliverable[];
+  isEditMode?: boolean;
+  canEdit?: boolean;
+  onEdit?: (program: Program) => void;
 }
 
 const STATUS_COLORS: Partial<Record<DeliverableStatus, { bg: string; color: string }>> = {
@@ -29,7 +33,13 @@ function formatDate(iso: string) {
   return new Date(iso).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
 }
 
-export default function ProgramStatusCard({ program, deliverables }: ProgramStatusCardProps) {
+export default function ProgramStatusCard({
+  program,
+  deliverables,
+  isEditMode = false,
+  canEdit = false,
+  onEdit,
+}: ProgramStatusCardProps) {
   const counts = deliverables.reduce<Partial<Record<DeliverableStatus, number>>>(
     (acc, d) => ({ ...acc, [d.status]: (acc[d.status] ?? 0) + 1 }),
     {}
@@ -51,7 +61,24 @@ export default function ProgramStatusCard({ program, deliverables }: ProgramStat
         "&:hover": { boxShadow: 3 },
       }}
     >
-      <CardActionArea component={Link} href={`/programs/${program.id}`} sx={{ height: "100%" }}>
+      <CardActionArea
+        component={isEditMode ? "button" : Link}
+        href={isEditMode ? undefined : `/programs/${program.id}`}
+        onClick={
+          isEditMode
+            ? (event: MouseEvent) => {
+                event.preventDefault();
+                if (canEdit) onEdit?.(program);
+              }
+            : undefined
+        }
+        sx={{
+          height: "100%",
+          cursor: isEditMode && !canEdit ? "not-allowed" : "pointer",
+          opacity: isEditMode && !canEdit ? 0.55 : 1,
+          textAlign: "left",
+        }}
+      >
         <CardContent sx={{ p: 2 }}>
           {/* Header */}
           <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", mb: 1 }}>

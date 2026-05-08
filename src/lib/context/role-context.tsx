@@ -59,6 +59,7 @@ interface RoleContextValue {
   canCreateDeliverableForProgram: (programId: string) => boolean;
   canApproveDeliverableDraftForProgram: (programId: string) => boolean;
   canDeleteDeliverableForProgram: (programId: string, documentCount: number) => boolean;
+  canDeleteDocumentsForProgram: (programId: string) => boolean;
   canUploadToProgram: (programId: string) => boolean;
   canManageProgramAccess: (programId: string) => boolean;
   canGrantProgramAccess: (programId: string, email: string) => boolean;
@@ -79,6 +80,7 @@ const RoleContext = createContext<RoleContextValue>({
   canCreateDeliverableForProgram: () => false,
   canApproveDeliverableDraftForProgram: () => false,
   canDeleteDeliverableForProgram: () => false,
+  canDeleteDocumentsForProgram: () => false,
   canUploadToProgram: () => false,
   canManageProgramAccess: () => false,
   canGrantProgramAccess: () => false,
@@ -260,15 +262,11 @@ export function RoleProvider({ children }: { children: React.ReactNode }) {
     );
   };
 
-  const canDeleteDeliverableForProgram = (
-    programId: string,
-    documentCount: number,
-  ) => {
+  const canDeleteDocumentsForProgram = (programId: string) => {
     const program = mergedPrograms.find((program) => program.id === programId);
     if (!program || program.status === 'Archived') return false;
     if (internalRoles.includes('drg-admin')) return true;
     if (!internalRoles.includes('drg-program-owner')) return false;
-    if (documentCount > 0) return false;
 
     return (programAccessMap[programId] ?? []).some(
       (entry) =>
@@ -276,6 +274,14 @@ export function RoleProvider({ children }: { children: React.ReactNode }) {
         entry.accessRole === 'Program Owner' &&
         normalizeEmail(entry.email) === currentUserEmail,
     );
+  };
+
+  const canDeleteDeliverableForProgram = (
+    programId: string,
+    documentCount: number,
+  ) => {
+    void documentCount;
+    return canDeleteDocumentsForProgram(programId);
   };
 
   const canGrantProgramAccess = (programId: string, email: string) => {
@@ -311,6 +317,7 @@ export function RoleProvider({ children }: { children: React.ReactNode }) {
         canCreateDeliverableForProgram,
         canApproveDeliverableDraftForProgram,
         canDeleteDeliverableForProgram,
+        canDeleteDocumentsForProgram,
         canUploadToProgram,
         canManageProgramAccess,
         canGrantProgramAccess,

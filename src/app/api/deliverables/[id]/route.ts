@@ -114,16 +114,8 @@ export async function DELETE(
     }
 
     const documentIds = await listDocumentIdsForDeliverable(deliverable.id);
-    const isAdmin = session.user.internalRoles.includes("drg-admin");
 
     if (!canDeleteDeliverable(session.user, program, documentIds.length)) {
-      if (
-        session.user.internalRoles.includes("drg-program-owner") &&
-        documentIds.length > 0
-      ) {
-        return businessRuleResponse("deliverableDeleteBlocked");
-      }
-
       return NextResponse.json(
         {
           error:
@@ -146,13 +138,13 @@ export async function DELETE(
 
     await deleteDeliverable({
       deliverableId: deliverable.id,
-      forceWithDocuments: isAdmin,
+      forceWithDocuments: true,
     });
 
     return NextResponse.json({
       deleted: true,
       deliverableId: deliverable.id,
-      deletedDocumentCount: isAdmin ? documentIds.length : 0,
+      deletedDocumentCount: documentIds.length,
     });
   } catch (error) {
     return errorResponse(error, {

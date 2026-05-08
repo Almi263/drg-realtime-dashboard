@@ -17,7 +17,7 @@ export const BUSINESS_RULE_MESSAGES = {
   programDeleteBlocked:
     "Only empty test programs can be deleted. Remove or archive programs with deliverables, documents, approvals, or audit logs instead.",
   deliverableDeleteBlocked:
-    "Program owners can only delete deliverables that do not have any documents.",
+    "Only DRG admins or this program's owner can delete deliverables.",
   pdfRequired: "Only PDF files can be uploaded.",
   reviewedDocumentRequired:
     "A reviewed submission document is required for this action.",
@@ -90,7 +90,7 @@ const BUSINESS_RULE_PATTERNS: Array<{
   },
   {
     code: "deliverableDeleteBlocked",
-    patterns: [/deliverable delete blocked/i, /deliverables? that do not have any documents/i],
+    patterns: [/deliverable delete blocked/i, /program's owner can delete deliverables/i],
   },
   {
     code: "pdfRequired",

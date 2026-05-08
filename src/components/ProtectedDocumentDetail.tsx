@@ -8,7 +8,7 @@ import type { Program } from "@/lib/models/program";
 
 interface ProtectedDocumentDetailProps {
   doc: DeliverableDocument;
-  deliverableTitle: string;
+  deliverableLabel: string;
   program: Program | undefined;
 }
 

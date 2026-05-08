@@ -9,6 +9,7 @@ import { assertCanViewProgram, requireUser } from "@/lib/auth/guards";
 import {
   createDocumentAccessLog,
   listDocumentAccessLogs,
+  shouldCreateDocumentAccessLog,
 } from "@/lib/dataverse/document-access-logs";
 import { listVisibleDeliverables } from "@/lib/dataverse/deliverables";
 import { getVisibleDocumentById, listVisibleDocuments } from "@/lib/dataverse/documents";
@@ -81,7 +82,13 @@ export default async function DocumentPage({
 
   assertCanViewProgram(user, program);
 
-  if (doc) {
+  if (
+    doc &&
+    shouldCreateDocumentAccessLog({
+      action: "View",
+      internalRoles: user.internalRoles,
+    })
+  ) {
     await createDocumentAccessLog({
       documentId: doc.id,
       programId: doc.programId,

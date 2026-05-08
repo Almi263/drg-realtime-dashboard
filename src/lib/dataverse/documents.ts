@@ -476,3 +476,63 @@ export async function createDocumentMetadata(input: CreateDocumentMetadataInput)
 
   return response.drg_documentid;
 }
+
+async function listChildIdsByDocument(
+  entitySetName: string,
+  idColumn: string,
+  documentLookupColumn: string,
+  documentId: string
+) {
+  const rows = await listRows<Record<string, unknown>>(
+    entitySetName,
+    `$select=${idColumn}&$filter=statecode eq 0 and ${documentLookupColumn} eq ${documentId}`
+  );
+
+  return rows
+    .map((row) => row[idColumn])
+    .filter((id): id is string => typeof id === "string" && Boolean(id));
+}
+
+async function deleteRows(entitySetName: string, ids: readonly string[]) {
+  for (const id of ids) {
+    await dataverseFetch<void>(`/${entitySetName}(${id})`, {
+      method: "DELETE",
+    });
+  }
+}
+
+export async function deleteDocumentMetadata(documentId: string) {
+  if (!isDataverseConfigured()) {
+    throw new Error("Dataverse is not configured for document deletion.");
+  }
+
+  const [documentApprovalIds, responseApprovalIds, accessLogIds] =
+    await Promise.all([
+      listChildIdsByDocument(
+        "drg_approvals",
+        "drg_approvalid",
+        "_drg_document_value",
+        documentId
+      ),
+      listChildIdsByDocument(
+        "drg_approvals",
+        "drg_approvalid",
+        "_drg_responsedocument_value",
+        documentId
+      ),
+      listChildIdsByDocument(
+        "drg_documentaccesslogs",
+        "drg_documentaccesslogid",
+        "_drg_document_value",
+        documentId
+      ),
+    ]);
+
+  await deleteRows("drg_documentaccesslogs", accessLogIds);
+  await deleteRows("drg_approvals", [
+    ...new Set([...documentApprovalIds, ...responseApprovalIds]),
+  ]);
+  await dataverseFetch<void>(`/drg_documents(${documentId})`, {
+    method: "DELETE",
+  });
+}

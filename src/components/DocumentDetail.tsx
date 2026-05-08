@@ -1,5 +1,7 @@
 "use client";
 
+import { useState } from "react";
+import { useRouter } from "next/navigation";
 import Box from "@mui/material/Box";
 import Typography from "@mui/material/Typography";
 import Card from "@mui/material/Card";
@@ -16,6 +18,7 @@ import FileDownloadIcon from "@mui/icons-material/FileDownload";
 import UploadFileIcon from "@mui/icons-material/UploadFile";
 import BusinessCenterIcon from "@mui/icons-material/BusinessCenter";
 import DescriptionIcon from "@mui/icons-material/Description";
+import DeleteOutlineIcon from "@mui/icons-material/DeleteOutline";
 import type {
   DeliverableDocument,
   DocumentAccessAction,
@@ -120,7 +123,9 @@ function AccessTimeline({ logs }: { logs: DocumentAccessLog[] }) {
               <Box sx={{ flex: 1, pb: 0.5 }}>
                 <Box sx={{ display: "flex", alignItems: "baseline", gap: 1, flexWrap: "wrap" }}>
                   <Typography variant="body2" sx={{ fontWeight: 600 }}>
-                    {event.actorName || event.actorEmail}
+                    <Tooltip title={event.actorEmail}>
+                      <Box component="span">{event.actorName || event.actorEmail}</Box>
+                    </Tooltip>
                   </Typography>
                   <Chip
                     label={event.action}
@@ -171,9 +176,13 @@ export default function DocumentDetail({
   program,
   accessLogs = [],
 }: DocumentDetailProps) {
-  const { role } = useRole();
+  const router = useRouter();
+  const { role, canDeleteDocumentsForProgram } = useRole();
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [actionError, setActionError] = useState<string | null>(null);
   const canSeeAccessLog =
     role === "drg-admin" || role === "drg-program-owner" || role === "drg-staff";
+  const canDelete = canDeleteDocumentsForProgram(doc.programId);
   const uploadLog = accessLogs.find((event) => event.action === "Upload");
   const uploadedBy =
     uploadLog?.actorName && uploadLog.actorName.length > doc.uploadedBy.length
@@ -181,9 +190,41 @@ export default function DocumentDetail({
       : doc.uploadedBy.includes("@")
       ? uploadLog?.actorName || doc.uploadedBy
       : doc.uploadedBy;
+  const uploadedByEmail = doc.uploadedByEmail || uploadLog?.actorEmail || doc.uploadedBy;
+
+  async function handleDelete() {
+    if (!window.confirm(`Delete ${doc.fileName}? This cannot be undone.`)) {
+      return;
+    }
+
+    setIsDeleting(true);
+    setActionError(null);
+
+    try {
+      const response = await fetch(`/api/documents/${doc.id}`, {
+        method: "DELETE",
+      });
+
+      if (!response.ok) {
+        const json = await response.json().catch(() => null);
+        throw new Error(json?.error ?? "Failed to delete document.");
+      }
+
+      router.push(`/records/${doc.deliverableId}`);
+      router.refresh();
+    } catch (error) {
+      setActionError(
+        error instanceof Error ? error.message : "Failed to delete document."
+      );
+    } finally {
+      setIsDeleting(false);
+    }
+  }
 
   return (
     <Box sx={{ display: "flex", flexDirection: "column", gap: 3 }}>
+      {actionError && <Alert severity="error">{actionError}</Alert>}
+
       {/* Document header */}
       <Card variant="outlined">
         <CardContent sx={{ p: 2.5 }}>
@@ -202,22 +243,41 @@ export default function DocumentDetail({
               <Typography variant="body2" sx={{ color: "text.secondary" }}>
                 {formatFileSize(doc.sizeKb)}
                 {" · "}
-                Uploaded by <strong>{uploadedBy}</strong>
+                Uploaded by{" "}
+                <Tooltip title={uploadedByEmail}>
+                  <Box component="strong">{uploadedBy}</Box>
+                </Tooltip>
                 {" · "}
                 {formatDateTime(doc.uploadedAt)}
               </Typography>
             </Box>
-            <Tooltip title="Download">
-              <Button
-                component="a"
-                href={`/api/documents/${doc.id}/download`}
-                variant="contained"
-                startIcon={<DownloadIcon />}
-                size="small"
-              >
-                Download
-              </Button>
-            </Tooltip>
+            <Box sx={{ display: "flex", gap: 1, flexWrap: "wrap" }}>
+              {canDelete && (
+                <Tooltip title="Delete document">
+                  <Button
+                    variant="outlined"
+                    color="error"
+                    startIcon={<DeleteOutlineIcon />}
+                    size="small"
+                    onClick={handleDelete}
+                    disabled={isDeleting}
+                  >
+                    {isDeleting ? "Deleting..." : "Delete"}
+                  </Button>
+                </Tooltip>
+              )}
+              <Tooltip title="Download">
+                <Button
+                  component="a"
+                  href={`/api/documents/${doc.id}/download`}
+                  variant="contained"
+                  startIcon={<DownloadIcon />}
+                  size="small"
+                >
+                  Download
+                </Button>
+              </Tooltip>
+            </Box>
           </Box>
 
           {/* Metadata row */}
@@ -244,7 +304,7 @@ export default function DocumentDetail({
         sx={{ "& .MuiAlert-message": { fontSize: "0.8rem" } }}
       >
         <strong>Permanent record.</strong> This document was submitted on {formatDateTime(doc.uploadedAt)} and cannot be
-        modified or deleted by external users. The access log below provides a full audit trail.
+        modified or deleted by external users. The access log below focuses on uploads and external reviewer activity.
         {role === "gov-reviewer" && " Your access to this document has been recorded."}
       </Alert>
 
