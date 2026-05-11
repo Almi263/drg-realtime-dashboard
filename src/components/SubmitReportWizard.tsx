@@ -24,10 +24,6 @@ import { useRole } from "@/lib/context/role-context";
 import type { Program } from "@/lib/models/program";
 import type { Deliverable, DeliverableStatus } from "@/lib/models/deliverable";
 
-/* ------------------------------------------------------------------ */
-/*  Helpers                                                           */
-/* ------------------------------------------------------------------ */
-
 const STEPS = ["Select Program", "Select Deliverable", "Attach Document", "Submitted"];
 const PDF_REQUIRED_MESSAGE = "Only PDF files can be uploaded.";
 
@@ -51,10 +47,6 @@ const STATUS_CHIP_STYLE: Partial<Record<DeliverableStatus, object>> = {
 function genSubmissionRef() {
   return `SUB-${new Date().getFullYear()}-${Math.floor(Math.random() * 900000 + 100000)}`;
 }
-
-/* ------------------------------------------------------------------ */
-/*  Step indicator                                                    */
-/* ------------------------------------------------------------------ */
 
 function StepIndicator({ current }: { current: number }) {
   return (
@@ -111,10 +103,6 @@ function StepIndicator({ current }: { current: number }) {
     </Box>
   );
 }
-
-/* ------------------------------------------------------------------ */
-/*  Step 1: Program selection                                         */
-/* ------------------------------------------------------------------ */
 
 function ProgramStep({
   programs,
@@ -203,10 +191,6 @@ function ProgramStep({
     </Box>
   );
 }
-
-/* ------------------------------------------------------------------ */
-/*  Step 2: Deliverable selection                                     */
-/* ------------------------------------------------------------------ */
 
 function DeliverableStep({
   program,
@@ -315,10 +299,6 @@ function DeliverableStep({
     </Box>
   );
 }
-
-/* ------------------------------------------------------------------ */
-/*  Step 3: File upload                                               */
-/* ------------------------------------------------------------------ */
 
 function UploadStep({
   deliverable,
@@ -495,10 +475,6 @@ function UploadStep({
   );
 }
 
-/* ------------------------------------------------------------------ */
-/*  Step 4: Confirmation                                              */
-/* ------------------------------------------------------------------ */
-
 function ConfirmationStep({
   deliverable,
   program,
@@ -568,10 +544,6 @@ function ConfirmationStep({
     </Box>
   );
 }
-
-/* ------------------------------------------------------------------ */
-/*  Root wizard component                                             */
-/* ------------------------------------------------------------------ */
 
 interface SubmitReportWizardProps {
   deliverables: Deliverable[];

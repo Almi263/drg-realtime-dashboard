@@ -28,10 +28,6 @@ import type {
 import type { Program } from "@/lib/models/program";
 import { useRole } from "@/lib/context/role-context";
 
-/* ------------------------------------------------------------------ */
-/*  Helpers                                                           */
-/* ------------------------------------------------------------------ */
-
 const FILE_TYPE_COLORS: Record<FileType, string> = {
   Word: "#2b579a",
   PDF: "#d32f2f",
@@ -60,10 +56,6 @@ function formatDateTime(iso: string) {
 function formatFileSize(sizeKb: number) {
   return sizeKb >= 1000 ? `${(sizeKb / 1000).toFixed(1)} MB` : `${sizeKb} KB`;
 }
-
-/* ------------------------------------------------------------------ */
-/*  Access timeline                                                   */
-/* ------------------------------------------------------------------ */
 
 function AccessTimeline({ logs }: { logs: DocumentAccessLog[] }) {
   return (
@@ -158,10 +150,6 @@ function AccessTimeline({ logs }: { logs: DocumentAccessLog[] }) {
     </Box>
   );
 }
-
-/* ------------------------------------------------------------------ */
-/*  Main component                                                    */
-/* ------------------------------------------------------------------ */
 
 interface DocumentDetailProps {
   doc: DeliverableDocument;

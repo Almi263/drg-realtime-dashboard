@@ -45,10 +45,6 @@ import { DOCUMENT_STATUSES, FILE_TYPES } from "@/lib/models/document";
 import type { Program } from "@/lib/models/program";
 import { useRole } from "@/lib/context/role-context";
 
-/* ------------------------------------------------------------------ */
-/*  Helpers                                                           */
-/* ------------------------------------------------------------------ */
-
 const FILE_TYPE_COLORS: Record<FileType, string> = {
   Word: "#2b579a",
   PDF: "#d32f2f",
@@ -115,10 +111,6 @@ function getUploadDisplay(
   };
 }
 
-/* ------------------------------------------------------------------ */
-/*  AccessLogRow — expandable panel below a document row             */
-/* ------------------------------------------------------------------ */
-
 function AccessLogRow({ logs, colSpan }: { logs: DocumentAccessLog[]; colSpan: number }) {
   if (logs.length === 0) {
     return (
@@ -163,10 +155,6 @@ function AccessLogRow({ logs, colSpan }: { logs: DocumentAccessLog[]; colSpan: n
     </TableRow>
   );
 }
-
-/* ------------------------------------------------------------------ */
-/*  Component                                                         */
-/* ------------------------------------------------------------------ */
 
 interface DocumentsTableProps {
   documents: DeliverableDocument[];
@@ -219,7 +207,6 @@ export default function DocumentsTable({
     () => Object.fromEntries(programs.map((program) => [program.id, program.name])),
     [programs]
   );
-  // Access log only visible to internal roles
   const canSeeAccessLog =
     role === "drg-admin" || role === "drg-program-owner" || role === "drg-staff";
 

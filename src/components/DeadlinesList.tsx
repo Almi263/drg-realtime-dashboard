@@ -12,10 +12,6 @@ import Tooltip from "@mui/material/Tooltip";
 import type { Deliverable, DeliverableStatus } from "@/lib/models/deliverable";
 import type { Program } from "@/lib/models/program";
 
-/* ------------------------------------------------------------------ */
-/*  Status chip styling (matches RecordsTable)                        */
-/* ------------------------------------------------------------------ */
-
 const STATUS_CHIP_STYLE: Partial<Record<DeliverableStatus, object>> = {
   "Not Submitted": {},
   "In Review": { bgcolor: "#0078d4", color: "#fff" },
@@ -34,10 +30,6 @@ function getStatusChipProps(status: DeliverableStatus) {
   return { sx: STATUS_CHIP_STYLE[status] };
 }
 
-/* ------------------------------------------------------------------ */
-/*  Date helpers                                                      */
-/* ------------------------------------------------------------------ */
-
 /** Strip time portion — returns midnight-local date for comparison. */
 function toDateOnly(iso: string): Date {
   const d = new Date(iso);
@@ -54,10 +46,6 @@ function formatDueDate(iso: string): string {
   });
 }
 
-/* ------------------------------------------------------------------ */
-/*  Grouping logic                                                    */
-/* ------------------------------------------------------------------ */
-
 interface DeliverableGroup {
   key: string;
   label: string;
@@ -69,22 +57,17 @@ function groupDeliverables(deliverables: Deliverable[]): DeliverableGroup[] {
   const today = new Date();
   const todayOnly = new Date(today.getFullYear(), today.getMonth(), today.getDate());
 
-  // End of this week: coming Sunday (Feb 22)
-  // dayOfWeek: 0=Sun,1=Mon,...,6=Sat. For Monday-based weeks,
-  // days until Sunday = (7 - dayOfWeek) % 7, but Sunday itself = 0 so cap at 7.
-  const dayOfWeek = todayOnly.getDay(); // 0-6
+  const dayOfWeek = todayOnly.getDay();
   const daysUntilSunday = dayOfWeek === 0 ? 0 : 7 - dayOfWeek;
   const endOfThisWeek = new Date(todayOnly);
   endOfThisWeek.setDate(todayOnly.getDate() + daysUntilSunday);
 
-  // Next week: Monday after this week through the following Sunday
   const startOfNextWeek = new Date(endOfThisWeek);
   startOfNextWeek.setDate(endOfThisWeek.getDate() + 1);
 
   const endOfNextWeek = new Date(startOfNextWeek);
   endOfNextWeek.setDate(startOfNextWeek.getDate() + 6);
 
-  // End of this month
   const endOfMonth = new Date(todayOnly.getFullYear(), todayOnly.getMonth() + 1, 0);
 
   const overdue: Deliverable[] = [];
@@ -109,7 +92,6 @@ function groupDeliverables(deliverables: Deliverable[]): DeliverableGroup[] {
     }
   }
 
-  // Sort each group by due date ascending
   const sortByDue = (a: Deliverable, b: Deliverable) =>
     new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime();
 
@@ -127,13 +109,8 @@ function groupDeliverables(deliverables: Deliverable[]): DeliverableGroup[] {
     { key: "later", label: "Later", items: later, isOverdue: false },
   ];
 
-  // Filter out empty groups
   return groups.filter((g) => g.items.length > 0);
 }
-
-/* ------------------------------------------------------------------ */
-/*  Deliverable card                                                  */
-/* ------------------------------------------------------------------ */
 
 function DeliverableCard({
   deliverable,
@@ -232,10 +209,6 @@ function DeliverableCard({
     </Card>
   );
 }
-
-/* ------------------------------------------------------------------ */
-/*  Main component                                                    */
-/* ------------------------------------------------------------------ */
 
 interface DeadlinesListProps {
   deliverables: Deliverable[];

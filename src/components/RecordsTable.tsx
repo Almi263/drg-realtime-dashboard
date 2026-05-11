@@ -35,10 +35,6 @@ import type { Program } from "@/lib/models/program";
 import { useRole } from "@/lib/context/role-context";
 import { normalizeEmail } from "@/lib/auth/roles";
 
-/* ------------------------------------------------------------------ */
-/*  Helpers                                                           */
-/* ------------------------------------------------------------------ */
-
 type SortableKey =
   | "deliverableNumber"
   | "title"
@@ -102,10 +98,6 @@ interface AssignedToOption {
   email: string;
   displayName?: string;
 }
-
-/* ------------------------------------------------------------------ */
-/*  Component                                                         */
-/* ------------------------------------------------------------------ */
 
 interface RecordsTableProps {
   deliverables: Deliverable[];
@@ -277,7 +269,6 @@ export default function RecordsTable({
     }
   }
 
-  // Only show program filter if multiple programs present
   const showProgramFilter = programs.length > 1;
   const includeProgramColumn = showProgramColumn || showProgramFilter;
   const recordLabel = filtered.length === 1 ? "record" : "records";

@@ -32,10 +32,6 @@ import { normalizeEmail } from "@/lib/auth/roles";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 
-/* ------------------------------------------------------------------ */
-/*  Helpers                                                           */
-/* ------------------------------------------------------------------ */
-
 const STATUS_COLORS: Partial<Record<DeliverableStatus, { bg: string; color: string }>> = {
   Draft: { bg: "#5c6bc0", color: "#fff" },
   "In Review": { bg: "#0078d4", color: "#fff" },
@@ -70,10 +66,6 @@ function formatDateTime(iso: string) {
     minute: "2-digit",
   });
 }
-
-/* ------------------------------------------------------------------ */
-/*  Component                                                         */
-/* ------------------------------------------------------------------ */
 
 interface DeliverableDetailProps {
   deliverable: Deliverable;
