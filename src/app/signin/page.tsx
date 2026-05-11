@@ -23,6 +23,7 @@ export default async function SignInPage() {
         minHeight: "100vh",
         display: "flex",
         alignItems: "center",
+        justifyContent: "center",
         backgroundColor: MICROSOFT_BLUE,
         py: 4,
       }}
